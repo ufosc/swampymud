@@ -1,5 +1,7 @@
 import location
 import control
+import inventory
+import item
 
 '''Module defining the CharacterClass metaclass, and Character base class'''
 
@@ -12,6 +14,31 @@ def camel_to_space(name):
             output += " "
         output += letter
     return output.strip()
+
+class CharException(Exception):
+    pass
+
+class AmbiguityError(CharException):
+    def __init__(self, query, *options):
+        super().__init__()
+        self.options = options
+        self.query = query
+        self.command = "[command]"
+        self.old_args = []
+
+    def __str__(self):
+        string = "Multiple options for %s:\n" % self.query
+        string += "\n".join(["\t" + repr(option) for option in options])
+        string += "Enter a number to resolve it."
+        return string
+
+    def resolve(self, num):
+        num = str(num)
+        choice = self.options[num]
+        for index, item in enumerate(self.old_args):
+            if arg == query:
+                self.old_args[index] = choice
+        return self.old_args
 
 
 class CharacterClass(type):
@@ -69,12 +96,18 @@ class Character(control.Monoreceiver, metaclass=CharacterClass):
     starting_location = location.Location("NullLocation", "Default Location")
     name = "Default Character"
     names = {}
+    equip_slots = []
+    
 
     def __init__(self):
         super().__init__()
         self.name = None
         self.location = None
         self.set_location(self.starting_location, True)
+        self.inv = inventory.Inventory()
+        self.equip_dict = item.EquipTarget.make_dict(*self.equip_slots)
+        # consider moving prempt into Monoreceiver class
+        self.prempt = None
 
     def message(self, msg):
         '''send a message to the controller of this character'''
@@ -103,9 +136,21 @@ class Character(control.Monoreceiver, metaclass=CharacterClass):
                     self.message(str(ex))
                 finally:
                     return
+            if self.prempt is not None:
+                try:
+                    # handling the prempt
+                    new_args = prempt.handle(line)
+                    # getting new args
+                    self.parse_command(new_args)
+                    self.prempt = None
+                except:
+                    pass
             try:
-                self.parse_command(line)
-            except Exception as ex:
+                self.parse_command(*line.split(" "))
+            except AmbiguityError as amb:
+                self.message(str(amb))
+                self.prempt = amb
+            except CharException as ex:
                 self.message(str(ex))
 
     def set_name(self, new_name):
@@ -143,15 +188,23 @@ class Character(control.Monoreceiver, metaclass=CharacterClass):
         self.location = new_location
         self.location.add_char(self)
 
-    def parse_command(self, line):
+    def parse_command(self, *args):
         '''parses a command, raises AttributeError if command cannot be found'''
-        command = line.split(" ")[0]
-        args = line[len(command)::].strip()
+        command = args[0]
         if command not in self.commands:
-            raise AttributeError("Command \'%s\' not recognized." % command)
+            raise CharException("Command \'%s\' not recognized." % command)
+  
         method = self.commands[command]
-        method(self, args)
+        method(self, *args[1::])
     
+    def handle_ambiguity(self, query, options):
+        if len(options) == 1:
+            return options[0]
+        elif len(options) == 0:
+            raise CharException("Error: '%s' not found." % (query) )
+        else:
+            raise AmbiguityError(query, options)        
+
     def _remove_references(self):
         '''method executed when a character is being removed
         this takes care of any undesired references, and allows
@@ -168,22 +221,55 @@ class Character(control.Monoreceiver, metaclass=CharacterClass):
             del self.names[self.name]
         except KeyError:
             pass
-        
 
     def die(self):
         '''method executed when a player dies'''
         self._remove_references()
-        
 
-    def __str__(self):
+    def __repr__(self):
         if self.name is None:
             return "A nameless %s" % self.__class__.name
         return "%s the %s" % (self.name, self.__class__.name) 
+    def __str__(self):
+        if self.name is None:
+            return repr(self)
+        else:
+            return self.name
 
     def __del__(self):
         self.die()
-    
-    def cmd_help(self, args):
+   
+    #inventory/item related methods
+    def equip(self, item, **kwargs):
+        print(item)
+        if item.target in self.equip_dict:
+            already_equip = self.equip_dict[item.target]
+            if already_equip is not None:
+                self.unequip(already_equip)
+            item.equip(self)
+            self.equip_dict[item.target] = item
+            # check that add_inv is not present and true
+            # if so, we dont remove the item on equip
+            # duplicating it.
+            if "add_inv" not in kwargs or not kwargs["add_inv"]:
+                self.inv -= item
+            self.message("Equipped %s." % item)
+        else:
+            raise CharException("You cannot equip item \'%s\' as %s."
+                % (item, self.__class__))
+        
+    def unequip(self, item):
+        if self.equip_dict[item.target] == item:
+            item.unequip(self)
+            self.inv += item
+            self.equip_dict[item.target] = None
+            self.message("Unequipped %s." % item)
+        else:
+            raise CharException("Cannot unequip \'%s\'. Item not equipped."
+                % item)
+
+    # default commands        
+    def cmd_help(self, *args):
         '''Show relevant help information for a particular command.
         usage: help [command]
         If no command is supplied, a list of all commands is shown.
@@ -191,13 +277,13 @@ class Character(control.Monoreceiver, metaclass=CharacterClass):
         if len(args) == 0:
             self.message(self.__class__.help_menu)
             return
-        command = args.split(" ")[0]
+        command = args[0]
         if command in self.commands:
             self.message(self.commands[command].__doc__)
         else:
-            raise AttributeError("Command \'%s\' not recognized." % command)
+            raise CharacterException("Command \'%s\' not recognized." % command)
 
-    def cmd_look(self, args):
+    def cmd_look(self, *args):
         '''Provide information about the current location.
         usage: look
         '''
@@ -210,16 +296,38 @@ class Character(control.Monoreceiver, metaclass=CharacterClass):
             exit_msg += " ,".join(map(str, exit_list))
         self.message(exit_msg)
 
-    def cmd_say(self, args):
+    def cmd_say(self, *args):
         '''Say a message aloud, sent to all players in your current locaton.
         usage: say [msg]
         '''
-        self.location.message_chars("%s : %s" % (self, args))
+        self.location.message_chars("%s : %s" % (self, " ".join(args)))
     
-    def cmd_walk(self, args):
+    def cmd_walk(self, *args):
         '''Walk to an accessible location.
         usage: walk [exit name]
         '''
-        exit_name = args.split(" ")[0]
+        exit_name = args[0]
         exit = self.location.get_exit(exit_name)
         self.set_location(exit.get_destination(), False, exit)
+    
+    def cmd_equip(self, *args):
+        '''Equip an equippable item from your inventory.'''
+        item_name = args[0]
+        item = self.handle_ambiguity(item_name, self.inv.get_item(item_name))
+        self.equip(item)
+
+    def cmd_unequip(self, *args):
+        options = []
+        for target,item in self.equip_dict.items():
+            if item == args[0]:
+                options.append(item)
+        item = self.handle_ambiguity(args[0], options)
+        self.unequip(item) 
+            
+    def cmd_inv(self, *args):
+        '''Show your inventory.'''
+        output = ""
+        for target, equipped in self.equip_dict.items():
+            output += str(target).upper() + "\n\t" + str(equipped) + "\n"
+        self.message(output + self.inv.readable())
+
