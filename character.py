@@ -19,7 +19,7 @@ class CharException(Exception):
     pass
 
 class AmbiguityError(CharException):
-    def __init__(self, query, *options):
+    def __init__(self, query, options):
         super().__init__()
         self.options = options
         self.query = query
@@ -28,15 +28,15 @@ class AmbiguityError(CharException):
 
     def __str__(self):
         string = "Multiple options for %s:\n" % self.query
-        string += "\n".join(["\t" + repr(option) for option in options])
-        string += "Enter a number to resolve it."
+        string += "\n".join(["\t%s) %s" % (index, repr(option)) for index, option in enumerate(self.options)])
+        string += "\nEnter a number to resolve it:"
         return string
 
-    def resolve(self, num):
-        num = str(num)
+    def handle(self, num):
+        num = int(num.strip())
         choice = self.options[num]
-        for index, item in enumerate(self.old_args):
-            if arg == query:
+        for index, arg in enumerate(self.old_args):
+            if arg == self.query:
                 self.old_args[index] = choice
         return self.old_args
 
@@ -129,6 +129,7 @@ class Character(control.Monoreceiver, metaclass=CharacterClass):
             line = self.controller.read_cmd()
             if line.strip() == "":
                 continue
+            # TODO: turn this into a premption
             if self.name is None:
                 try:
                     self.player_set_name(line.strip())
@@ -139,54 +140,22 @@ class Character(control.Monoreceiver, metaclass=CharacterClass):
             if self.prempt is not None:
                 try:
                     # handling the prempt
-                    new_args = prempt.handle(line)
+                    new_args = self.prempt.handle(line)
+                    print(new_args)
                     # getting new args
-                    self.parse_command(new_args)
+                    self.parse_command(*new_args)
                     self.prempt = None
-                except:
-                    pass
-            try:
-                self.parse_command(*line.split(" "))
-            except AmbiguityError as amb:
-                self.message(str(amb))
-                self.prempt = amb
-            except CharException as ex:
-                self.message(str(ex))
-
-    def set_name(self, new_name):
-        '''changes a characters's name, with all appropriate error checking'''
-        if new_name in Character.names:
-            raise Exception("Name already taken.")
-        if self.name is not None:
-            del(self.names[self.name])
-        self.name = new_name
-        self.names[self.name] = self
-    
-    def player_set_name(self, new_name):
-        '''intended for first time players set their name'''
-        if not new_name.isalnum():
-            raise Exception("Names must be alphanumeric.")
-        self.set_name(new_name)
-        #TODO: replace this when appropriate
-        from library import server
-        server.send_message_to_all("Welcome, %s, to the server!" % self)
-        self.cmd_look("")
-        
-    def set_location(self, new_location, silent=False, reported_exit=None):
-        '''sets location, updating the previous and new locations as appropriate
-        if reported_exit is supplied, then other players in the location 
-        will be notified of which location he is going to
-        '''
-        # break recursive loop
-        if self.location == new_location:
-            return
-        try:
-            self.location.remove_char(self, silent, reported_exit)
-        except AttributeError:
-            # location was none
-            pass
-        self.location = new_location
-        self.location.add_char(self)
+                except CharException as ex:
+                    self.message(str(ex))
+            else:
+                try:
+                    self.parse_command(*line.split(" "))
+                except AmbiguityError as amb:
+                    amb.old_args = line.split(" ")
+                    self.message(str(amb))
+                    self.prempt = amb
+                except CharException as ex:
+                    self.message(str(ex))
 
     def parse_command(self, *args):
         '''parses a command, raises AttributeError if command cannot be found'''
@@ -197,13 +166,57 @@ class Character(control.Monoreceiver, metaclass=CharacterClass):
         method = self.commands[command]
         method(self, *args[1::])
     
-    def handle_ambiguity(self, query, options):
+    def _handle_ambiguity(self, query, options):
+        '''wraps function outputs to handle ambiguity
+        if no option is returned, then raise an error
+        if multiple options are found, raise an ambiguity error
+        '''
         if len(options) == 1:
             return options[0]
         elif len(options) == 0:
             raise CharException("Error: '%s' not found." % (query) )
         else:
             raise AmbiguityError(query, options)        
+
+    def set_name(self, new_name):
+        '''changes a characters's name, with all appropriate error checking'''
+        if new_name in Character.names:
+            raise CharException("Name already taken.")
+        if self.name is not None:
+            del(self.names[self.name])
+        self.name = new_name
+        self.names[self.name] = self
+    
+    def player_set_name(self, new_name):
+        '''intended for first time players set their name'''
+        if not new_name.isalnum():
+            raise CharException("Names must be alphanumeric.")
+        self.set_name(new_name)
+        #TODO: replace this when appropriate
+        from library import server
+        server.send_message_to_all("Welcome, %s, to the server!" % self)
+        self.cmd_look("")
+    
+    def __repr__(self):
+        '''return the player's name and class'''
+        if self.name is None:
+            return "A nameless %s" % self.__class__.name
+        return "%s the %s" % (self.name, self.__class__.name)
+    
+    def __str__(self):
+        '''return the player's name'''
+        if self.name is None:
+            return repr(self)
+        else:
+            return self.name
+
+    # these methods could use refinement 
+    def __del__(self):
+        self.die()
+
+    def die(self):
+        '''method executed when a player dies'''
+        self._remove_references()
 
     def _remove_references(self):
         '''method executed when a character is being removed
@@ -222,23 +235,23 @@ class Character(control.Monoreceiver, metaclass=CharacterClass):
         except KeyError:
             pass
 
-    def die(self):
-        '''method executed when a player dies'''
-        self._remove_references()
+    #location manipulation methods        
+    def set_location(self, new_location, silent=False, reported_exit=None):
+        '''sets location, updating the previous and new locations as appropriate
+        if reported_exit is supplied, then other players in the location 
+        will be notified of which location he is going to
+        '''
+        # break recursive loop
+        if self.location == new_location:
+            return
+        try:
+            self.location.remove_char(self, silent, reported_exit)
+        except AttributeError:
+            # location was none
+            pass
+        self.location = new_location
+        self.location.add_char(self)
 
-    def __repr__(self):
-        if self.name is None:
-            return "A nameless %s" % self.__class__.name
-        return "%s the %s" % (self.name, self.__class__.name) 
-    def __str__(self):
-        if self.name is None:
-            return repr(self)
-        else:
-            return self.name
-
-    def __del__(self):
-        self.die()
-   
     #inventory/item related methods
     def equip(self, item, **kwargs):
         print(item)
@@ -313,15 +326,16 @@ class Character(control.Monoreceiver, metaclass=CharacterClass):
     def cmd_equip(self, *args):
         '''Equip an equippable item from your inventory.'''
         item_name = args[0]
-        item = self.handle_ambiguity(item_name, self.inv.get_item(item_name))
+        item = self._handle_ambiguity(item_name, self.inv.get_item(item_name))
         self.equip(item)
 
     def cmd_unequip(self, *args):
+        '''Unequip an equipped item.'''
         options = []
         for target,item in self.equip_dict.items():
             if item == args[0]:
                 options.append(item)
-        item = self.handle_ambiguity(args[0], options)
+        item = self._handle_ambiguity(args[0], options)
         self.unequip(item) 
             
     def cmd_inv(self, *args):
@@ -330,4 +344,3 @@ class Character(control.Monoreceiver, metaclass=CharacterClass):
         for target, equipped in self.equip_dict.items():
             output += str(target).upper() + "\n\t" + str(equipped) + "\n"
         self.message(output + self.inv.readable())
-

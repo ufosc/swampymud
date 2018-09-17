@@ -18,6 +18,7 @@ class ExampleClass(Character):
         self.inv += RedPants()
         self.inv += Tentacle()
         self.inv += Cuirass()
+        self.inv += BetterCuirass()
 
 class Necklace(item.EquippableBase):
     target = item.EquipTarget("Head")
@@ -50,3 +51,6 @@ class Tentacle(Necklace):
 
 class Cuirass(Necklace):
     target = item.EquipTarget("Torso")
+
+class BetterCuirass(Necklace):
+    name = "Cuirass"

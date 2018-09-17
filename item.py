@@ -33,6 +33,7 @@ class Equippable(Item):
             assert "equip" in dict or any([hasattr(base, "equip") for base in bases])
             assert "unequip" in dict or any([hasattr(base, "unequip") for base in bases])
 
+
 #TODO: make it so that metaclass automatically detects KEY attributes
 class EquippableBase(metaclass=Equippable):
     def __init__(self):
