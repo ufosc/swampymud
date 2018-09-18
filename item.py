@@ -18,7 +18,6 @@ class Item(type):
             self.name = cls
         # detect if an item has any use method
         assert "use" in dict or any([hasattr(base, "use") for base in bases])
-        self.item_type = "Item"
         super().__init__(cls, bases, dict)
 
     def __str__(self):
@@ -33,6 +32,12 @@ class Equippable(Item):
             assert "equip" in dict or any([hasattr(base, "equip") for base in bases])
             assert "unequip" in dict or any([hasattr(base, "unequip") for base in bases])
 
+class Consumable(Item):
+    def __init__(self, cls, bases, dict):
+        super().__init__(cls, bases, dict)
+        if cls != "ConsumableBase": 
+            assert "effect" in dict or any([hasattr(base, "target") for base in bases])
+
 
 #TODO: make it so that metaclass automatically detects KEY attributes
 class EquippableBase(metaclass=Equippable):
@@ -43,7 +48,7 @@ class EquippableBase(metaclass=Equippable):
         self.equip(self, character, *args)
 
     def __str__(self):
-        return self.name
+        return self.__class__.name
     
     def __eq__(self, other):
         if type(other) is str:
@@ -91,10 +96,14 @@ class EquipTarget:
     def __repr__(self):
         return str(self) + "[%s]" % self.target_id 
 
-'''
+
 class Consumable(Item):
     def use(self, *args):
         consume(self)
     
-    def consume(self, *args):
-'''
+    def effect(self, *args):
+
+class Throwables(Item):
+    def use(self, character, *args):
+        consume(self)
+
