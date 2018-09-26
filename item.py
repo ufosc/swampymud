@@ -28,6 +28,7 @@ class Item(type):
 class Equippable(Item):
     def __init__(self, cls, bases, dict):
         super().__init__(cls, bases, dict)
+        self.item_type = "Equippable"
         if cls != "EquippableBase": 
             assert "target" in dict or any([hasattr(base, "target") for base in bases])
             assert "equip" in dict or any([hasattr(base, "equip") for base in bases])
@@ -83,7 +84,7 @@ class EquipTarget:
             return self.target_id == other.target_id
         except AttributeError:
             # other item is not an EquipTarget
-            return false
+            return False
     
     def __hash__(self):
         return self.target_id
@@ -91,10 +92,54 @@ class EquipTarget:
     def __repr__(self):
         return str(self) + "[%s]" % self.target_id 
 
-'''
 class Consumable(Item):
-    def use(self, *args):
-        consume(self)
+    def __init__(self, cls, bases, dict):
+        super().__init__(cls, bases, dict)
+        self.item_type = "Item"
+        if cls != "ConsumableBase": 
+            assert "target" in dict or any([hasattr(base, "target") for base in bases])
+            assert "consume" in dict or any([hasattr(base, "consume") for base in bases])
+
+class ConsumableBase(metaclass=Consumable):
+    def use(self, character, *args):
+        self.consume(self, character, *args)
+
+    def __str__(self):
+        return self.name
     
-    def consume(self, *args):
-'''
+    def __eq__(self, other):
+        if type(other) is str:
+            return self.name.lower() == other.lower()
+        elif type(other) is type(self):
+            return hash(self) == hash(other)
+        return False 
+
+    def __hash__(self):
+        return hash((self.__class__, self.name))
+
+# this is highly repetive. Should we make a metaclass for the metaclass?
+
+class Throwable(Item):
+    def __init__(self, cls, bases, dict):
+        super().__init__(cls, bases, dict)
+        self.item_type = "Item"
+        if cls != "ThrowableBase": 
+            assert "target" in dict or any([hasattr(base, "target") for base in bases])
+            assert "throw" in dict or any([hasattr(base, "throw") for base in bases])
+
+class ThrowableBase(metaclass=Throwable):
+    def use(self, character, *args):
+        self.throw(self, character, sender, *args)
+
+    def __str__(self):
+        return self.name
+    
+    def __eq__(self, other):
+        if type(other) is str:
+            return self.name.lower() == other.lower()
+        elif type(other) is type(self):
+            return hash(self) == hash(other)
+        return False 
+
+    def __hash__(self):
+        return hash((self.__class__, self.name))
