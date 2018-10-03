@@ -227,7 +227,7 @@ class Character(control.Monoreceiver, metaclass=CharacterClass):
         if len(exit_list) == 0:
             exit_msg += "None"
         else:
-            exit_msg += " ,".join(map(str, exit_list))
+            exit_msg += ", ".join(map(str, exit_list))
         self.message(exit_msg)
 
     def cmd_say(self, args):

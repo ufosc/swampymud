@@ -4,10 +4,14 @@ from util.distr import RandDist
 #from character import Player, CharacterClass
 '''library holding dictionaries for in-game objects'''
 
-locations = None
-character_classes = None
+locations = {}
+character_classes = {}
 server = None
 random_class = None
+
+def store_location(location):
+    global locations
+    locations[location.name] = location
 
 def store_lib(input_library):
     '''unpacks a library produced by fileparser.py

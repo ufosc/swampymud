@@ -5,6 +5,7 @@ from numbers import Number
 import os
 import sys
 import importlib
+import library as libmodule
 '''
 module that holds all parsers for file IO
 '''
@@ -239,6 +240,8 @@ def import_files(**paths):
         parse_all_files(locations, *paths["locations"])
         eprint(locations.all_to_str())
     # in the future, import items next
+    for name in library[Location]:
+        libmodule.store_location(library[Location][name])
     if "chars" in paths:
         eprint("parsing char_classes")
         parse_all_files(char_classes, *paths["chars"])
