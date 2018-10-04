@@ -9,10 +9,6 @@
         {
             "destination": "Basement Stall",
             "names": ["stall", "0w0 what's this", "this dependency should work"]
-        },
-	{
-            "destination": "Trap",
-            "names": ["something shiny"]
         }
     ]
 }
