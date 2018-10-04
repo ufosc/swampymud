@@ -1,0 +1,10 @@
+{
+    "name": "West (response)",
+    "description": "This is a trap room. \nGAME OVER",
+    "exits": [
+	{
+            "destination": "West (response)",
+            "names": ["I made a grave mistake."]
+        }
+    ]
+}

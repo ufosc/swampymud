@@ -1,0 +1,10 @@
+{
+    "name": "Marston (response)",
+    "description": "Correct. The sphinx gives you a closed box.",
+    "exits": [
+	{
+            "destination": "Turlington Plaza",
+            "names": ["return"]
+        }
+    ]
+}

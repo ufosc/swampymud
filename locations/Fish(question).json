@@ -1,0 +1,14 @@
+{
+    "name": "A fish on the ground",
+    "description": "You just got baited. \nA random sphinx appears: \"Which is better, Marston or West?\"",
+    "exits": [
+        {
+            "destination": "West (response)",
+            "names": ["west"]
+        },
+        {
+            "destination": "Marston (response)",
+            "names": ["marston"]
+        }
+    ]
+}
