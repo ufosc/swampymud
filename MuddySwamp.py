@@ -58,11 +58,11 @@ class MudServerWorker(threading.Thread):
         if "Marston Basement" in library.locations:
             self.start_location = library.locations["Marston Basement"]
         super().__init__(*args, **kwargs)
-    
+
     # Cannot call mud.shutdown() here because it will try to call the sockets in run on the final go through
     def shutdown(self):
         self.keep_running = False
-    
+
     def run(self):
         logging.info("Starting server.")
         self.mud = MudServer()
@@ -118,7 +118,7 @@ class MudServerWorker(threading.Thread):
                         pass
                         #self.mud.send_message_to_all("%s quit the game" % player.receiver)
                     control.Player.remove_player(id)
-            
+
             # temporary: move this to a better place later
             for id, msg in control.Player.receive_messages():
                 self.mud.send_message(id, msg)
@@ -149,6 +149,8 @@ while True:
             " broadcast [message] - Broadcasts a message to the entire server\n"\
             " players - Prints a list of all players\n" \
             " stop - Stops the server")
+        elif command.strip() == "":
+            pass
         else:
             logging.info("Command not recognized. Type help for a list of commands.")
     except KeyboardInterrupt:
