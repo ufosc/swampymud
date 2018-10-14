@@ -23,6 +23,17 @@ class ExampleClass(Character):
         self.inv += Cuirass()
         self.inv += BetterCuirass()
 
+    def cmd_gimmie(self, *args):
+        self.inv += Necklace()
+        self.inv += BlueNecklace()
+        self.inv += RedNecklace()
+        self.inv += Pants()
+        self.inv += RedPants()
+        self.inv += Tentacle()
+        self.inv += Cuirass()
+        self.inv += BetterCuirass()
+
+
 class Necklace(item.EquippableBase):
     target = item.EquipTarget("Head")
     def __init__(self):
