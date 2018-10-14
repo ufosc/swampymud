@@ -9,9 +9,7 @@ character_classes = {}
 server = None
 random_class = None
 
-def store_location(location):
-    global locations
-    locations[location.name] = location
+library = {}
 
 def store_lib(input_library):
     '''unpacks a library produced by fileparser.py

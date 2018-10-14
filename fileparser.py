@@ -229,7 +229,7 @@ def import_files(**paths):
     parsing occurs in the correct order
     returns a "library"
     '''
-    library = {}
+    library = libmodule.library
     fail_library = {}
     # creating our two parsers, linked to the libraries
     locations  = LocationParser(library, fail_library)
@@ -239,9 +239,6 @@ def import_files(**paths):
         eprint("parsing locations")
         parse_all_files(locations, *paths["locations"])
         eprint(locations.all_to_str())
-    # in the future, import items next
-    for name in library[Location]:
-        libmodule.store_location(library[Location][name])
     if "chars" in paths:
         eprint("parsing char_classes")
         parse_all_files(char_classes, *paths["chars"])
