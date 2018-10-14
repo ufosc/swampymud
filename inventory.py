@@ -6,8 +6,6 @@ class Inventory:
         '''adds an [item] of [quantity] to this inventory
         default quantity = 1
         '''
-        print(item)
-        print(type(type(item)))
         item_type = type(type(item))
         if item_type not in self._items:
             self._items[item_type] = {}
@@ -19,8 +17,9 @@ class Inventory:
     def remove_item(self, item, quantity=1):
         '''removes an [item] of [quantity] to this inventory
         raises KeyError if item not found
-        raises an ArithmeticError if item is found, but [quantity] > item quanity 
+        raises an ArithmeticError if item is found, but [quantity] > item quanity
         '''
+
         item_type = type(type(item))
         if item_type not in self._items:
             raise KeyError("Item %s not found" % item)
@@ -31,7 +30,8 @@ class Inventory:
         self._items[item_type][item] -= quantity
         if self._items[item_type][item] == 0:
             del self._items[item_type][item]
-        if len(self._items[item_type]) == 0:
+        # if there are no items in the list, remove it
+        if not self._items[item_type]:
             del self._items[item_type]
 
     def get_item(self, name):
