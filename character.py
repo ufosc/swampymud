@@ -150,7 +150,7 @@ class Character(control.Monoreceiver, metaclass=CharacterClass):
             if self.name is None:
                 try:
                     self.player_set_name(line.strip())
-                except Exception as ex:
+                except CharException as ex:
                     self.message(str(ex))
                 finally:
                     return

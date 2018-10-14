@@ -232,20 +232,19 @@ def import_files(**paths):
     library = libmodule.library
     fail_library = {}
     # creating our two parsers, linked to the libraries
-    locations  = LocationParser(library, fail_library)
-    char_classes = CharacterParser(library, fail_library)
+    location_parser  = LocationParser(library, fail_library)
+    character_parser = CharacterParser(library, fail_library)
     eprint(paths)
     if "locations" in paths:
         eprint("parsing locations")
-        parse_all_files(locations, *paths["locations"])
-        eprint(locations.all_to_str())
+        parse_all_files(location_parser, *paths["locations"])
+        eprint(location_parser.all_to_str())
     if "chars" in paths:
         eprint("parsing char_classes")
-        parse_all_files(char_classes, *paths["chars"])
-        eprint(char_classes.all_to_str())
-    locations.resolve_dependencies()
-    char_classes.resolve_dependencies()
-    return library
+        parse_all_files(character_parser, *paths["chars"])
+        eprint(character_parser.all_to_str())
+    location_parser.resolve_dependencies()
+    character_parser.resolve_dependencies()
 
 
 def get_filenames(directory, ext=""):

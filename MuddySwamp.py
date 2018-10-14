@@ -51,12 +51,8 @@ class ServerComand:
 class MudServerWorker(threading.Thread):
     def __init__(self, q, *args, **kwargs):
         self.keep_running = True
-        imported_lib = import_files(**import_paths)
-        library.store_lib(imported_lib)
-        self.start_location = Location("Starting Location",
-                            "This is the default starting location.")
-        if "Marston Basement" in library.locations:
-            self.start_location = library.locations["Marston Basement"]
+        import_files(**import_paths)
+        library.build_class_distribution()
         super().__init__(*args, **kwargs)
     
     # Cannot call mud.shutdown() here because it will try to call the sockets in run on the final go through
