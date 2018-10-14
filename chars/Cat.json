@@ -1,0 +1,5 @@
+{
+    "name" : "Cat",
+    "frequency" : 1,
+    "path" : "scripts/cat.py"
+}
