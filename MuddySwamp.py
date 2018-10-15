@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-import time
+'''main script for MuddySwamp'''
 import sys
 import logging
 import threading
@@ -11,6 +11,7 @@ import library
 from mudserver import MudServer, Event, EventType
 from location import Location, Exit
 import control
+import traceback
 
 
 # Setup the logger
@@ -24,11 +25,6 @@ logging.basicConfig(format='%(asctime)s [%(threadName)s] [%(levelname)s] %(messa
 #prints to stderr
 def err_print(*args, **kwargs):
 	print(*args, file=sys.stderr, **kwargs)
-
-VERBOSE_PRINT = False
-def v_print(*args, **kwargs):
-	if VERBOSE_PRINT:
-		err_print(*args, **kwargs)
 
 # defining a set of paths
 # by default, we import every json in chars and locations
@@ -104,7 +100,10 @@ class MudServerWorker(threading.Thread):
                 elif event.type is EventType.MESSAGE_RECEIVED:
                     # log the message
                     logging.debug("Event message: " + event.message)
-                    control.Player.send_command(id, event.message)
+                    try:
+                        control.Player.send_command(id, event.message)
+                    except Exception:
+                        logging.error(traceback.format_exc())
 
                 elif event.type is EventType.PLAYER_DISCONNECT:
                     # logging data of the player
