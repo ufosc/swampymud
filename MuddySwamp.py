@@ -16,15 +16,11 @@ import traceback
 
 # Setup the logger
 logging.basicConfig(format='%(asctime)s [%(threadName)s] [%(levelname)s] %(message)s',
-    level=logging.INFO,
+    level=logging.DEBUG,
     handlers=[
         logging.FileHandler("muddyswamp.log"),
         logging.StreamHandler(sys.stdout)
     ])
-
-#prints to stderr
-def err_print(*args, **kwargs):
-	print(*args, file=sys.stderr, **kwargs)
 
 # defining a set of paths
 # by default, we import every json in chars and locations

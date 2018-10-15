@@ -40,7 +40,6 @@ class Exit:
             self._whitelist.extend(kwargs['whitelist'])
         if 'blacklist' in kwargs:
             self._blacklist.extend(kwargs['blacklist'])
-        print(self._blacklist)
         self.closed = False
         self.restricted = True
         self.assume_include = True

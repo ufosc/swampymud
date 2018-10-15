@@ -6,6 +6,7 @@ import os
 import sys
 import importlib
 import library as libmodule
+import logging
 '''
 module that holds all parsers for file IO
 '''
@@ -36,6 +37,7 @@ class Dependency(Exception):
         self.name = name
         self.classname = classname
         self.resolution = resolution
+        self.is_resolved = False
     
     def __str__(self):
         return "%s on %s of %s" \
@@ -44,7 +46,8 @@ class Dependency(Exception):
     def resolve(self):
         '''calls the resolution function'''
         self.resolution()
-        eprint("Resolved dependency:\n%s" % str(self))
+        logging.debug("\nResolved dependency:\n%s" % str(self))
+        self.is_resolved = True
     
     def fail_message(self):
         '''supplies a message when depended upon object failed'''
@@ -53,6 +56,12 @@ class Dependency(Exception):
     def unresolved_message(self):
         '''supplies a message when depended upon object was never imported'''
         return "Dependent on %s, which doesn\'t exist." % self.name
+
+'''
+class MultiDependency(Dependency):
+    def __init__(
+    def unresolved_message(self):
+''' 
 
 
 class BaseParser:
@@ -103,7 +112,7 @@ class BaseParser:
 
     def all_to_str(self):
         '''cheap method to get an output for all values in each list'''
-        output = "SUCCESS LIST\n"
+        output = "\nSUCCESS LIST\n"
         for success in self.success_list:
             output += str(success) + "\n"
         output += "DEPENDENCY LIST\n"
@@ -152,6 +161,14 @@ class LocationParser(BaseParser):
         for exit in json_data["exits"]:
             destination_name = exit["destination"]
             names = exit["names"]
+            # the parameters "whitelist", "blacklist", etc are passed
+            # to the exit constructor as keyword arguments
+            # thus, we must put them in another dict to unpack later
+            exit_kwargs = {}
+            for keyword in ["whitelist", "blacklist", "assume_true"]:
+                if keyword in exit:
+                    exit_kwargs[keyword] = exit[keyword] 
+                    
             ''' dilemma: we have no guarantee that destination has been
             imported yet, or that it even exists
             solution: create a depedency
@@ -161,7 +178,7 @@ class LocationParser(BaseParser):
             note how variables not local to the scope are referenced
             look up "closure" if you want more information
             '''
-            def resolve(destination_name=destination_name, names=names):
+            def resolve(destination_name=destination_name, names=names, kwargs=exit_kwargs):
                 # loading in destination
                 destination = self.library[Location][destination_name]
                 # creating an exit
@@ -219,9 +236,9 @@ def eprint(*args, **kwargs):
 
 
 def parse_all_files(parser, *files):
-       '''parses all files with specified parser'''
-       for filename in files:
-           parser.handle_import(filename)
+   '''parses all files with specified parser'''
+   for filename in files:
+       parser.handle_import(filename)
 
 
 def import_files(**paths):
@@ -234,15 +251,15 @@ def import_files(**paths):
     # creating our two parsers, linked to the libraries
     location_parser  = LocationParser(library, fail_library)
     character_parser = CharacterParser(library, fail_library)
-    eprint(paths)
+    logging.debug(paths)
     if "locations" in paths:
-        eprint("parsing locations")
+        logging.debug("Parsing Locations")
         parse_all_files(location_parser, *paths["locations"])
-        eprint(location_parser.all_to_str())
+        logging.debug(location_parser.all_to_str())
     if "chars" in paths:
-        eprint("parsing char_classes")
+        logging.debug("parsing CharacterClasses")
         parse_all_files(character_parser, *paths["chars"])
-        eprint(character_parser.all_to_str())
+        logging.debug(character_parser.all_to_str())
     location_parser.resolve_dependencies()
     character_parser.resolve_dependencies()
 
