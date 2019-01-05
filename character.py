@@ -1,9 +1,9 @@
+'''Module defining the CharacterClass metaclass, and Character base class'''
 import location
 import control
 import inventory
 import item
 
-'''Module defining the CharacterClass metaclass, and Character base class'''
 
 def camel_to_space(name):
     '''adds spaces before capital letters
@@ -149,7 +149,7 @@ class Character(control.Monoreceiver, metaclass=CharacterClass):
                     self.message(str(ex))
             else:
                 try:
-                    self.parse_command(*line.split(" "))
+                    self.parse_command(line)
                 except AmbiguityError as amb:
                     amb.old_args = line.split(" ")
                     self.message(str(amb))
@@ -157,14 +157,13 @@ class Character(control.Monoreceiver, metaclass=CharacterClass):
                 except CharException as ex:
                     self.message(str(ex))
 
-    def parse_command(self, *args):
+    def parse_command(self, line):
         '''parses a command, raises AttributeError if command cannot be found'''
-        command = args[0]
+        command = line.split(" ")[0]
         if command not in self.commands:
             raise CharException("Command \'%s\' not recognized." % command)
-  
         method = self.commands[command]
-        method(self, *args[1::])
+        method(self, line.split(" ")[1::])
     
     def _handle_ambiguity(self, query, options):
         '''wraps function outputs to handle ambiguity
@@ -282,7 +281,7 @@ class Character(control.Monoreceiver, metaclass=CharacterClass):
                 % item)
 
     # default commands        
-    def cmd_help(self, *args):
+    def cmd_help(self, args):
         '''Show relevant help information for a particular command.
         usage: help [command]
         If no command is supplied, a list of all commands is shown.
@@ -296,7 +295,7 @@ class Character(control.Monoreceiver, metaclass=CharacterClass):
         else:
             raise CharacterException("Command \'%s\' not recognized." % command)
 
-    def cmd_look(self, *args):
+    def cmd_look(self, args):
         '''Provide information about the current location.
         usage: look
         '''
@@ -309,13 +308,13 @@ class Character(control.Monoreceiver, metaclass=CharacterClass):
             exit_msg += " ,".join(map(str, exit_list))
         self.message(exit_msg)
 
-    def cmd_say(self, *args):
+    def cmd_say(self, args):
         '''Say a message aloud, sent to all players in your current locaton.
         usage: say [msg]
         '''
         self.location.message_chars("%s : %s" % (self, " ".join(args)))
     
-    def cmd_walk(self, *args):
+    def cmd_walk(self, args):
         '''Walk to an accessible location.
         usage: walk [exit name]
         '''
@@ -323,13 +322,13 @@ class Character(control.Monoreceiver, metaclass=CharacterClass):
         exit = self.location.get_exit(exit_name)
         self.set_location(exit.get_destination(), False, exit)
     
-    def cmd_equip(self, *args):
+    def cmd_equip(self, args):
         '''Equip an equippable item from your inventory.'''
         item_name = args[0]
         item = self._handle_ambiguity(item_name, self.inv.get_item(item_name))
         self.equip(item)
 
-    def cmd_unequip(self, *args):
+    def cmd_unequip(self, args):
         '''Unequip an equipped item.'''
         options = []
         for target,item in self.equip_dict.items():
@@ -338,7 +337,7 @@ class Character(control.Monoreceiver, metaclass=CharacterClass):
         item = self._handle_ambiguity(args[0], options)
         self.unequip(item) 
             
-    def cmd_inv(self, *args):
+    def cmd_inv(self, args):
         '''Show your inventory.'''
         output = ""
         for target, equipped in self.equip_dict.items():
