@@ -154,7 +154,7 @@ class ThrowableBase(metaclass=Throwable):
             return self.name.lower() == other.lower()
         elif type(other) is type(self):
             return hash(self) == hash(other)
-        return False 
+        return False
 
     def __hash__(self):
-        return hash((self.__class__, self.name)
+        return hash((self.__class__, self.name))
