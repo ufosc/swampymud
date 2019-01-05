@@ -1,11 +1,10 @@
-#!/usr/bin/env python
-import time
+#!/usr/bin/env python3
 import sys
 import logging
 import threading
 import queue
 import enum
-from fileparser import import_files, get_filenames
+import mudimport
 import library
 # import the MUD server class
 from mudserver import MudServer, Event, EventType
@@ -15,35 +14,32 @@ import control
 
 # Setup the logger
 logging.basicConfig(format='%(asctime)s [%(threadName)s] [%(levelname)s] %(message)s',
-    level=logging.INFO,
-    handlers=[
-        logging.FileHandler("muddyswamp.log"),
-        logging.StreamHandler(sys.stdout)
-    ])
+                    level=logging.INFO,
+                    handlers=[
+                        logging.FileHandler("muddyswamp.log"),
+                        logging.StreamHandler(sys.stdout)
+                    ])
 
 #prints to stderr
-def err_print(*args, **kwargs):
-	print(*args, file=sys.stderr, **kwargs)
+#def err_print(*args, **kwargs):
+#    print(*args, file=sys.stderr, **kwargs)
 
-VERBOSE_PRINT = False
-def v_print(*args, **kwargs):
-	if VERBOSE_PRINT:
-		err_print(*args, **kwargs)
 
 # defining a set of paths
 # by default, we import every json in chars and locations
-import_paths = {
-    "locations" : get_filenames("./locations/", ".json"),
-    "chars" : get_filenames("./chars/", ".json")
+IMPORT_PATHS = {
+    "locations" : mudimport.get_filenames("./locations/", ".json"),
+    "chars" : mudimport.get_filenames("./chars/", ".json"),
+    "items" : mudimport.get_filenames("./items/", ".json")
 }
 
-# Basic enum for the type of server command
 class ServerCommandEnum(enum.Enum):
-    BROADCAST_MESSAGE=0
-    GET_PLAYERS=1
+    ''' basic enum for the type of server command'''
+    BROADCAST_MESSAGE = 0
+    GET_PLAYERS = 1
 
-# Simple wrapper class for a server-side command
 class ServerComand:
+    '''Simple wrapper class for a server-side command'''
     def __init__(self, command_type, params):
         self.command_type = command_type
         self.params = params
@@ -51,8 +47,9 @@ class ServerComand:
 class MudServerWorker(threading.Thread):
     def __init__(self, q, *args, **kwargs):
         self.keep_running = True
-        imported_lib = import_files(**import_paths)
-        library.store_lib(imported_lib)
+        mudimport.import_files(**IMPORT_PATHS)
+        library.build_char_class_distr()
+
         self.start_location = Location("Starting Location",
                             "This is the default starting location.")
         if "Marston Basement" in library.locations:
@@ -102,7 +99,7 @@ class MudServerWorker(threading.Thread):
                     # creating a controler (a 'Player'), then giving that Player control of a new character
                     # of whatever class the player is
                     new_player = control.Player(event.id)
-                    new_character = PlayerClass()
+                    new_character = PlayerClass(new_player)
                     new_player.assume_control(new_character)
 
                 elif event.type is EventType.MESSAGE_RECEIVED:

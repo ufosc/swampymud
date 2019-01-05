@@ -40,9 +40,12 @@ class Exit:
             self._whitelist.extend(kwargs['whitelist'])
         if 'blacklist' in kwargs:
             self._blacklist.extend(kwargs['blacklist'])
-        print(self._blacklist)
         self.closed = False
+        if 'closed' in kwargs:
+            self.closed = kwargs['closed']
         self.restricted = True
+        if 'restricted' in kwargs:
+            self.restricted = kwargs['restricted']
         self.assume_include = True
         if 'assume_include' in kwargs:
             self.assume_include = kwargs['assume_include']
@@ -60,17 +63,6 @@ class Exit:
     
     def get_destination(self):
         return self._destination
-    
-    def __eq__(self, other):
-        '''Overriding ==
-        Returns True if:
-            other is an Exit that points to the same location
-            other is a string that is in the list
-        '''
-        try:
-            return self._destination == other._destination
-        except AttributeError:
-            return other in self._names
 
     def is_accessible(self, other):
         '''Overriding << pe
