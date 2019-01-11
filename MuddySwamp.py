@@ -99,7 +99,7 @@ class MudServerWorker(threading.Thread):
                     # creating a controler (a 'Player'), then giving that Player control of a new character
                     # of whatever class the player is
                     new_player = control.Player(event.id)
-                    new_character = PlayerClass(new_player)
+                    new_character = PlayerClass()
                     new_player.assume_control(new_character)
 
                 elif event.type is EventType.MESSAGE_RECEIVED:
@@ -124,9 +124,9 @@ class MudServerWorker(threading.Thread):
         self.mud.shutdown()
 
 # Create a threadsafe queue for commands entered on the server side
-q = queue.Queue()
+command_queue = queue.Queue()
 # Create an instance of the thread and start it
-thread = MudServerWorker(q)
+thread = MudServerWorker(command_queue)
 thread.setName("MudServerThread")
 thread.start()
 
@@ -135,22 +135,36 @@ while True:
     try:
         command, params = (input("").split(" ", 1) + ["", ""])[:2]
         if command == "broadcast":
-            q.put(ServerComand(ServerCommandEnum.BROADCAST_MESSAGE, u"\u001b[32m" + "[Server] " + params + u"\u001b[0m"))
+            command_queue.put(ServerComand(ServerCommandEnum.BROADCAST_MESSAGE, u"\u001b[32m" + "[Server] " + params + u"\u001b[0m"))
         elif command == "players":
-            q.put(ServerComand(ServerCommandEnum.GET_PLAYERS, ""))
+            command_queue.put(ServerComand(ServerCommandEnum.GET_PLAYERS, ""))
         elif command == "stop":
-            q.put(ServerComand(ServerCommandEnum.BROADCAST_MESSAGE, u"\u001b[32m" + "[Server] " + "Server shutting down..." + u"\u001b[0m"))
+            command_queue.put(ServerComand(ServerCommandEnum.BROADCAST_MESSAGE, u"\u001b[32m" + "[Server] " + "Server shutting down..." + u"\u001b[0m"))
             break
         elif command == "help":
             logging.info("Server commands are: \n" \
             " broadcast [message] - Broadcasts a message to the entire server\n"\
             " players - Prints a list of all players\n" \
-            " stop - Stops the server")
+            " stop - Stops the server\n" \
+            " list [locations|items|chars|] - list all available loaded locations/items/chars\n")
+        elif command == "list":
+            if params == "locations":
+                location_list = "Loaded Locations:\n"
+                for name, ref in library.locations.items():
+                    location_list += "Name: %s\n" \
+                    "Object:\n%s\n" % (name, repr(ref))
+                logging.info(location_list)
+            elif params == "items":
+                pass
+            elif params == "chars":
+                pass
+            else:
+                logging.info("Argument not recognized. Type help for a list of commands.")
         else:
             logging.info("Command not recognized. Type help for a list of commands.")
     except KeyboardInterrupt:
         logging.info("Keyboard interrupt detected. Shutting down.")
-        q.put(ServerComand(ServerCommandEnum.BROADCAST_MESSAGE, u"\u001b[32m" + "[Server] " + "Server shutting down..." + u"\u001b[0m"))
+        command_queue.put(ServerComand(ServerCommandEnum.BROADCAST_MESSAGE, u"\u001b[32m" + "[Server] " + "Server shutting down..." + u"\u001b[0m"))
         break
 
 

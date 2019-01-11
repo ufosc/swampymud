@@ -233,6 +233,16 @@ class Location:
             raise ValueError("Received %s, expected Exit/string, "
                              "Player/int" % type(other))
 
+    def __repr__(self):
+        #TODO: make the output more pythonic
+        output = "Name:\t%s\n" % self.name
+        output += "Desc:\t%s\n" % self.description
+        output += "Chars:\t%s\n" % self._character_list
+        output += "Exits:\t%s\n" % self._exit_list
+        output += "Owner:\t%s\n" % self.owner
+        return output
+        
+
     def __str__(self, verbose=False):
         '''supplies a string
         if verbose is selected, description also supplied
