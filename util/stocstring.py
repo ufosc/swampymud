@@ -1,7 +1,7 @@
 '''Module for dealing with stochastic strings'''
 import re
 from random import uniform, triangular, betavariate, expovariate, gammavariate, gauss, lognormvariate, normalvariate, vonmisesvariate, paretovariate, weibullvariate, randrange, choice
-from distr import RandDist, ChoiceDist, weightedchoice
+from util.distr import RandDist, ChoiceDist, weightedchoice
 
 
 class StringMacro:
@@ -35,9 +35,10 @@ class StocString:
 
         # removing all the unnecessary separators left by the split
         # (the best way to illustrate the need for this loop
-        #  is to print self.tokens before this while loop executes)
+        #  is to uncomment the line below)
+        # print(self.tokens)
         # also converting the macros as appropriate
-        print(self.tokens)
+        
         i = 0
         while (i < len(self.tokens)):
             token = self.tokens[i]

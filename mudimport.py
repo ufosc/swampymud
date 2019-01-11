@@ -5,7 +5,9 @@ import json
 import os
 import importlib
 from location import Location, Exit
+from util.stocstring import StocString
 import library
+
 
 class Importer:
     def __init__(self, lib=None):
@@ -34,13 +36,13 @@ class LocationImporter(Importer):
     def _do_import(self, filename):
         # TODO: with proper exception handling, throw the location name when possible
         name = filename
-        with open(filename) as location_file:
-            json_data = json.load(location_file)
-        name = json_data["name"]
         try:
+            with open(filename) as location_file:
+                # read the file, processing any stocstring macros
+                json_data = StocString.process(location_file.read())
+            json_data = json.loads(json_data)
+            name = json_data["name"]
             # do checking here
-            # parse all stocstrings here
-            pass
         except Exception as ex:
             # modify exception to show what the name is, rethrow
             setattr(ex, "name", name)
@@ -112,7 +114,9 @@ class CharacterClassImporter(Importer):
         name = filename
         try:
             with open(filename) as charclass_file:
-                json_data = json.load(charclass_file)
+                # read the file, processing any stocstring macros
+                json_data = StocString.process(charclass_file.read())
+            json_data = json.loads(json_data)
             name = json_data["name"]
             assert isinstance(json_data["name"], str)
             if "frequency" in json_data:
@@ -135,8 +139,11 @@ class ItemImporter(Importer):
     def _do_import(self, filename):
         name = filename
         try:
-            with open(filename) as charclass_file:
-                json_data = json.load(charclass_file)
+            with open(filename) as item_file:
+                # read the file, processing any stocstring macros
+                json_data = StocString.process(item_file.read())
+            json_data = json.loads(json_data)
+            name = json_data["name"]
             name = json_data["name"]
             path = json_data["path"] 
             module = importlib.import_module(path.replace('.py', '').replace('/', '.'))
