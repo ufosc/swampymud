@@ -12,5 +12,8 @@
             "destination": "Marston First Floor",
             "names": ["first floor", "this will be an error"]
         }
-    ]
+    ],
+    "items" : {
+        "HealthPotion" : !{choice(2,3)}
+    }
 }

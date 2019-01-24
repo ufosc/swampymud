@@ -19,7 +19,6 @@ Throwables:
 
 class Item(type):
     '''The metaclass establishing behavior for all items'''
-
     def __init__(self, cls, bases, dic):
         if "name" not in dic:
             self.name = cls
@@ -40,12 +39,6 @@ class Equippable(Item):
             assert "target" in dic or any([hasattr(base, "target") for base in bases])
             assert "equip" in dic or any([hasattr(base, "equip") for base in bases])
             assert "unequip" in dic or any([hasattr(base, "unequip") for base in bases])
-
-class Consumable(Item):
-    def __init__(self, cls, bases, dict):
-        super().__init__(cls, bases, dict)
-        if cls != "ConsumableBase": 
-            assert "effect" in dict or any([hasattr(base, "target") for base in bases])
 
 
 #TODO: make it so that metaclass automatically detects KEY attributes
@@ -141,6 +134,7 @@ class Throwable(Item):
         if cls != "ThrowableBase": 
             assert "target" in dic or any([hasattr(base, "target") for base in bases])
             assert "throw" in dic or any([hasattr(base, "throw") for base in bases])
+
 
 class ThrowableBase(metaclass=Throwable):
     def use(self, character, *args):

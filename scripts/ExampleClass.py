@@ -4,11 +4,11 @@ import item
 class ExampleClass(Character):
     equip_slots = ["Head", "Torso", "Feet"]
 
-    def cmd_echo(self, *args):
+    def cmd_echo(self, args):
         '''Echoes the provided phrase back.
         usage: example [phrase]
         '''
-        self.message(args)
+        self.message(" ".join(args))
     
     def cmd_gimmie(self, *args):
         self.inv += Necklace()

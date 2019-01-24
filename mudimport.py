@@ -66,6 +66,7 @@ class LocationImporter(Importer):
                     continue
                 try:
                     if exit["destination"] in self.successes:
+                        # get destination from the successfully loaded locations
                         destination = self.successes[exit["destination"]]
                         kwarg_dict = {}
 
@@ -96,7 +97,6 @@ class LocationImporter(Importer):
             # if not, we delete the entry for this location (no failures to mention!)
             if not self.exit_failures[location_name]:
                 del self.exit_failures[location_name]
-
                     
 
     def add_items(self):
@@ -143,7 +143,6 @@ class ItemImporter(Importer):
                 # read the file, processing any stocstring macros
                 json_data = StocString.process(item_file.read())
             json_data = json.loads(json_data)
-            name = json_data["name"]
             name = json_data["name"]
             path = json_data["path"] 
             module = importlib.import_module(path.replace('.py', '').replace('/', '.'))

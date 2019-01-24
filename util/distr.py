@@ -58,7 +58,7 @@ class RandDist:
         
     def get(self):
         '''randomly return an item, based on weight'''
-        return random.choices(self.items, self.weights)[0]
+        return choices(self.items, self.weights)[0]
 
 class ChoiceDist:
     '''A random distribution where all items are equally weighted'''
