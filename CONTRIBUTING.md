@@ -56,7 +56,8 @@ Please read [DESIGN.md](./DESIGN.md) before you contribute code. Any inquiries a
 Use our **[.editorconfig]()** to help automatically format your code.
 
 Python is meant to be a **readable**. We follow [PEP8](https://www.python.org/dev/peps/pep-0008/) and you should too.
-You can also find our complete introduction to Python [here](https://github.com/xeranimus/club-resources/tree/master/python).
+
+You can also find our complete introduction to Python [here](https://github.com/ufosc/club-resources/tree/master/python).
 
 ## MuddySwamp - Creating a Location
 Creating a location in MuddySwamp is easy. They are stored using the .json format, at you can refer to the locations [template](./locations/template) for reference.
