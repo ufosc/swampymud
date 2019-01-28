@@ -25,6 +25,7 @@ class StringMacro:
 class StocString:
     '''Class representing and processsing stochastic strings'''
     # regex that captures the macros
+    # this regex cannot work, we need a LR parser to check open / closed parentheses
     token_regex = re.compile(r"((!{)(([^!{]*[?{]?)*)(}))")
 
     def __init__(self, input_string):
