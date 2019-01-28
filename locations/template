@@ -4,11 +4,12 @@
     "exits": [
         {
             "destination": "destination this exit points to",
-            "names": ["primary name", "other name1", "other name2"]
+            "name": "primary name",
+            "other_names": ["other name1", "other name2"]
         },
         {
             "destination": "here is another destination",
-            "names": ["primary name"]
+            "name": "primary name",
         }
     ]
 }

@@ -1,7 +1,9 @@
 from character import Character
 import item
+import library 
 
 class ExampleClass(Character):
+    starting_location = library.locations["Marston Basement"]
     equip_slots = ["Head", "Torso", "Feet"]
 
     def cmd_echo(self, args):

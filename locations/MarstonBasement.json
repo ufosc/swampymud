@@ -4,16 +4,13 @@
     "exits": [
         {
             "destination": "Marston Basement Bathroom",
-            "names": ["bathroom", "marston basement bathroom"],
-            "whitelist" : ["ExampleClass", "RareClass", "Cat"],
-            "blacklist" : ["RareClass"]
+            "name" : "bathroom",
+            "other_names": ["marston basement bathroom"],
+            "whitelist" : ["Example Class"]
         },
         {
             "destination": "Marston First Floor",
-            "names": ["first floor", "this will be an error"]
+            "name" : "upstairs"
         }
-    ],
-    "items" : {
-        "HealthPotion" : !{choice(2,3)}
-    }
+    ]
 }

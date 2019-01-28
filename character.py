@@ -152,11 +152,14 @@ class Character(control.Monoreceiver, metaclass=CharacterClass):
         command = args[0]
         if command not in self.commands:
             self.message("Command \'%s\' not recognized." % command)
+            return
         method = self.commands[command]
         try:
             method(self, args[1::])
         except AmbiguityError as amb:
             self._parser = AmbiguityResolver(self, args, amb.indices, amb.phrase, amb.options)
+        except CharException as ex:
+            self.message(str(ex))
     
     def _check_ambiguity(self, indices, phrase, options):
         '''wraps function outputs to handle ambiguity
@@ -226,7 +229,7 @@ class Character(control.Monoreceiver, metaclass=CharacterClass):
         
         # delete character from the name dictionary
         try:
-            del self.names[self.name]
+            del self._names[self.name]
         except KeyError:
             pass
 
@@ -298,7 +301,7 @@ class Character(control.Monoreceiver, metaclass=CharacterClass):
         if len(exit_list) == 0:
             exit_msg += "None"
         else:
-            exit_msg += " ,".join(map(str, exit_list))
+            exit_msg += ", ".join(map(str, exit_list))
         self.message(exit_msg)
 
     def cmd_say(self, args):
@@ -311,8 +314,11 @@ class Character(control.Monoreceiver, metaclass=CharacterClass):
         '''Walk to an accessible location.
         usage: walk [exit name]
         '''
-        exit_name = args[0]
-        exit = self.location.get_exit(exit_name)
+        exit_name = " ".join(args)
+        try:
+            exit = self.location.get_exit(exit_name)
+        except KeyError:
+            raise CharException("Could not find exit \'%s\'." % exit_name)
         self.set_location(exit.get_destination(), False, exit)
     
     # TODO: Move these into a "human" class

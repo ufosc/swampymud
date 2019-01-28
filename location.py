@@ -25,7 +25,8 @@ class Exit:
         exit += thing [include thing in exit]
         exit -= thing [exclude thing in exit]
     '''
-    def __init__(self, destination, primary_name, *other_names, **kwargs):
+    def __init__(self, destination, name, other_names=[], whitelist=[], blacklist=[],
+                closed=False, restricted=True, assume_include=True):
         '''Constructor for Exit
         Takes as input:
             location [location it points to]
@@ -34,40 +35,19 @@ class Exit:
             optional keyword arguments (whitelist, blacklist, assume_include)
         '''
         self._destination = destination
-        self._names = [primary_name] + list(other_names)
-        self._whitelist = []
-        self._blacklist = []
-        if 'whitelist' in kwargs:
-            self._whitelist.extend(kwargs['whitelist'])
-        if 'blacklist' in kwargs:
-            self._blacklist.extend(kwargs['blacklist'])
-        self.closed = False
-        if 'closed' in kwargs:
-            self.closed = kwargs['closed']
-        self.restricted = True
-        if 'restricted' in kwargs:
-            self.restricted = kwargs['restricted']
-        self.assume_include = True
-        if 'assume_include' in kwargs:
-            self.assume_include = kwargs['assume_include']
-        else:    
-            if len(self._whitelist) > 0:
-                # if whitelist and blacklist are provided
-                # then there is an ambiguity that must be resolved
-                if len(self._blacklist) > 0:
-                    ex = ("When both whitelist and blacklist keyword args "
-                         "are provided, boolean keyword \'assume_include\' "
-                         "must be supplied")
-                    raise Exception(ex)
-                else:
-                    self.assume_include = False
+        self._names = [name] + list(other_names)
+        self._whitelist = whitelist
+        self._blacklist = blacklist
+        self.closed = closed
+        self.restricted = restricted
+        self.assume_include = assume_include
 
     def get_destination(self):
         return self._destination
 
     def is_accessible(self, other):
         '''Overriding << pe
-        Returns True if this Exit is accessible to 
+        Returns True if this Exit is accessible to
         player or class [other]
         '''
         if self.closed:

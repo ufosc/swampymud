@@ -16,7 +16,7 @@ import control
 logging.basicConfig(format='%(asctime)s [%(threadName)s] [%(levelname)s] %(message)s',
                     level=logging.INFO,
                     handlers=[
-                        logging.FileHandler("muddyswamp.log"),
+                        logging.FileHandler("server.log"),
                         logging.StreamHandler(sys.stdout)
                     ])
 
@@ -50,10 +50,6 @@ class MudServerWorker(threading.Thread):
         mudimport.import_files(**IMPORT_PATHS)
         library.build_char_class_distr()
 
-        self.start_location = Location("Starting Location",
-                            "This is the default starting location.")
-        if "Marston Basement" in library.locations:
-            self.start_location = library.locations["Marston Basement"]
         super().__init__(*args, **kwargs)
     
     # Cannot call mud.shutdown() here because it will try to call the sockets in run on the final go through

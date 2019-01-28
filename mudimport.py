@@ -4,12 +4,15 @@ Module that deserializes developer-made game-data, converting it into real objec
 import json
 import os
 import importlib
+import logging
+import traceback
 from location import Location, Exit
 from util.stocstring import StocString
 import library
 
 
 class Importer:
+    '''Base class for other importers'''
     def __init__(self, lib=None):
         self.successes = {}
         if lib is not None:
@@ -19,15 +22,30 @@ class Importer:
     def import_file(self, filename):
         '''Import one file with filename [filename]'''
         try:
-            self._do_import(filename) 
+            self._do_import(filename)
         except Exception as ex:
-            self.failures[getattr(ex, "name")] = ex
+            self.failures[getattr(ex, "name")] = traceback.format_exc()
 
     def _do_import(self, filename):
+        '''This method should be implemented in base classes'''
         pass
+
+    def all_to_str(self):
+        '''cheap method to get an output for all values in each list'''
+        output = "\nSUCCESS LIST\n"
+        for _, obj in self.successes.items():
+            output += str(obj) + "\n"
+        output += "FAILURE LIST\n"
+        for name, reason in self.failures.items():
+            output += str(name) + " :\n"
+            output += str(reason) + "\n"
+        return output
 
 
 class LocationImporter(Importer):
+    '''Imports Locations from jsons
+    '''
+    # TODO: explain the philosophy here
     def __init__(self, library=None):
         self.skeletons = {}
         self.exit_failures = {}
@@ -57,7 +75,7 @@ class LocationImporter(Importer):
             # creating an empty list of failed exits
             self.exit_failures[location_name] = {}
             for exit in skeleton["exits"]:
-
+                
                 # check if the exit specified a destination first
                 if "destination" not in exit:
                     # make a fake name
@@ -67,37 +85,34 @@ class LocationImporter(Importer):
                 try:
                     if exit["destination"] in self.successes:
                         # get destination from the successfully loaded locations
-                        destination = self.successes[exit["destination"]]
-                        kwarg_dict = {}
+                        dest = self.successes[exit["destination"]]
+                        
 
                         # parsing the strings in the blacklist/whitelists,
-                        # getting references to proper characters
                         if "blacklist" in exit:
-                            kwarg_dict["blacklist"] = []
-                            for classname in exit["blacklist"]:
-                                kwarg_dict["blacklist"] += library.character_classes[classname]
+                            exit["blacklist"] = [library.character_classes[clsname]
+                                                 for clsname in exit["blacklist"]]
                         if "whitelist" in exit:
-                            kwarg_dict["whitelist"] = []
-                            for classname in exit["whitelist"]:
-                                kwarg_dict["whitelist"] += library.character_classes[classname]
+                            exit["whitelist"] = [library.character_classes[clsname]
+                                                 for clsname in exit["whitelist"]]
 
-                        # unpacking booleans from json data into the kwarg_dict 
-                        for keyword in ['closed', 'restricted', 'assume_include']:
-                            if keyword in exit:
-                                kwarg_dict[keyword] = exit[keyword]
-
-                        self.successes[exit_name].add_exit(Exit(destination, *exit["names"]), **kwarg_dict)
-                    if exit["destination"] in self.failures:
-                        raise Exception("Destination \'%s\' failed to import" % (exit["destination"]))
+                        # TODO: handle references to "proper characters"
+                        
+                        # Preparing exit dict for conversion to keyword arguments
+                        kwargs = dict(exit)
+                        del kwargs["destination"]
+                        #del kwargs["name"]
+                        self.successes[location_name].add_exit(Exit(dest, **kwargs))
+                    elif exit["destination"] in self.failures:
+                        raise Exception("Destination \'%s\' failed to import." % (exit["destination"]))
                     else:
                         raise Exception("Destination \'%s\' could not be found." % (exit["destination"]))
-                except Exception as ex:
-                    self.exit_failures[location_name][exit["destination"]] = str(ex)
+                except Exception:
+                    self.exit_failures[location_name][(exit["destination"])] = traceback.format_exc()
             # check if any failed exits were added to the exit_failures dictionary
             # if not, we delete the entry for this location (no failures to mention!)
             if not self.exit_failures[location_name]:
                 del self.exit_failures[location_name]
-                    
 
     def add_items(self):
         '''looks at the skeletons, adds items for each
@@ -109,7 +124,17 @@ class LocationImporter(Importer):
         on fail, an entity is simply not added'''
         pass
 
+    def all_to_str(self):
+        output = super().all_to_str()
+        output += "\nEXIT FAILURES\n"
+        for location, exits in self.exit_failures.items():
+            for dest, exc in exits.items():
+                output += str(location) + " -> " + str(dest) + "\n" + exc
+        return output
+
+
 class CharacterClassImporter(Importer):
+    '''Importer for CharacterClasses'''
     def _do_import(self, filename):
         name = filename
         try:
@@ -121,7 +146,7 @@ class CharacterClassImporter(Importer):
             assert isinstance(json_data["name"], str)
             if "frequency" in json_data:
                 assert isinstance(json_data["frequency"], float)
-            path = json_data["path"] 
+            path = json_data["path"]
             module = importlib.import_module(path.replace('.py', '').replace('/', '.'))
             character_class = module.__dict__[name]
             if "starting_location" in json_data:
@@ -177,6 +202,7 @@ def import_files(**paths):
         location_importer.build_exits()
         location_importer.add_items()
         location_importer.add_entities()
+    logging.info(location_importer.all_to_str())
 
 
 def get_filenames(directory, ext=""):
