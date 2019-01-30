@@ -145,7 +145,6 @@ class Location:
     Has a name and description
     '''
 
-    #TODO change "player" to "character"
     def __init__(self, name, description):
         self._character_list = []
         self._exit_list = []
@@ -192,7 +191,7 @@ class Location:
             if exit_name == exit:
                 return exit
         raise KeyError("Exit with name \'%s\' not in Location %s"
-            % (exit_name, self.name))
+                       % (exit_name, self.name))
 
     def add_item(self, item, quantity=1):     
         self._items.add_item(item, quantity)
