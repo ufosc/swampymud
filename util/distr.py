@@ -13,6 +13,9 @@ def choices(population, weights=None, *, cum_weights=None, k=1):
     the selections are made with equal probability.
 
     """
+    print(population)
+    print(weights)
+    print(cum_weights)
     if cum_weights is None:
         if weights is None:
             _int = int
@@ -50,12 +53,10 @@ class RandDist:
     the value of a getting an object = w/total
     where w is the weight of object, and total is the sum of all weights
     '''
-    def __init__(self, weighted_items):
-        # convert weighted_items into a list of tuples
-        weighted_items = weighted_items.items()
-        # unzip the list into corresponding weights
-        self.items, self.weights = zip(*weighted_items)
-        
+    def __init__(self, items, weights):
+        self.items = items
+        self.weights = weights
+
     def get(self):
         '''randomly return an item, based on weight'''
         return choices(self.items, self.weights)[0]

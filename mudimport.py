@@ -49,6 +49,7 @@ class LocationImporter(Importer):
     def __init__(self, library=None):
         self.skeletons = {}
         self.exit_failures = {}
+        self.item_failures = {}
         super().__init__(library)
 
     def _do_import(self, filename):
@@ -60,7 +61,12 @@ class LocationImporter(Importer):
                 json_data = StocString.process(location_file.read())
             json_data = json.loads(json_data)
             name = json_data["name"]
-            # do checking here
+            # check that "items" is a dict
+            if "items" in json_data:
+                assert(isinstance(json_data["items"], dict))
+            # check that "exits" is a list
+            if "exits" in json_data:
+                assert(isinstance(json_data["exits"], list))
         except Exception as ex:
             # modify exception to show what the name is, rethrow
             setattr(ex, "name", name)
@@ -74,6 +80,8 @@ class LocationImporter(Importer):
         for location_name, skeleton in self.skeletons.items():
             # creating an empty list of failed exits
             self.exit_failures[location_name] = {}
+            if "exits" not in skeleton:
+                continue
             for exit in skeleton["exits"]:
                 
                 # check if the exit specified a destination first
@@ -117,11 +125,26 @@ class LocationImporter(Importer):
     def add_items(self):
         '''looks at the skeletons, adds items for each
         on fail, an item is simply not added'''
-        pass
+        for location_name, skeleton in self.skeletons.items():
+            failures = {}
+            # items might be provided, in which case we just continue
+            if "items" not in skeleton:
+                continue
+            for item_name, quantity in skeleton["items"].items():
+                try:
+                    item = library.items[item_name]
+                    quanity = int(quantity)
+                    self.successes[location_name].add_items(item, quanity)
+                except Exception as ex:
+                    failures[item_name] = traceback.format_exc()
+                    # this is an idempotent operation
+                    # even if we re-assign the dict multiple times, it has the same effect
+                    self.item_failures[location_name] = failures
 
     def add_entities(self):
         '''looks at skeletons, adds entity for each
         on fail, an entity is simply not added'''
+        # entities have not been added yet
         pass
 
     def all_to_str(self):
@@ -130,6 +153,11 @@ class LocationImporter(Importer):
         for location, exits in self.exit_failures.items():
             for dest, exc in exits.items():
                 output += str(location) + " -> " + str(dest) + "\n" + exc
+        output += "\nITEM FAILURES\n"
+        for location, items in self.exit_failures.items():
+            output += str(location) + ":\n"
+            for item, exc in exits.items():
+                output +=  str(dest) + "\n" + exc
         return output
 
 
@@ -203,6 +231,7 @@ def import_files(**paths):
         location_importer.add_items()
         location_importer.add_entities()
     logging.info(location_importer.all_to_str())
+    logging.info(character_importer.all_to_str())
 
 
 def get_filenames(directory, ext=""):

@@ -1,5 +1,5 @@
 {
     "name" : "RareClass",
-    "frequency" : 10000,
+    "frequency": 0.0,
     "path" : "scripts/RareClass.py"
 }

@@ -212,8 +212,12 @@ class Character(control.Monoreceiver, metaclass=CharacterClass):
     def __del__(self):
         self.die()
 
-    def die(self):
+    def die(self, msg="%s died."):
         '''method executed when a player dies'''
+        if msg is not None:
+            if "%s" in msg:
+                msg = msg % self
+            self.location.message_chars(msg)
         self._remove_references()
 
     def _remove_references(self):

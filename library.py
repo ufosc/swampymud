@@ -18,8 +18,7 @@ def build_char_class_distr():
     '''
     global random_class
     frequencies = [char_class.frequency for char_class in character_classes.values()]
-    freq_dict = dict(zip(character_classes.values(), frequencies))
-    random_class = RandDist(freq_dict)
+    random_class = RandDist(list(character_classes.values()), frequencies)
 
 def store_server(input_server):
     '''stores [input_server] as library.server'''
