@@ -141,7 +141,10 @@ class Character(control.Monoreceiver, metaclass=CharacterClass):
             line = self.controller.read_cmd().strip()
             if line == "":
                 continue
-            self._parser(line)
+            try:
+                self._parser(line)
+            except CharException as cex:
+                self.message(str(cex))
 
     def parse_command(self, line=None, args=None):
         '''parses a command, raises AttributeError if command cannot be found'''
