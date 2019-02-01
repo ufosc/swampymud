@@ -1,3 +1,6 @@
+'''defining the inventory module'''
+
+#TODO: make internal implementation faster and more elegant
 class Inventory:
     def __init__(self): 
         self._items = {}
@@ -19,7 +22,6 @@ class Inventory:
         raises KeyError if item not found
         raises an ArithmeticError if item is found, but [quantity] > item quanity
         '''
-
         item_type = type(type(item))
         if item_type not in self._items:
             raise KeyError("Item %s not found" % item)
@@ -35,6 +37,10 @@ class Inventory:
             del self._items[item_type]
 
     def get_item(self, name):
+        '''Return all items with a matching name
+        Recepient of the objects is responsible for handling
+        ambiguity
+        '''
         results = []
         for item in self:
             if item == name:
@@ -66,7 +72,7 @@ class Inventory:
 
     def __repr__(self):
         return self._items.__repr__()
-    
+
     def __contains__(self, item):
         if type(type(item)) in self._items:
             return item in self._items[type(type(item))]

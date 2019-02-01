@@ -1,0 +1,15 @@
+{
+    "name": "Marston First Floor",
+    "description": "A bored librarian sits at the desk.",
+    "exits":
+    [
+        {
+            "destination": "Marston Basement",
+            "name": "downstairs"
+        },
+        {
+            "destination": "Turlington Plaza",
+            "name" : "outside"
+        }
+    ]
+}

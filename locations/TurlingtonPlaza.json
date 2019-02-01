@@ -4,11 +4,8 @@
     "exits": [
         {
             "destination": "Marston First Floor",
-            "names": ["marston", "marston first floor"]
-        },
-	{
-            "destination": "A fish on the ground",
-            "names": ["???", "location of fish", "fish"]
+            "name": "marston",
+            "other_names": ["marston first floor"]
         }
     ]
 }

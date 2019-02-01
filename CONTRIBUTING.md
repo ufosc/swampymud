@@ -53,52 +53,11 @@ Check to see if the feature is already listed in our [TODO.md](./TODO.md). If it
 Please read [DESIGN.md](./DESIGN.md) before you contribute code. Any inquiries are appreciated.
 ## Style Guide 
 
-Use our **[.editorconfig](./.editorconfig)** to help automatically format your code. A short list of what we require.
+Use our **[.editorconfig]()** to help automatically format your code.
 
-For a longer more descriptive list, check out our club's **[general style guidelines](https://github.com/ufosc/resources/blob/master/coding-guidelines/general-style.md)**.
+Python is meant to be a **readable**. We follow [PEP8](https://www.python.org/dev/peps/pep-0008/) and you should too.
 
-
-Python is meant to be a **readable**. We try to follow [PEP 8](https://www.python.org/dev/peps/pep-0008/) and ask that you do so as well. It is worth reading, but here are key highlights.
-
-### Naming Conventions
-- Package / Module names:
-    - lowercase
-    - e.g.: alphabet, string_builder
-- Class names:
-    - CapWords
-    - e.g. EventType, PlayerQueue
-- Function and variable names:
-    - lowercase_with_underscores:
-    - e.g. my_circle, export_data()
-- Global variables:
-    - same as functions
-- Constants:
-    - ALL _CAPS
-    - e.g. MAX_WIDTH, TOTAL
-
-### Commenting
-Good python code is self-documenting. Block comments are encouraged, but **avoid** inline comments. Examples:
-```
-def function(x):
-    print(x) #inline comments look like this
-    return(x +1)    
-```
-Use docstrings to add automatic documentation to modules, classes, and functions. You can call an object's docstring with `.__doc__` Example:
-```
->>> from location import Exit
->>> print(Exit.__doc__)
-Class representing an Exit
-    Exits link a set of names with a particular location
-    Contains:
-        a list of strings [exit names]
-        location [the location this points to]
-    The list can be accessed by treating the this as an iterable
-	...
-```
-More on docstrings can be found with [PEP 257](https://www.python.org/dev/peps/pep-0257/).
-
-### Line Limit
-Keep lines under 80 characters. See PEP 8 for explanations on how to handle a long line. 
+You can also find our complete introduction to Python [here](https://github.com/ufosc/club-resources/tree/master/python).
 
 ## MuddySwamp - Creating a Location
 Creating a location in MuddySwamp is easy. They are stored using the .json format, at you can refer to the locations [template](./locations/template) for reference.
