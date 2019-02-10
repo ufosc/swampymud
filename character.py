@@ -328,6 +328,19 @@ class Character(control.Monoreceiver, metaclass=CharacterClass):
         else:
             exit_msg += ", ".join(map(str, exit_list))
         self.message(exit_msg)
+        char_list = self.location.get_character_list()
+        char_msg = "You see"
+        if len(char_list) == 0:
+            pass
+        elif len(char_list) == 1:
+            char_msg += char_list[0] + "." 
+            self.message(char_msg)
+        elif len(char_list) == 2:
+            char_msg += " and ".join(map(Character.__str__, char_list)) + "."
+            self.message(char_msg)
+        else:
+            char_msg += ", ".join(map(Character.__str__, char_list[:-1])) + ", and " + char_list[-1] + "."
+            self.message(char_msg)
 
     def cmd_say(self, *args):
         '''Say a message aloud, sent to all players in your current locaton.
