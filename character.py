@@ -333,7 +333,7 @@ class Character(control.Monoreceiver, metaclass=CharacterClass):
         if len(char_list) == 0:
             pass
         elif len(char_list) == 1:
-            char_msg += char_list[0] + "." 
+            char_msg += __str__(char_list[0]) + "." 
             self.message(char_msg)
         elif len(char_list) == 2:
             char_msg += " and ".join(map(Character.__str__, char_list)) + "."
