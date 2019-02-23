@@ -46,8 +46,8 @@ class MudServerWorker(threading.Thread):
     def __init__(self, q, *args, **kwargs):
         self.keep_running = True
         self.q = q
-        import_files(**import_paths)
-        library.build_class_distribution()
+        mudimport.import_files(**IMPORT_PATHS)
+        library.build_char_class_distr()
         super().__init__(*args, **kwargs)
 
     # Cannot call mud.shutdown() here because it will try to call the sockets in run on the final go through
