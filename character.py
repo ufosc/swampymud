@@ -137,24 +137,16 @@ class Character(control.Monoreceiver, metaclass=CharacterClass):
         self.inv = inventory.Inventory()
         self.equip_dict = item.EquipTarget.make_dict(*self.equip_slots)
         self._parser = lambda line: Character.player_set_name(self, line)
+        #TODO: make this a property
+        self.is_alive = True
 
     def message(self, msg):
         '''send a message to the controller of this character'''
         if self.controller is not None:
             self.controller.write_msg(msg)
-
-    def detach(self, hard_detach=False):
-        '''removes a character from its controller
-        if hard_detach is True, the player enter its
-        death process, defined by die
-        '''
-        # calling method from control.Receiver
-        super().detach()
-        if hard_detach:
-            self.die()
     
     def update(self):
-        while self.controller.has_cmd():
+        while self.is_alive and self.controller.has_cmd():
             line = self.controller.read_cmd().strip()
             if line == "":
                 continue
@@ -198,7 +190,7 @@ class Character(control.Monoreceiver, metaclass=CharacterClass):
         if new_name in Character._names:
             raise CharException("Name already taken.")
         if self.name is not None:
-            del(self.names[self.name])
+            del(self._names[self.name])
         self.name = new_name
         self._names[self.name] = self
     
@@ -229,9 +221,6 @@ class Character(control.Monoreceiver, metaclass=CharacterClass):
             return self.name
 
     # these methods need heavy refinement 
-    def __del__(self):
-        self.die()
-
     def die(self, msg="%s died."):
         '''method executed when a player dies'''
         if msg is not None:
@@ -239,6 +228,9 @@ class Character(control.Monoreceiver, metaclass=CharacterClass):
                 msg = msg % self
             self.location.message_chars(msg)
         self._remove_references()
+        self.detach()
+        self.is_alive = False
+
 
     def _remove_references(self):
         '''method executed when a character is being removed
@@ -256,7 +248,6 @@ class Character(control.Monoreceiver, metaclass=CharacterClass):
             del self._names[self.name]
         except KeyError:
             pass
-
 
     #location manipulation methods        
     def set_location(self, new_location, silent=False, reported_exit=None):
@@ -302,7 +293,7 @@ class Character(control.Monoreceiver, metaclass=CharacterClass):
                 % item)
 
     # default commands        
-    def cmd_help(self, *args):
+    def cmd_help(self, args):
         '''Show relevant help information for a particular command.
         usage: help [command]
         If no command is supplied, a list of all commands is shown.
