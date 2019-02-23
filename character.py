@@ -320,7 +320,11 @@ class Character(control.Monoreceiver, metaclass=CharacterClass):
             exit_msg += ", ".join(map(str, exit_list))
         self.message(exit_msg)
         char_list = self.location.get_character_list()
-        char_msg = "You see"
+        try:
+            char_list.remove(self)
+        except:
+            pass
+        char_msg = "You see "
         if len(char_list) == 0:
             pass
         elif len(char_list) == 1:

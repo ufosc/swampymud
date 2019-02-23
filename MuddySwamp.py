@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+#!/usr/bin/env python
 '''main script for MuddySwamp'''
 import sys
 import logging
@@ -45,6 +45,7 @@ class ServerComand:
 class MudServerWorker(threading.Thread):
     def __init__(self, q, *args, **kwargs):
         self.keep_running = True
+        self.q = q
         mudimport.import_files(**IMPORT_PATHS)
         library.build_char_class_distr()
         super().__init__(*args, **kwargs)
