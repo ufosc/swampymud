@@ -189,7 +189,7 @@ class Character(control.Monoreceiver, metaclass=CharacterClass):
         if len(options) == 1:
             return options[0]
         elif len(options) == 0:
-            self._message("Error: '%s' not found." % (phrase) )
+            self.message("Error: '%s' not found." % (phrase) )
         else:
             raise AmbiguityError(indices, phrase, options)        
 
