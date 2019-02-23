@@ -4,11 +4,13 @@
     "exits" : [
         {
             "destination": "Marston Basement Bathroom",
-            "names": ["exit", "bathroom"]
+            "name": "exit",
+            "other_names": ["bathroom"]
         },
         {
             "destination": "Portal",
-            "names": ["portal", "enter", "this dependency should work"]
+            "name" : "portal",
+            "other_names": ["enter", "this dependency should work"]
         }
     ]
 }

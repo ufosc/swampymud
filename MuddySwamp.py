@@ -5,7 +5,7 @@ import logging
 import threading
 import queue
 import enum
-from fileparser import import_files, get_filenames
+import mudimport
 import library
 # import the MUD server class
 from mudserver import MudServer, Event, EventType
@@ -16,26 +16,28 @@ import traceback
 
 # Setup the logger
 logging.basicConfig(format='%(asctime)s [%(threadName)s] [%(levelname)s] %(message)s',
-    level=logging.DEBUG,
-    handlers=[
-        logging.FileHandler("muddyswamp.log"),
-        logging.StreamHandler(sys.stdout)
-    ])
+                    level=logging.INFO,
+                    handlers=[
+                        logging.FileHandler("server.log"),
+                        logging.StreamHandler(sys.stdout)
+                    ])
+
 
 # defining a set of paths
 # by default, we import every json in chars and locations
-import_paths = {
-    "locations" : get_filenames("./locations/", ".json"),
-    "chars" : get_filenames("./chars/", ".json")
+IMPORT_PATHS = {
+    "locations" : mudimport.get_filenames("./locations/", ".json"),
+    "chars" : mudimport.get_filenames("./chars/", ".json"),
+    "items" : mudimport.get_filenames("./items/", ".json")
 }
 
-# Basic enum for the type of server command
 class ServerCommandEnum(enum.Enum):
-    BROADCAST_MESSAGE=0
-    GET_PLAYERS=1
+    ''' basic enum for the type of server command'''
+    BROADCAST_MESSAGE = 0
+    GET_PLAYERS = 1
 
-# Simple wrapper class for a server-side command
 class ServerComand:
+    '''Simple wrapper class for a server-side command'''
     def __init__(self, command_type, params):
         self.command_type = command_type
         self.params = params
@@ -119,9 +121,9 @@ class MudServerWorker(threading.Thread):
         self.mud.shutdown()
 
 # Create a threadsafe queue for commands entered on the server side
-q = queue.Queue()
+command_queue = queue.Queue()
 # Create an instance of the thread and start it
-thread = MudServerWorker(q)
+thread = MudServerWorker(command_queue)
 thread.setName("MudServerThread")
 thread.start()
 
@@ -130,24 +132,36 @@ while True:
     try:
         command, params = (input("").split(" ", 1) + ["", ""])[:2]
         if command == "broadcast":
-            q.put(ServerComand(ServerCommandEnum.BROADCAST_MESSAGE, u"\u001b[32m" + "[Server] " + params + u"\u001b[0m"))
+            command_queue.put(ServerComand(ServerCommandEnum.BROADCAST_MESSAGE, u"\u001b[32m" + "[Server] " + params + u"\u001b[0m"))
         elif command == "players":
-            q.put(ServerComand(ServerCommandEnum.GET_PLAYERS, ""))
+            command_queue.put(ServerComand(ServerCommandEnum.GET_PLAYERS, ""))
         elif command == "stop":
-            q.put(ServerComand(ServerCommandEnum.BROADCAST_MESSAGE, u"\u001b[32m" + "[Server] " + "Server shutting down..." + u"\u001b[0m"))
+            command_queue.put(ServerComand(ServerCommandEnum.BROADCAST_MESSAGE, u"\u001b[32m" + "[Server] " + "Server shutting down..." + u"\u001b[0m"))
             break
         elif command == "help":
             logging.info("Server commands are: \n" \
             " broadcast [message] - Broadcasts a message to the entire server\n"\
             " players - Prints a list of all players\n" \
-            " stop - Stops the server")
-        elif command.strip() == "":
-            pass
+            " stop - Stops the server\n" \
+            " list [locations|items|chars|] - list all available loaded locations/items/chars\n")
+        elif command == "list":
+            if params == "locations":
+                location_list = "Loaded Locations:\n"
+                for name, ref in library.locations.items():
+                    location_list += "Name: %s\n" \
+                    "Object:\n%s\n" % (name, repr(ref))
+                logging.info(location_list)
+            elif params == "items":
+                pass
+            elif params == "chars":
+                pass
+            else:
+                logging.info("Argument not recognized. Type help for a list of commands.")
         else:
             logging.info("Command not recognized. Type help for a list of commands.")
     except KeyboardInterrupt:
         logging.info("Keyboard interrupt detected. Shutting down.")
-        q.put(ServerComand(ServerCommandEnum.BROADCAST_MESSAGE, u"\u001b[32m" + "[Server] " + "Server shutting down..." + u"\u001b[0m"))
+        command_queue.put(ServerComand(ServerCommandEnum.BROADCAST_MESSAGE, u"\u001b[32m" + "[Server] " + "Server shutting down..." + u"\u001b[0m"))
         break
 
 

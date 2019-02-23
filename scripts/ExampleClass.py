@@ -1,28 +1,17 @@
 from character import Character
 import item
-from library import library
-from location import Location
+import library 
 
 class ExampleClass(Character):
-    starting_location = library[Location]["Marston Basement Bathroom"]
+    starting_location = library.locations["Marston Basement"]
     equip_slots = ["Head", "Torso", "Feet"]
 
-    def cmd_echo(self, *args):
+    def cmd_echo(self, args):
         '''Echoes the provided phrase back.
         usage: example [phrase]
         '''
         self.message(" ".join(args))
         
-    def cmd_me(self, *args):
-        '''Illustrate an action of a character
-		usage me [phrase]
-        '''
-        self.location.message_chars("*%s %s" % (self, " ".join(args)))
-        self.inv += RedPants()
-        self.inv += Tentacle()
-        self.inv += Cuirass()
-        self.inv += BetterCuirass()
-
     def cmd_gimmie(self, *args):
         self.inv += Necklace()
         self.inv += BlueNecklace()

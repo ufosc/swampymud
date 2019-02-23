@@ -1,5 +1,6 @@
-# TODO: consider adding a "CharacterClass" property
-# that restricts who can use an exit
+import inventory as inv
+import item
+
 class Exit:
     '''Class representing an Exit
     Exits link a set of names with a particular location
@@ -24,7 +25,8 @@ class Exit:
         exit += thing [include thing in exit]
         exit -= thing [exclude thing in exit]
     '''
-    def __init__(self, destination, primary_name, *other_names, **kwargs):
+    def __init__(self, destination, name, other_names=[], whitelist=[], blacklist=[],
+                closed=False, restricted=True, assume_include=True):
         '''Constructor for Exit
         Takes as input:
             location [location it points to]
@@ -33,47 +35,19 @@ class Exit:
             optional keyword arguments (whitelist, blacklist, assume_include)
         '''
         self._destination = destination
-        self._names = [primary_name] + list(other_names)
-        self._whitelist = []
-        self._blacklist = []
-        if 'whitelist' in kwargs:
-            self._whitelist.extend(kwargs['whitelist'])
-        if 'blacklist' in kwargs:
-            self._blacklist.extend(kwargs['blacklist'])
-        self.closed = False
-        self.restricted = True
-        self.assume_include = True
-        if 'assume_include' in kwargs:
-            self.assume_include = kwargs['assume_include']
-        else:    
-            if len(self._whitelist) > 0:
-                # if whitelist and blacklist are provided
-                # then there is an ambiguity that must be resolved
-                if len(self._blacklist) > 0:
-                    ex = ("When both whitelist and blacklist keyword args "
-                         "are provided, boolean keyword \'assume_include\' "
-                         "must be supplied")
-                    raise Exception(ex)
-                else:
-                    self.assume_include = False
-    
+        self._names = [name] + list(other_names)
+        self._whitelist = whitelist
+        self._blacklist = blacklist
+        self.closed = closed
+        self.restricted = restricted
+        self.assume_include = assume_include
+
     def get_destination(self):
         return self._destination
-    
-    def __eq__(self, other):
-        '''Overriding ==
-        Returns True if:
-            other is an Exit that points to the same location
-            other is a string that is in the list
-        '''
-        try:
-            return self._destination == other._destination
-        except AttributeError:
-            return other in self._names
 
     def is_accessible(self, other):
         '''Overriding << pe
-        Returns True if this Exit is accessible to 
+        Returns True if this Exit is accessible to
         player or class [other]
         '''
         if self.closed:
@@ -94,7 +68,7 @@ class Exit:
             return other not in self._blacklist
         else:
             return other in self._whitelist
-        
+
     def include(self, other):
         '''
         include [other], allowing them to access this exit
@@ -121,14 +95,14 @@ class Exit:
         returns true if this exit is accessible to [other]
         '''
         return self.is_accessible(other)
-    
+
     def __iadd__(self, other):
         '''overriding +=
         this will make [other] be included
         '''
         self.include(other)
         return self
-    
+
     def __isub__(self, other):
         '''overriding -=
         this will make [other] be excluded
@@ -158,7 +132,7 @@ class Exit:
     def __iter__(self):
         for name in self._names:
             yield name
-    
+
     def __str__(self):
         '''overriding str() function'''
         return "%s: %s" % (self._names[0], self._destination.name)
@@ -171,10 +145,10 @@ class Location:
     Has a name and description
     '''
 
-    #TODO change "player" to "character"
     def __init__(self, name, description):
         self._character_list = []
         self._exit_list = []
+        self._items = inv.Inventory()
         self.name = name
         self.description = description
         # this will come into play later
@@ -182,24 +156,23 @@ class Location:
 
     def add_char(self, char):
         self._character_list.append(char)
-        char.set_location(self)
-    
+
     def remove_char(self, char, silent=False, exit=None):
         self._character_list.remove(char)
         if not silent:
             if exit is not None:
-                self.message_chars("%s left via %s" )
+                self.message_chars("%s left via %s" % (char, exit))
             else:
                 self.message_chars("%s left." % char)
-    
+
     def get_character_list(self):
         return list(self._character_list)
-    
+
     def message_chars(self, msg):
         '''send message to all characters currently in location'''
         for char in self._character_list:
             char.message(msg)
-    
+
     def add_exit(self, exit_to_add):
         '''adds an exit, while performing a check for any ambigious names'''
         for exit_name in exit_to_add:
@@ -215,30 +188,47 @@ class Location:
         '''returns an exit corresponding to exit name
         if exit name is not in list, error is raised'''
         for exit in self._exit_list:
-                if exit_name == exit:
-                    return exit
+            if exit_name == exit:
+                return exit
         raise KeyError("Exit with name \'%s\' not in Location %s"
-            % (exit_name, self.name))
+                       % (exit_name, self.name))
 
-    def __eq__(self, other):
-        return self.name == other
+    def add_item(self, item, quantity=1):     
+        self._items.add_item(item, quantity)
+
+    def remove_item(self, item, quantity=1):
+        self._items.remove_item(item, quantity)
+
 
     def __contains__(self, other):
         '''Overriding in operator
-        Returns True if:
-            if it is an exit or string:
-                there exists an exit in _exit_list that matches
-            if it is a Character or id:
-                there exists a player with that id
+        Returns True where
+            other is an exit or string:
+                and there exists an exit in _exit_list that matches
+            other is a Character:
+                and there exists a character in _character_list that matches
+            other is an item:
+                the item is present in the location's inventory
         '''
-        if isinstance(other, Exit) or isinstance(other, str):
+        if isinstance(other, Exit):
             return other in self._exit_list
-        #replace int with Player
         elif isinstance(other, character.Character):
             return other in self._character_list
+        elif isinstance(other, item.Item):
+            return other in self._items
         else:
-            raise ValueError("Received %s, expected Exit/string, "
-                             "Player/int" % type(other))
+            raise ValueError("Received %s, expected Exit, Character, or Item"
+                             % type(other))
+
+    def __repr__(self):
+        #TODO: make the output more pythonic
+        output = "Name:\t%s\n" % self.name
+        output += "Desc:\t%s\n" % self.description
+        output += "Chars:\t%s\n" % self._character_list
+        output += "Exits:\t%s\n" % self._exit_list
+        output += "Owner:\t%s\n" % self.owner
+        return output
+
 
     def __str__(self, verbose=False):
         '''supplies a string

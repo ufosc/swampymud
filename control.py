@@ -147,7 +147,8 @@ class Player(Controller):
 
         in future multithreaded versions, this will be removed
         '''
-        self.receiver.update()
+        if self.receiver is not None:
+            self.receiver.update()
 
     def read_cmd(self):
         '''returns a command from the queue

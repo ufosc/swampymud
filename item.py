@@ -19,17 +19,11 @@ Throwables:
 
 class Item(type):
     '''The metaclass establishing behavior for all items'''
-
     def __init__(self, cls, bases, dic):
         if "name" not in dic:
             self.name = cls
-        # detect if an item has any use method
-        assert "use" in dic or any([hasattr(base, "use") for base in bases])
         self.item_type = "Item"
         super().__init__(cls, bases, dic)
-
-    def __str__(self):
-        return self.name
 
 
 class Equippable(Item):
@@ -44,16 +38,12 @@ class Equippable(Item):
 
 #TODO: make it so that metaclass automatically detects KEY attributes
 class EquippableBase(metaclass=Equippable):
-
     def __init__(self):
         self.name = self.__class__.name
         self.is_equipped = False
 
-    def use(self, character, *args):
-        self.equip(self, character, *args)
-
     def __str__(self):
-        return self.name
+        return self.__class__.name
     
     def __eq__(self, other):
         if type(other) is str:
@@ -78,14 +68,6 @@ class EquipTarget:
             self._target_list.append(name.lower())
         self.name = name
 
-    @staticmethod
-    def make_dict(*names):
-        #TODO: make support for default items?
-        equip_dict = {}
-        for name in names:
-            equip_dict[EquipTarget(name)] = None
-        return equip_dict
-
     def __str__(self):
         return self.name 
 
@@ -101,6 +83,14 @@ class EquipTarget:
     
     def __repr__(self):
         return str(self) + "[%s]" % self.target_id 
+
+    @staticmethod
+    def make_dict(*names):
+        #TODO: make support for default items?
+        equip_dict = {}
+        for name in names:
+            equip_dict[EquipTarget(name)] = None
+        return equip_dict
 
 class Consumable(Item):
     def __init__(self, cls, bases, dic):
@@ -136,10 +126,8 @@ class Throwable(Item):
             assert "target" in dic or any([hasattr(base, "target") for base in bases])
             assert "throw" in dic or any([hasattr(base, "throw") for base in bases])
 
-class ThrowableBase(metaclass=Throwable):
-    def use(self, character, *args):
-        self.throw(self, character, sender, *args)
 
+class ThrowableBase(metaclass=Throwable):
     def __str__(self):
         return self.name
     
@@ -148,7 +136,7 @@ class ThrowableBase(metaclass=Throwable):
             return self.name.lower() == other.lower()
         elif type(other) is type(self):
             return hash(self) == hash(other)
-        return False 
+        return False
 
     def __hash__(self):
         return hash((self.__class__, self.name))
