@@ -333,13 +333,13 @@ class Character(control.Monoreceiver, metaclass=CharacterClass):
         if len(char_list) == 0:
             pass
         elif len(char_list) == 1:
-            char_msg += char_list[0].__str__ + "."
+            char_msg += str(char_list[0]) + "."
             self.message(char_msg)
         elif len(char_list) == 2:
-            char_msg += " and ".join(map(Character.__str__, char_list)) + "."
+            char_msg += " and ".join(map(str, char_list)) + "."
             self.message(char_msg)
         else:
-            char_msg += ", ".join(map(Character.__str__, char_list[:-1])) + ", and " + char_list[-1] + "."
+            char_msg += ", ".join(map(str, char_list[:-1])) + ", and " + char_list[-1] + "."
             self.message(char_msg)
 
     def cmd_say(self, *args):
