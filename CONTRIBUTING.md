@@ -431,4 +431,3 @@ A few topics that I did not cover in this guide that I will cover later:
 * referencing static objects
 * using mudtools
 * the built-in features of the Character class
-* class data fields, like name, starting_location, and frequency. 
