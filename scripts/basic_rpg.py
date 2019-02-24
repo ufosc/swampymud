@@ -42,13 +42,13 @@ class Humanoid(Character):
         '''Slap another player.
         Usage: slap [player]
         '''
-        if len(args) < 1:
+        if len(args) < 2:
             return
         for char in self.location.get_character_list():
-            if args[0] == char.name:
+            if args[1] == char.name:
                 break
         else:
-            self.message("Could not find player with name %s." % args[0])
+            self.message("Could not find player with name %s." % args[1])
             return
         # if we get to this point, then we slapped someone
         try:

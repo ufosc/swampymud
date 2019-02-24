@@ -167,7 +167,7 @@ class Character(control.Monoreceiver, metaclass=CharacterClass):
             return
         method = self.commands[command]
         try:
-            method(self, args[1::])
+            method(self, args)
         except AmbiguityError as amb:
             self._parser = AmbiguityResolver(self, args, amb)
         except CharException as ex:
@@ -298,10 +298,10 @@ class Character(control.Monoreceiver, metaclass=CharacterClass):
         usage: help [command]
         If no command is supplied, a list of all commands is shown.
         '''
-        if len(args) == 0:
+        if len(args) < 2:
             self.message(self.__class__.help_menu)
             return
-        command = args[0]
+        command = args[1]
         if command in self.commands:
             self.message(str(self.commands[command].__doc__))
         else:
@@ -341,13 +341,13 @@ class Character(control.Monoreceiver, metaclass=CharacterClass):
         '''Say a message aloud, sent to all players in your current locaton.
         usage: say [msg]
         '''
-        self.location.message_chars("%s : %s" % (self, " ".join(args)))
+        self.location.message_chars("%s : %s" % (self, " ".join(args[1:])))
     
     def cmd_walk(self, args):
         '''Walk to an accessible location.
         usage: walk [exit name]
         '''
-        exit_name = " ".join(args)
+        exit_name = " ".join(args[1:])
         exit = self.location.get_exit(exit_name)
         self.set_location(exit.get_destination(), False, exit)
     
@@ -355,7 +355,7 @@ class Character(control.Monoreceiver, metaclass=CharacterClass):
     # Why should we assume the player can do these things?
     def cmd_equip(self, args):
         '''Equip an equippable item from your inventory.'''
-        item_name = " ".join(args)
+        item_name = " ".join(args[1::])
         item = self._check_ambiguity(indices, item_name, self.inv.get_item(item_name))
         self.equip(item)
 
@@ -363,9 +363,9 @@ class Character(control.Monoreceiver, metaclass=CharacterClass):
         '''Unequip an equipped item.'''
         options = []
         for target, item in self.equip_dict.items():
-            if item == args[0]:
+            if item == args[1]:
                 options.append(item)
-        item = self._check_ambiguity(0, args[0], options)
+        item = self._check_ambiguity(1, args, options)
         self.unequip(item) 
             
     def cmd_inv(self, args):
@@ -402,7 +402,7 @@ class AmbiguityResolver:
             self._old_args.insert(self._amb.indices.start + 1, choice)
         else:
             self._old_args.insert(self._amb.indices + 1, choice)
-        self._char._parser = lambda line : self._char.parse_command(self._char, line)
+        self._char._parser = lambda line: self._char.parse_command(self._char, line)
         self._char.parse_command()
 
     def __str__(self):
