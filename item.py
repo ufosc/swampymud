@@ -55,18 +55,23 @@ class EquippableBase(metaclass=Equippable):
     def __hash__(self):
         return hash((self.__class__, self.name))
 
-
 class EquipTarget:
     next_id = 0
-    _target_list = []
+    _targets = {}
+
+    def __new__(cls, name):
+        name = name.capitalize()
+        if name in cls._targets:
+            return cls._targets[name]
+        return super().__new__(cls)
+
     def __init__(self, name):
-        if name.lower() in self._target_list:
-            self.target_id = self._target_list.index(name.lower())
-        else:
+        name = name.capitalize()
+        if name not in self._targets:
+            self.name = name
             self.target_id = EquipTarget.next_id
             EquipTarget.next_id += 1
-            self._target_list.append(name.lower())
-        self.name = name
+            self._targets[name] = self
 
     def __str__(self):
         return self.name 
@@ -79,10 +84,10 @@ class EquipTarget:
             return False
     
     def __hash__(self):
-        return self.target_id
+        return hash((self.name, self.target_id))
     
     def __repr__(self):
-        return str(self) + "[%s]" % self.target_id 
+        return "<%s : %s>" % (self, self.target_id)
 
     @staticmethod
     def make_dict(*names):
@@ -91,6 +96,7 @@ class EquipTarget:
         for name in names:
             equip_dict[EquipTarget(name)] = None
         return equip_dict
+
 
 class Consumable(Item):
     def __init__(self, cls, bases, dic):
