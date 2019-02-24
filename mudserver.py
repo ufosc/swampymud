@@ -103,9 +103,10 @@ class MudServer(object):
     # list of newly-added occurences
     _new_events = []
 
-    def __init__(self):
+    def __init__(self, port=1234):
         """Constructs the MudServer object and starts listening for
         new players.
+            port - port for the server to use [default: 1234]
         """
 
         self._clients = {}
@@ -120,15 +121,17 @@ class MudServer(object):
 
         # set a special option on the socket which allows the port to be
         # immediately without having to wait
-        self._listen_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR,
-                                       1)
+        # self._listen_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR,
+        #                                1)
 
         # bind the socket to an ip address and port. Port 23 is the standard
         # telnet port which telnet clients will use, however on some platforms
-        # this requires root permissions, so we use a higher arbitrary port
-        # number instead: 1234. Address 0.0.0.0 means that we will bind to all
+        # this requires root permissions, so by default we use a higher 
+        # arbitrary port number instead: 1234. You can supply your own port 
+        # as needed.
+        # Address 0.0.0.0 means that we will bind to all
         # of the available network interfaces
-        self._listen_socket.bind(("0.0.0.0", 1234))
+        self._listen_socket.bind(("0.0.0.0", port))
 
         # set to non-blocking mode. This means that when we call 'accept', it
         # will return immediately without waiting for a connection
