@@ -10,11 +10,13 @@ For **hosting** a server, Python 3 must be installed on the system (along with a
 ### Connecting
 For **connecting** to an existing server, a simple telnet client is required. However, we recommend using a dedicated MUD client to avoid ugliness like this:
 
-[raw_telnet.png](images/raw_telnet.png)
+![raw_telnet.png](images/raw_telnet.png)
 
-There are many solid MUD clients available. We have been using [Mudlet](https://github.com/Mudlet/Mudlet), a completely free and open source MUD client.
+There are many solid MUD clients available. 
+We have been using [Mudlet](https://github.com/Mudlet/Mudlet), a completely free and open source MUD client.
+Here's the same scenario, in Mudlet:
 
-[mudlet_client.png](images/mudlet_client.png)
+![mudlet_client.png](images/mudlet_client.png)
 
 ## Getting Started
 ### Hosting
