@@ -7,9 +7,5 @@
             "destination": "Marston Basement",
             "name": "downstairs"
         },
-        {
-            "destination": "Turlington Plaza",
-            "name" : "outside"
-        }
     ]
 }
