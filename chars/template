@@ -1,6 +1,6 @@
 {
-    "name" : [NAME]
-    "path" : [PATH]
+    "name" : [NAME],
+    "path" : [PATH],
     "frequency" : [FREQUENCY]
 }
 notes:
@@ -14,6 +14,7 @@ highest folder in the git repository (i.e. the one containing
 "scripts", "locations", "chars", etc.)
 
 [FREQUENCY]
+This is an optional field. By default, the frequency will be specified in the body of the class.
 the relative frequency of players becoming this class
 can be float or int
 Probability that the player becomes this class is equal to
