@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 '''main script for MuddySwamp'''
 import sys
 import logging
