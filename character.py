@@ -181,7 +181,7 @@ class Character(control.Monoreceiver, metaclass=CharacterClass):
         if len(options) == 1:
             return options[0]
         elif len(options) == 0:
-            self.message("Error: '%s' not found." % (phrase) )
+            raise CharException("Error: '%s' not found." % (phrase) )
         else:
             raise AmbiguityError(indices, phrase, options)
 
@@ -264,7 +264,7 @@ class Character(control.Monoreceiver, metaclass=CharacterClass):
         self.location.add_char(self)
 
     #inventory/item related methods
-    def equip(self, item, add_inv=True):
+    def equip(self, item, remove_inv=True):
         print(item)
         if item.target in self.equip_dict:
             already_equip = self.equip_dict[item.target]
@@ -272,10 +272,9 @@ class Character(control.Monoreceiver, metaclass=CharacterClass):
                 self.unequip(already_equip)
             item.equip(self)
             self.equip_dict[item.target] = item
-            # check that add_inv is not present and true
-            # if so, we dont remove the item on equip
-            # duplicating it.
-            if not add_inv:
+            # check remove_inv, if true, remove item
+            # this avoids duplication
+            if remove_inv:
                 self.inv -= item
             self.message("Equipped %s." % item)
         else:
@@ -355,17 +354,27 @@ class Character(control.Monoreceiver, metaclass=CharacterClass):
     # Why should we assume the player can do these things?
     def cmd_equip(self, args):
         '''Equip an equippable item from your inventory.'''
-        item_name = " ".join(args[1::])
-        item = self._check_ambiguity(indices, item_name, self.inv.get_item(item_name))
+        if len(args) < 2:
+            self.message("Provide an item to equip.")
+            return
+        try:
+            item_name = " ".join(args[1::])
+            item = self._check_ambiguity(slice(1, len(args)), item_name, self.inv.get_item(item_name))
+        except TypeError:
+            # args must be item that we already have
+            item = args[1]
         self.equip(item)
 
     def cmd_unequip(self, args):
         '''Unequip an equipped item.'''
+        if len(args) < 2:
+            self.message("Provide an item to equip.")
+            return
         options = []
         for target, item in self.equip_dict.items():
             if item == args[1]:
                 options.append(item)
-        item = self._check_ambiguity(1, args, options)
+        item = self._check_ambiguity(1, args[1], options)
         self.unequip(item) 
             
     def cmd_inv(self, args):
@@ -395,17 +404,18 @@ class AmbiguityResolver:
         if inp not in range(len(self._amb.options)):
             self._char.message("Provided integer out of range.")
             return
-        choice = self._amb.options(inp)
+        choice = self._amb.options[inp]
         # delete the invalid options
         del self._old_args[self._amb.indices]
         if type(self._amb.indices) is slice:
             self._old_args.insert(self._amb.indices.start + 1, choice)
         else:
             self._old_args.insert(self._amb.indices + 1, choice)
-        self._char._parser = lambda line: self._char.parse_command(self._char, line)
-        self._char.parse_command()
+        self._char._parser = lambda line: Character.parse_command(self._char, line)
+        self._char.parse_command(args=self._old_args)
 
     def __str__(self):
         string = "Multiple options for %s:\n" % self._amb.query
         string += "\n".join(["\t%s) %s" % (index, repr(option)) for index, option in enumerate(self._amb.options)])
         string += "\nEnter a number to resolve it:" 
+        return string
