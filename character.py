@@ -45,10 +45,10 @@ class AmbiguityError(CharException):
         query = "epic sword"
         options = [list of results from inventory.get_item()]
         '''
-        super().__init__(self, indices, options, phrase)
+        super().__init__()
         self.indices = indices
         self.options = options
-        self.phrase = phrase
+        self.query = query
 
 
 class CharacterClass(type):
@@ -169,7 +169,7 @@ class Character(control.Monoreceiver, metaclass=CharacterClass):
         try:
             method(self, args[1::])
         except AmbiguityError as amb:
-            self._parser = AmbiguityResolver(self, args, amb.indices, amb.phrase, amb.options)
+            self._parser = AmbiguityResolver(self, args, amb)
         except CharException as ex:
             self.message(str(ex))
     
@@ -183,7 +183,7 @@ class Character(control.Monoreceiver, metaclass=CharacterClass):
         elif len(options) == 0:
             self.message("Error: '%s' not found." % (phrase) )
         else:
-            raise AmbiguityError(indices, phrase, options)        
+            raise AmbiguityError(indices, phrase, options)
 
     def set_name(self, new_name):
         '''changes a characters's name, with all appropriate error checking'''
@@ -307,7 +307,7 @@ class Character(control.Monoreceiver, metaclass=CharacterClass):
         else:
             self.message("Command \'%s\' not recognized." % command)
 
-    def cmd_look(self, *args):
+    def cmd_look(self, args):
         '''Provide information about the current location.
         usage: look
         '''
@@ -322,7 +322,7 @@ class Character(control.Monoreceiver, metaclass=CharacterClass):
         char_list = self.location.get_character_list()
         try:
             char_list.remove(self)
-        except:
+        except ValueError:
             pass
         char_msg = "You see "
         if len(char_list) == 0:
@@ -337,13 +337,13 @@ class Character(control.Monoreceiver, metaclass=CharacterClass):
             char_msg += ", ".join(map(str, char_list[:-1])) + ", and " + char_list[-1] + "."
             self.message(char_msg)
 
-    def cmd_say(self, *args):
+    def cmd_say(self, args):
         '''Say a message aloud, sent to all players in your current locaton.
         usage: say [msg]
         '''
         self.location.message_chars("%s : %s" % (self, " ".join(args)))
     
-    def cmd_walk(self, *args):
+    def cmd_walk(self, args):
         '''Walk to an accessible location.
         usage: walk [exit name]
         '''
@@ -359,16 +359,16 @@ class Character(control.Monoreceiver, metaclass=CharacterClass):
         item = self._check_ambiguity(indices, item_name, self.inv.get_item(item_name))
         self.equip(item)
 
-    def cmd_unequip(self, *args):
+    def cmd_unequip(self, args):
         '''Unequip an equipped item.'''
         options = []
-        for target,item in self.equip_dict.items():
+        for target, item in self.equip_dict.items():
             if item == args[0]:
                 options.append(item)
-        item = self._handle_ambiguity(args[0], options)
+        item = self._check_ambiguity(0, args[0], options)
         self.unequip(item) 
             
-    def cmd_inv(self, *args):
+    def cmd_inv(self, args):
         '''Show your inventory.'''
         output = ""
         for target, equipped in self.equip_dict.items():
@@ -377,32 +377,35 @@ class Character(control.Monoreceiver, metaclass=CharacterClass):
 
     #TODO: provide a static method that transforms characters from one class to another
 
+
 class AmbiguityResolver:
-    def __init__(self, character, old_args, indices, phrase, options):
-        self._character = character
-        self._old_args = old_args
-        self._index = index
-        self._target = target
-        self._indices = indices
-        self._phrase = phrase
-        self._options = options
-        self._character.message(str(self))
+    def __init__(self, char, args, amb):
+        self._char = char
+        self._old_args = args
+        self._amb = amb
+        # send the char the ambiguity message
+        self._char.message(str(self))
     
     def __call__(self, inp):
         try:
             inp = int(inp)
         except ValueError:
-            self._character.message("Please enter an integer.")
+            self._char.message("Please enter an integer.")
             return
-        if inp not in range(len(options)):
-            self._character.message("Provided integer out of range.")
+        if inp not in range(len(self._amb.options)):
+            self._char.message("Provided integer out of range.")
             return
-        choice = self._options(inp)
-        old_args[indices] = choice
-        self._character._parser = lambda line : Character.parse_command(character, line)
-        self._character.parse_command()
+        choice = self._amb.options(inp)
+        # delete the invalid options
+        del self._old_args[self._amb.indices]
+        if type(self._amb.indices) is slice:
+            self._old_args.insert(self._amb.indices.start + 1, choice)
+        else:
+            self._old_args.insert(self._amb.indices + 1, choice)
+        self._char._parser = lambda line : self._char.parse_command(self._char, line)
+        self._char.parse_command()
 
     def __str__(self):
-        string = "Multiple options for %s:\n" % self.phrase
-        string += "\n".join(["\t%s) %s" % (index, repr(option)) for index, option in enumerate(self.options)])
-        string += "\nEnter a number to resolve it:"   
+        string = "Multiple options for %s:\n" % self._amb.query
+        string += "\n".join(["\t%s) %s" % (index, repr(option)) for index, option in enumerate(self._amb.options)])
+        string += "\nEnter a number to resolve it:" 
