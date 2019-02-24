@@ -23,7 +23,7 @@ def build_char_class_distr():
                    if c_class.frequency > 0]
     if len(to_include) == 0:
         raise Exception("No valid classes with frequency greater than 0")
-    random_class = RandDist(to_include, map(lambda x: x.frequency, to_include))
+    random_class = RandDist(to_include, list(map(lambda x: x.frequency, to_include)))
 
 
 def store_server(input_server):
