@@ -7,10 +7,10 @@ class Healer(Humanoid):
     def __init__(self):
         super().__init__()
         # The following creates a dictionary which maps spell names to the function
-        spells = {}
+        self.spells = {}
         for func in dir(self):
             if func.startswith("spell_"):
-                spells[func[7::]] = getattr(self, func)
+                self.spells[func[6::]] = getattr(self, func)
     
     def cmd_cast(self, args):
         '''Cast a spell
@@ -23,7 +23,8 @@ class Healer(Humanoid):
         else:
             self.message("Could not find a spell with name %s." % args[0])
 
-    def spell_heal(self, args):
+    # TODO: Message the user after a heal is successful
+    def spell_heal(self, *args):
         ''' Heals the target for 10 points
         Usage: cast heal [player/entity]
         '''
@@ -35,9 +36,8 @@ class Healer(Humanoid):
         else:
             self.message("Could not find player with name %s." % args[0])
             return
-        # if we get to this point, then we slapped someone
+        # if we get to this point, then we healed someone
         try:
             char.health += 10
-            char.check_death()
         except:
-            self.location.message_chars("%s tried to slap %s, to no avail." % (self, char))
+            self.location.message_chars("%s tried to heal %s, to no avail." % (self, char))
