@@ -4,7 +4,7 @@ import control
 import inventory
 import item
 from time import time
-
+import mudscript
 
 def camel_to_space(name):
     '''adds spaces before capital letters
@@ -201,10 +201,10 @@ class Character(control.Monoreceiver, metaclass=CharacterClass):
             return
         self.set_name(new_name)
         self._parser = lambda line: Character.parse_command(self, line)
-        #TODO: move this functionality into the main module
-        # For instance, take the new player and print the welcome message there
-        from library import server
-        server.send_message_to_all("Welcome, %s, to the server!" % self)
+        try:
+            mudscript.message_all("Welcome, %s, to the server!" % self)
+        except mudscript.MuddyException:
+            pass
         self.cmd_look("")
     
     def __repr__(self):

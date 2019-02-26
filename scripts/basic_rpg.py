@@ -2,6 +2,7 @@
 from character import Character
 from time import time
 import library
+from mudscript import server
 
 def timed(delay):
     def delayed_cooldown(func):
@@ -18,7 +19,7 @@ def timed(delay):
 
 class Humanoid(Character):
     '''Testing class that provides some basic traits'''
-    starting_location = library.locations["Hoggetown Pub and Inn"]
+    starting_location = server.lib.locations["Hoggetown Pub and Inn"]
     max_health = 100
     
     def __init__(self):
