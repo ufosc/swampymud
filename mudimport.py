@@ -49,8 +49,7 @@ class Library:
             for filename in items:
                 self._item_importer.import_file(filename)
         if locations:
-            pass
-            #self._loc_importer.build_exits()
+            self._loc_importer.build_exits(*self.locations.keys())
             #self._loc_importer.add_items()
             #self._loc_importer.add_entities()
     
@@ -104,7 +103,13 @@ class Importer:
             self.failures[ex.name] = traceback.format_exc()
 
     def _do_import(self, json_data):
-        '''This method should be implemented in base classes'''
+        '''This method should be implemented in base classes
+        _do_import should return a tuple:
+            (name, object)
+        where name is the name of the object
+        a file created by _do_import should be guaranteed to
+        have proper syntax, type checking, etc.
+        '''
         pass
 
     def __str__(self):
@@ -122,8 +127,11 @@ class Importer:
 class LocationImporter(Importer):
     '''Imports Locations from json'''
     def __init__(self, lib={}):
+        '''
+        exit_failure: dict mapping destination names to a dict:
+        {"reason" : [reason for failure], "affected": [names of locations affected]}
+        '''
         self.exit_failures = {}
-        self.item_failures = {}
         super().__init__(lib)
 
     def _do_import(self, json_data):
@@ -135,6 +143,18 @@ class LocationImporter(Importer):
             # check that "exits" is a list
             if "exits" in json_data:
                 assert(isinstance(json_data["exits"], list))
+                # validate all data in each exit
+                for exit_data in json_data["exits"]:
+                    assert(type(exit_data["destination"]) is str)
+                    assert(type(exit_data["name"]) is str)
+                    if exit_data["other_names"]:
+                        assert(type(exit_data["other_names"]) is list)
+                        for other_name in exit_data["other_names"]:
+                            assert(type(other_name) is str)
+                    # validate the filter
+             # validate items
+            if "items" in json_data:
+                pass
         except Exception as ex:
             # modify exception to show what the name is, rethrow
             setattr(ex, "name", name)
@@ -142,27 +162,37 @@ class LocationImporter(Importer):
         return name, Location(json_data["name"], json_data["description"])
 
     #TODO: delete all existing exits
-    def build_exits(self):
-        '''looks at the skeletons, adds exits for each
-        on fail, an exit is simply not added'''
-        pass
-#        for location_name, skeleton in self.skeletons.items():
-#            # creating an empty list of failed exits
-#            self.exit_failures[location_name] = {}
-#            if "exits" not in skeleton:
-#                continue
-#            for exit in skeleton["exits"]:
-#                
-#                # check if the exit specified a destination first
-#                if "destination" not in exit:
-#                    # make a fake name
-#                    exit_name = "[Exit #%i]" % (len(self.exit_failures))
-#                    self.exit_failures[location_name][exit_name] = "No destination provided"
-#                    continue
-#                try:
-#                    if exit["destination"] in self.successes:
-#                        # get destination from the successfully loaded locations
-#                        dest = self.successes[exit["destination"]]
+    def build_exits(self, *names):
+        '''This method is always executed on locations
+        that have already passed through _do_import. 
+        Thus, we can assume the types of each field are correct.
+        '''
+        for loc_name in names:
+            location = self.objects[loc_name]
+            json_data = self.file_data[self.object_source[loc_name]]
+            if "exits" in json_data:
+                for exit_data in json_data["exits"]:
+                    dest_name = exit_data["destination"]
+                    try:
+                        dest = self.objects[exit_data["destination"]]
+                    except ValueError:
+                        if dest_name in self.exit_failures:
+                            self.exit_failures[dest_name]["affected"].append(loc_name)
+                        else:
+                            new_failure = {"affected" : [loc_name]}
+                            if dest_name in self.failures:
+                                new_failure["reason"] = "Destination failed to load."
+                            else:
+                                new_failure["reason"] = "Destination not found."
+                            self.exit_failures[dest_name] = new_failure
+                            continue
+                    # TODO: handle the ClassFilter
+                    # copy the dictionary to convert into args
+                    print("boutta build")
+                    kwargs = dict(exit_data)
+                    kwargs["destination"] = dest
+                    location.add_exit(Exit(**kwargs))
+
 #                        
 #
 #                        # parsing the strings in the blacklist/whitelists,
@@ -175,22 +205,7 @@ class LocationImporter(Importer):
 #
 #                        # TODO: handle references to "proper characters"
 #                        
-#                        # Preparing exit dict for conversion to keyword arguments
-#                        kwargs = dict(exit)
-#                        del kwargs["destination"]
-#                        #del kwargs["name"]
-#                        self.successes[location_name].add_exit(Exit(dest, **kwargs))
-#                    elif exit["destination"] in self.failures:
-#                        raise Exception("Destination \'%s\' failed to import." % (exit["destination"]))
-#                    else:
-#                        raise Exception("Destination \'%s\' could not be found." % (exit["destination"]))
-#                except Exception:
-#                    self.exit_failures[location_name][(exit["destination"])] = traceback.format_exc()
-#            # check if any failed exits were added to the exit_failures dictionary
-#            # if not, we delete the entry for this location (no failures to mention!)
-#            if not self.exit_failures[location_name]:
-#                del self.exit_failures[location_name]
-#
+
 #    def add_items(self):
 #        '''looks at the skeletons, adds items for each
 #        on fail, an item is simply not added'''
