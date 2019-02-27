@@ -3,6 +3,7 @@ import location
 import control
 import inventory
 import item
+import enum
 from time import time
 import mudscript
 
@@ -386,7 +387,7 @@ class Character(control.Monoreceiver, metaclass=CharacterClass):
 
     #TODO: provide a static method that transforms characters from one class to another
 
-
+#TODO: clean this up, provide documentation
 class AmbiguityResolver:
     def __init__(self, char, args, amb):
         self._char = char
@@ -419,3 +420,74 @@ class AmbiguityResolver:
         string += "\n".join(["\t%s) %s" % (index, repr(option)) for index, option in enumerate(self._amb.options)])
         string += "\nEnter a number to resolve it:" 
         return string
+
+class MaskMode(enum.Enum):
+    WHITELIST = True
+    BLACKLIST = False
+
+class CharFilter:
+    '''Filter for screening out certain CharacterClasses and Characters
+        _set  - set of Characters and CharacterClasses tracked by the filter
+        _mode - MaskMode.WHITELIST or MaskMode.BLACKLIST
+                if WHITELIST is selected, only tracked chars are allowed in
+                if BLACKLIST is selected, tracked chars are excluded
+        if WHITELIST is selected, all items in the set are
+    '''
+
+    def __init__(self, mode, iter=[]):
+        '''initialize a CharFilter with [mode]
+        if [mode] is True, the CharFilter will act as a whitelist
+        if [mode] is False, the CharFilter will act as a blacklist
+        [iter] can be optionally set to pre-load the whitelist/blacklist
+        '''
+        self._set = set(iter)
+        self._mode = mode
+        if type(mode) is bool:
+            if mode:
+                self._mode = MaskMode.WHITELIST
+            else:
+                self._mode = MaskMode.BLACKLIST
+    
+    def allows(self, other):
+        '''returns True if Character/CharacterClass is allowed in
+        the individual Character is evaluated first,
+        then the Character's class, then all the Character's
+        ancestor classes
+        '''
+        if isinstance(other, Character):
+            if other in self._set:
+                return self._mode.value
+            # now try the Character's class
+            other = type(other)
+        if isinstance(other, CharacterClass):
+            # cycle through each ancestor
+            ancestors = filter(lambda x: isinstance(x, CharacterClass),
+                              other.__mro__)
+            for char_class in ancestors:
+                if char_class in self._set:
+                    return self._mode.value
+        # "other" is neither a CharClass nor Character
+        else:
+            return False
+        # the character / ancestors cannot be found in the list
+        return not self._mode.value
+    
+    def include(self, other):
+        # check that other is a Character / CharacterClass
+        assert(isinstance(other, Character) or
+               isinstance(other, CharacterClass))
+        if self._mode is MaskMode.WHITELIST:
+            self._set.add(other)
+        else:
+            if other in self._set:
+                self._set.remove(other)
+    
+    def exclude(self, other):
+        # check that other is a Character / CharacterClass
+        assert(isinstance(other, Character) or
+               isinstance(other, CharacterClass))
+        if self._mode is MaskMode.WHITELIST:
+            if other in self._set:
+                self._set.remove(other)
+        else:
+            self._set.add(other)
