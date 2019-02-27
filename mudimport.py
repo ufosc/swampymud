@@ -44,7 +44,7 @@ class Library:
                 self._loc_importer.import_file(filename)
         if chars:
             for filename in chars:
-                self._char_importer.import_file(filename)
+                self._char_importer.import_file(filename, locations=self.locations)
         if items:
             for filename in items:
                 self._item_importer.import_file(filename)
@@ -55,6 +55,17 @@ class Library:
     
     def import_results(self):
         return str(self._loc_importer) + str(self._item_importer) + str(self._char_importer)
+    
+    def __repr__(self):
+        output = []
+        if self.locations:
+            output += ["Locations:    " + repr(list(self.locations.keys()))]
+        if self.char_classes:
+            output += ["CharClasses:  " + repr(list(self.char_classes.keys()))]
+        if self.items:
+            output += ["Items:        " + repr(list(self.items.keys()))]
+        return "\n".join(output)
+        
 
 
 # see if this trashes the stack trace
@@ -87,7 +98,7 @@ class Importer:
         self.file_fails = {}
         self.failures = {}
     
-    def import_file(self, filename):
+    def import_file(self, filename, **kwargs):
         '''Import one file with filename [filename]'''
         try:
             json_data = process_json(filename)
@@ -96,7 +107,7 @@ class Importer:
             self.file_fails[filename] = traceback.format_exc()
             return
         try:
-            name, game_object = self._do_import(json_data)
+            name, game_object = self._do_import(json_data, **kwargs)
             self.objects[name] = game_object
             self.object_source[name] = filename
         except Exception as ex:
@@ -112,17 +123,38 @@ class Importer:
         '''
         pass
 
-    def __str__(self):
+    def __repr__(self):
         '''cheap method to get an output for all values in each list'''
-        output = "\nSUCCESS LIST\n"
-        for _, obj in self.objects.items():
-            output += str(obj) + "\n"
-        output += "FAILURE LIST\n"
-        for name, reason in self.failures.items():
-            output += str(name) + " :\n"
-            output += str(reason) + "\n"
-        return output
+        output = [repr(self.__class__)]
+        output += ["Successes:       " + repr(self.objects.keys())]
+        output += ["File Failures:   " + repr(self.file_fails.keys())]
+        output += ["Build Failures:  " + repr(self.failures.keys())]
+        return "\n".join(output)
 
+    def __str__(self):
+        output = []
+        if self.objects:
+            output.append("\tSuccesses [%s]" % len(self.objects))
+            for success in self.objects:
+                output.append(success)
+        else:
+            output.append("\t[No Successes]")
+        if self.file_fails:
+            output.append("\tFile Failures [%s]" % len(self.file_fails))
+            for fail_name, fail in self.file_fails.items():
+                output.append(fail_name)
+                output.append(fail)
+        else:
+            output.append("\t[No File Failures]")
+        if self.file_fails:
+            output.append("\Build Failures [%s]" % len(self.failures))
+            for fail_name, fail in self.failures.items():
+                output.append(fail_name)
+                output.append(fail)
+        else:
+            output.append("\t[No Build Failures]")
+        return "\n".join(output)
+        
 
 class LocationImporter(Importer):
     '''Imports Locations from json'''
@@ -175,7 +207,7 @@ class LocationImporter(Importer):
                     dest_name = exit_data["destination"]
                     try:
                         dest = self.objects[exit_data["destination"]]
-                    except ValueError:
+                    except KeyError:
                         if dest_name in self.exit_failures:
                             self.exit_failures[dest_name]["affected"].append(loc_name)
                         else:
@@ -185,16 +217,13 @@ class LocationImporter(Importer):
                             else:
                                 new_failure["reason"] = "Destination not found."
                             self.exit_failures[dest_name] = new_failure
-                            continue
+                        continue
                     # TODO: handle the ClassFilter
                     # copy the dictionary to convert into args
-                    print("boutta build")
                     kwargs = dict(exit_data)
                     kwargs["destination"] = dest
                     location.add_exit(Exit(**kwargs))
 
-#                        
-#
 #                        # parsing the strings in the blacklist/whitelists,
 #                        if "blacklist" in exit:
 #                            exit["blacklist"] = [library.character_classes[clsname]
@@ -246,17 +275,15 @@ class LocationImporter(Importer):
 
 
 class CharacterClassImporter(Importer):
-    '''Importer for CharacterClasses'''
-    def _do_import(self, json_data):
+    def _do_import(self, json_data, locations={}):
         try:
             name = json_data["name"]
             path = json_data["path"]
             module = importlib.import_module(path.replace('.py', '').replace('/', '.'))
             character_class = getattr(module, name)
-            # add this field back when it makes sense
-            # if "starting_location" in json_data:
-            #    starting_location = self.locations[json_data["starting_location"]]
-            #    character_class.starting_location = starting_location
+            if "starting_location" in json_data:
+                starting_location = locations[json_data["starting_location"]]
+                character_class.starting_location = starting_location
             if "frequency" in json_data:
                 assert isinstance(json_data["frequency"], float)
                 character_class.frequency = json_data["frequency"]
