@@ -5,8 +5,15 @@ import inventory
 import item
 import enum
 from time import time
+<<<<<<< HEAD
 import mudscript
 
+||||||| merged common ancestors
+
+
+=======
+
+>>>>>>> develop
 def camel_to_space(name):
     '''adds spaces before capital letters
     ex: CamelCaseClass => Camel Case Class'''
@@ -431,7 +438,6 @@ class CharFilter:
         _mode - MaskMode.WHITELIST or MaskMode.BLACKLIST
                 if WHITELIST is selected, only tracked chars are allowed in
                 if BLACKLIST is selected, tracked chars are excluded
-        if WHITELIST is selected, all items in the set are
     '''
 
     def __init__(self, mode, iter=[]):
@@ -448,7 +454,7 @@ class CharFilter:
             else:
                 self._mode = MaskMode.BLACKLIST
     
-    def allows(self, other):
+    def permits(self, other):
         '''returns True if Character/CharacterClass is allowed in
         the individual Character is evaluated first,
         then the Character's class, then all the Character's
@@ -473,6 +479,8 @@ class CharFilter:
         return not self._mode.value
     
     def include(self, other):
+        '''Set the filter to return 'True' if [other] is supplied
+        to permit()'''
         # check that other is a Character / CharacterClass
         assert(isinstance(other, Character) or
                isinstance(other, CharacterClass))
@@ -483,6 +491,8 @@ class CharFilter:
                 self._set.remove(other)
     
     def exclude(self, other):
+        '''Set the filter to return 'False' if [other] is supplied
+        to permit()'''
         # check that other is a Character / CharacterClass
         assert(isinstance(other, Character) or
                isinstance(other, CharacterClass))
