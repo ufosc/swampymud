@@ -146,8 +146,8 @@ class Importer:
                 output.append(fail)
         else:
             output.append("\t[No File Failures]")
-        if self.file_fails:
-            output.append("\Build Failures [%s]" % len(self.failures))
+        if self.failures:
+            output.append("\tBuild Failures [%s]" % len(self.failures))
             for fail_name, fail in self.failures.items():
                 output.append(fail_name)
                 output.append(fail)
@@ -179,11 +179,19 @@ class LocationImporter(Importer):
                 for exit_data in json_data["exits"]:
                     assert(type(exit_data["destination"]) is str)
                     assert(type(exit_data["name"]) is str)
-                    if exit_data["other_names"]:
+                    if "other_names" in exit_data:
                         assert(type(exit_data["other_names"]) is list)
                         for other_name in exit_data["other_names"]:
                             assert(type(other_name) is str)
-                    # validate the filter
+                    if "visibility" in exit_data:
+                        filt = json_data["visibility"]
+                        assert(filt["type"] == "whitelist" or filt["type"] == "blacklist")
+                        assert(type(filt["list"]) is list)
+                    if "access" in exit_data:
+                        filt = json_data["access"]
+                        assert(filt["type"] == "whitelist" or filt["type"] == "blacklist")
+                        assert(type(filt["list"]) is list)
+
              # validate items
             if "items" in json_data:
                 pass
@@ -194,7 +202,7 @@ class LocationImporter(Importer):
         return name, Location(json_data["name"], json_data["description"])
 
     #TODO: delete all existing exits
-    def build_exits(self, *names):
+    def build_exits(self, *names, chars={}):
         '''This method is always executed on locations
         that have already passed through _do_import. 
         Thus, we can assume the types of each field are correct.
@@ -218,22 +226,12 @@ class LocationImporter(Importer):
                                 new_failure["reason"] = "Destination not found."
                             self.exit_failures[dest_name] = new_failure
                         continue
-                    # TODO: handle the ClassFilter
-                    # copy the dictionary to convert into args
+                    # this only handles CharacterClasses
+                    # TODO: handle "proper" characters
+                    
                     kwargs = dict(exit_data)
                     kwargs["destination"] = dest
-                    location.add_exit(Exit(**kwargs))
-
-#                        # parsing the strings in the blacklist/whitelists,
-#                        if "blacklist" in exit:
-#                            exit["blacklist"] = [library.character_classes[clsname]
-#                                                 for clsname in exit["blacklist"]]
-#                        if "whitelist" in exit:
-#                            exit["whitelist"] = [library.character_classes[clsname]
-#                                                 for clsname in exit["whitelist"]]
-#
-#                        # TODO: handle references to "proper characters"
-#                        
+                    location.add_exit(Exit(**kwargs))                        
 
 #    def add_items(self):
 #        '''looks at the skeletons, adds items for each
@@ -279,6 +277,8 @@ class CharacterClassImporter(Importer):
         try:
             name = json_data["name"]
             path = json_data["path"]
+            
+        
             module = importlib.import_module(path.replace('.py', '').replace('/', '.'))
             character_class = getattr(module, name)
             if "starting_location" in json_data:
