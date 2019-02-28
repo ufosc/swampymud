@@ -36,28 +36,28 @@ def server_warning(func, *args, **kwargs):
 def get_location(key):
     global server
     try:
-        value = server.lib.locations[key]
+        return server.lib.locations[key]
     except KeyError:
-        raise MuddyException("Location '%s' not found." % key)
-    return server.lib.locations[key]
+        pass
+    raise MuddyException("Location '%s' not found." % key)
 
 @server_warning
 def get_item(key):
     global server
     try:
-        value = server.lib.items[key]
+        return server.lib.items[key]
     except KeyError:
-        raise MuddyException("Item '%s' not found." % key)
-    return value
+        pass
+    raise MuddyException("Item '%s' not found." % key)
 
 @server_warning
 def get_char_class(key):
     global server
     try:
-        value = server.lib.char_classes[key]
+        return server.lib.char_classes[key]
     except KeyError:
-        raise MuddyException("CharacterClass '%s' not found." % key)
-    return value
+        pass
+    raise MuddyException("CharacterClass '%s' not found." % key)
 
 @server_warning
 def message_all(msg):
