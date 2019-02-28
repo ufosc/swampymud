@@ -57,3 +57,4 @@ class Humanoid(Character):
         except:
             self.location.message_chars("%s tried to slap %s, to no avail." % (self, char))
         
+        
