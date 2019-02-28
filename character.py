@@ -5,15 +5,8 @@ import inventory
 import item
 import enum
 from time import time
-<<<<<<< HEAD
 import mudscript
 
-||||||| merged common ancestors
-
-
-=======
-
->>>>>>> develop
 def camel_to_space(name):
     '''adds spaces before capital letters
     ex: CamelCaseClass => Camel Case Class'''
