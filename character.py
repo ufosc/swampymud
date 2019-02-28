@@ -262,6 +262,7 @@ class Character(control.Monoreceiver, metaclass=CharacterClass):
             pass
         self.location = new_location
         self.location.add_char(self)
+        self.cmd_look(verbose=False)
 
     #inventory/item related methods
     def equip(self, item, remove_inv=True):
@@ -306,24 +307,18 @@ class Character(control.Monoreceiver, metaclass=CharacterClass):
         else:
             self.message("Command \'%s\' not recognized." % command)
 
-    def cmd_look(self, args):
-        '''Provide information about the current location.
+    def cmd_look(self, *args, verbose=True):
+        '''Gives description of current location
         usage: look
-        '''
-        self.message(self.location.__str__(True))
-        exit_list = self.location.exit_list()
-        exit_msg = "\nExits Available:\n"
-        if len(exit_list) == 0:
-            exit_msg += "None"
-        else:
-            exit_msg += ", ".join(map(str, exit_list))
-        self.message(exit_msg)
+        '''      
+        if verbose:
+            self.message(self.location.__str__(True))
         char_list = self.location.get_character_list()
         try:
             char_list.remove(self)
         except ValueError:
             pass
-        char_msg = "You see "
+        char_msg = "\nYou see "
         if len(char_list) == 0:
             pass
         elif len(char_list) == 1:
@@ -333,8 +328,15 @@ class Character(control.Monoreceiver, metaclass=CharacterClass):
             char_msg += " and ".join(map(str, char_list)) + "."
             self.message(char_msg)
         else:
-            char_msg += ", ".join(map(str, char_list[:-1])) + ", and " + char_list[-1] + "."
+            char_msg += ", ".join(map(str, char_list[:-1])) + ", and " + str(char_list[-1]) + "."
             self.message(char_msg)
+        exit_list = self.location.exit_list()
+        exit_msg = "\nExits Available:\n"
+        if len(exit_list) == 0:
+            exit_msg += "None"
+        else:
+            exit_msg += ", ".join(map(str, exit_list))
+        self.message(exit_msg)
 
     def cmd_say(self, args):
         '''Say a message aloud, sent to all players in your current locaton.

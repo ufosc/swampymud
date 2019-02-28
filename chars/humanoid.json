@@ -1,5 +1,6 @@
 {
     "name" : "Humanoid",
     "path" : "scripts/basic_rpg.py",
-    "starting_location" : "Hoggetown Pub and Inn"
+    "starting_location" : "Hoggetown Pub and Inn",
+    "frequency" : 0.0
 }
