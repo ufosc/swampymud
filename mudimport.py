@@ -83,6 +83,38 @@ def process_json(filename):
     assert("name" in json_data and type(json_data["name"]) is str)
     return json_data
 
+class ValidateError(Exception): 
+    def __init__(self, component, msg):
+        self.component = component
+        self.msg = msg
+    
+    def __str__(self):
+        return str(self.component) + "\n" + self.msg
+
+#TODO: warn on unused fields?
+def validate(schema, component):
+    if "check" in schema:
+        try:
+            schema["check"](component)
+        except Exception as err:
+            raise ValidateError(component, "Failed check: %s " % err)
+    if "type" in schema:
+        if schema["type"] is not type(component):
+            raise ValidateError(component, "Invalid type %s, expected %s."
+                                  % (type(component), schema["type"]))
+    if type(component) is list:
+        for sub in component:
+            validate(schema["items"], sub)
+    if type(component) is dict:
+        for field, subschema in schema["properties"].items():
+            if (("required" not in subschema or subschema["required"])
+                and field not in component):
+                raise ValidateError(component, "Missing required field '%s'"
+                                    % field)
+            if field in component:
+                validate(subschema, component[field])
+
+
 class Importer:
     '''Base class for other importers
     objects:        dict mapping object names -> object instances
@@ -155,8 +187,55 @@ class Importer:
             output.append("\t[No Build Failures]")
         return "\n".join(output)
         
+def _filter_type(typ):
+    if typ not in ["blacklist", "whitelist"]:
+        raise Exception("Must be 'whitelist' or 'blacklist'")
+
+filter_schema = {
+    "type" : dict,
+    "required" : False,
+    "properties" : {
+        "type" : { 
+            "type" : str, "check" : _filter_type },
+        "set" : {
+            "type" : list,
+            "required" : False,
+            "items" : {
+                "type" : str
+            }
+        }
+    }
+}
 
 class LocationImporter(Importer):
+
+
+    exit_schema = {
+        "type": dict,
+        "properties": {
+            "destination" : {"type" : str, "required" : False },
+            "name" : { "type" : str, "required" : True },
+            "other_names": {
+                "type" : list,
+                "required" : False,
+                "items" : {"type": str}
+            },
+            "visibility" : filter_schema,
+            "access" : filter_schema
+        }
+    }
+
+    location_schema = {
+        "properties" : {
+            "name" : { "type" : str, "required" : True },
+            "description" : { "type": str, "required": True},
+            "exits" : {
+                "type" : list,
+                "items" : exit_schema
+            }
+        }
+    }
+
     '''Imports Locations from json'''
     def __init__(self, lib={}):
         '''
