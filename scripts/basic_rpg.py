@@ -1,7 +1,6 @@
 '''Defining some basic RPG classes for testing'''
 from character import Character
 from time import time
-import library
 from mudscript import server
 
 def timed(delay):
