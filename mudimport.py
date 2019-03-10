@@ -9,10 +9,21 @@ from location import Location, Exit
 from util.stocstring import StocString
 from util.distr import RandDist
 
+#TODO remove this function and replace it with a glob
 def get_filenames(directory, ext=""):
     '''returns all filenames in [directory] with extension [ext]'''
     return [directory + name for name in os.listdir(directory) \
             if name.endswith(ext)]
+
+
+def process_json(filename):
+    '''load a json from [filename], return a pythonic representation'''
+    with open(filename) as location_file:
+        # read the file, processing any stocstring macros
+        json_data = StocString.process(location_file.read())
+    json_data = json.loads(json_data)
+    return json_data
+
 
 class Library:
     '''Class to represent a library of interacting game elements'''
@@ -81,16 +92,6 @@ CHARACTER CLASSES
         return "\n".join(output)
 
 
-def process_json(filename):
-    '''load a json from [filename], return a pythonic representation'''
-    with open(filename) as location_file:
-        # read the file, processing any stocstring macros
-        json_data = StocString.process(location_file.read())
-    json_data = json.loads(json_data)
-    assert "name" in json_data
-    return json_data
-
-
 class ValidateError(Exception):
     '''Error raised if schema is not valid'''
     def __init__(self, component, msg):
@@ -127,6 +128,27 @@ def validate(schema, data):
                 validate(subschema, data[field])
 
 
+def _filter_type(typ):
+    if typ not in ["blacklist", "whitelist"]:
+        raise Exception("Must be 'whitelist' or 'blacklist'")
+
+
+FILTER_SCHEMA = {
+    "type" : dict,
+    "required" : False,
+    "properties" : {
+        "type" : {"type" : str, "check" : _filter_type},
+        "set" : {
+            "type" : list,
+            "required" : False,
+            "items" : {
+                "type" : str
+            }
+        }
+    }
+}
+
+
 class Importer:
     '''Base class for other importers
     objects:        dict mapping object names -> object instances
@@ -135,6 +157,8 @@ class Importer:
     file_fails:     dict mapping filenames -> reasons while file failed to load
     failures:       dict mapping object names -> reasons why they could not be constructed
     '''
+    SCHEMA = {}
+
     def __init__(self, lib={}):
         self.objects = lib
         self.object_source = {}
@@ -151,11 +175,15 @@ class Importer:
             self.file_fails[filename] = traceback.format_exc()
             return
         try:
+            validate(self.SCHEMA, json_data)
             name, game_object = self._do_import(json_data, **kwargs)
             self.objects[name] = game_object
             self.object_source[name] = filename
         except Exception as ex:
-            self.failures[ex.name] = traceback.format_exc()
+            err_name = filename
+            if "name" in json_data:
+                err_name = json_data["name"]
+            self.failures[err_name] = traceback.format_exc()
 
     def _do_import(self, json_data):
         '''This method should be implemented in base classes
@@ -199,35 +227,15 @@ class Importer:
             output.append("\t[No Build Failures]")
         return "\n".join(output)
 
-def _filter_type(typ):
-    if typ not in ["blacklist", "whitelist"]:
-        raise Exception("Must be 'whitelist' or 'blacklist'")
-
-
-FILTER_SCHEMA = {
-    "type" : dict,
-    "required" : False,
-    "properties" : {
-        "type" : {"type" : str, "check" : _filter_type},
-        "set" : {
-            "type" : list,
-            "required" : False,
-            "items" : {
-                "type" : str
-            }
-        }
-    }
-}
-
 
 class LocationImporter(Importer):
     '''Imports Locations from json'''
 
-    exit_schema = {
+    EXIT_SCHEMA = {
         "type": dict,
         "properties": {
-            "destination" : {"type" : str, "required" : False},
-            "name" : {"type" : str, "required" : True},
+            "destination" : {"type" : str},
+            "name" : {"type" : str},
             "other_names": {
                 "type" : list,
                 "required" : False,
@@ -238,33 +246,27 @@ class LocationImporter(Importer):
         }
     }
 
-    location_schema = {
+    SCHEMA = {
         "properties" : {
             "name" : {"type" : str, "required" : True},
             "description" : {"type": str, "required": True},
             "exits" : {
                 "type" : list,
-                "items" : exit_schema
+                "items" : EXIT_SCHEMA
             }
         }
     }
 
     def __init__(self, lib={}):
         '''
-        exit_failure: dict mapping destination names to a dict:
+        exit_failures: dict mapping destination names to a dict:
         {"reason" : [reason for failure], "affected": [names of locations affected]}
         '''
+        self.exit_failures = {}
         super().__init__(lib)
 
     def _do_import(self, json_data):
-        try:
-            name = json_data["name"]
-            validate(self.location_schema, json_data)
-        except ValidateError as ex:
-            # modify exception to show what the name is, rethrow
-            setattr(ex, "name", name)
-            raise ex
-        return name, Location(json_data["name"], json_data["description"])
+        return json_data["name"], Location(json_data["name"], json_data["description"])
 
     #TODO: delete all existing exits
     def build_exits(self, *names, chars={}):
@@ -325,37 +327,48 @@ class LocationImporter(Importer):
 
 
 class CharacterClassImporter(Importer):
+    '''Importer for CharacterClasses'''
+
+    SCHEMA = {
+        "properties" : {
+            "name": {"type" : str},
+            "path": {"type" : str},
+            "frequency": {"type": float, "required": False},
+            "starting_location": {"type": str, "required": False}
+        }
+    }
+
     def _do_import(self, json_data, locations={}):
-        try:
-            name = json_data["name"]
-            path = json_data["path"]
-
-
-            module = importlib.import_module(path.replace('.py', '').replace('/', '.'))
-            character_class = getattr(module, name)
-            if "starting_location" in json_data:
-                starting_location = locations[json_data["starting_location"]]
-                character_class.starting_location = starting_location
-            if "frequency" in json_data:
-                assert isinstance(json_data["frequency"], float)
-                character_class.frequency = json_data["frequency"]
-            # add other json arguments here
-        except Exception as ex:
-            setattr(ex, "name", name)
-            raise ex
+        name = json_data["name"]
+        path = json_data["path"]
+        path = path.replace('.py','').replace('/', '.')
+        module = importlib.import_module(path)
+        character_class = getattr(module, name)
+        if "starting_location" in json_data:
+            starting_location = locations[json_data["starting_location"]]
+            character_class.starting_location = starting_location
+        if "frequency" in json_data:
+            character_class.frequency = json_data["frequency"]
         return str(character_class), character_class
 
+
 class ItemImporter(Importer):
+    '''Class for importing items'''
+
+    SCHEMA = {
+        "properties" : {
+            "name": {"type" : str},
+            "path": {"type" : str}
+        }
+    }
+
     def _do_import(self, json_data):
-        try:
-            name = json_data["name"]
-            path = json_data["path"]
-            module = importlib.import_module(path.replace('.py', '').replace('/', '.'))
-            item = getattr(module, name)
-        except Exception as ex:
-            setattr(ex, "name", name)
-            raise ex
+        name = json_data["name"]
+        path = json_data["path"]
+        module = importlib.import_module(path.replace('.py', '').replace('/', '.'))
+        item = getattr(module, name)
         return str(item), item
+
 
 class EntityImporter(Importer):
     pass
