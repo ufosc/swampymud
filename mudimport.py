@@ -8,6 +8,7 @@ import traceback
 from location import Location, Exit
 from util.stocstring import StocString
 from util.distr import RandDist
+from character import CharFilter
 
 #TODO remove this function and replace it with a glob
 def get_filenames(directory, ext=""):
@@ -22,6 +23,8 @@ def process_json(filename):
         # read the file, processing any stocstring macros
         json_data = StocString.process(location_file.read())
     json_data = json.loads(json_data)
+    # ensure that json has a "name" attribute that can be used
+    assert "name" in json_data
     return json_data
 
 
@@ -126,6 +129,10 @@ def validate(schema, data):
                                     % field)
             if field in data:
                 validate(subschema, data[field])
+        #TODO: actually return the warnings so Importers can store them
+        for data_field in data:
+            if data_field not in schema["properties"]:
+                print("ValidateWarning: unused field %s in %s" % (data_field, data))
 
 
 def _filter_type(typ):
@@ -149,6 +156,20 @@ FILTER_SCHEMA = {
 }
 
 
+def dict_to_filter(filter_dict, chars):
+    '''Convert the dictionary to CharFilter
+    filter_dict = dict following the FILTER_SCHEMA dict
+    chars = dict of character classes
+    this method raises a KeyError if a class is not found
+    '''
+    mode = filter_dict["type"]
+    filter_set = []
+    if "set" in filter_dict:
+        for name in filter_dict["set"]:
+            filter_set.append(chars[name])
+    return CharFilter(mode, filter_set)
+
+
 class Importer:
     '''Base class for other importers
     objects:        dict mapping object names -> object instances
@@ -167,7 +188,22 @@ class Importer:
         self.failures = {}
 
     def import_file(self, filename, **kwargs):
-        '''Import one file with filename [filename]'''
+        '''Import one file with name [filename]'''
+        # if filename has already been processed
+        if filename in self.file_data:
+            # check if there was an issue with the file
+            # if so, we will try to reimport
+            if filename in self.file_fails:
+                del self.file_fails[filename]
+            else:
+                # if json is fine, but data had errors
+                object_name = self.file_data[filename]["name"]
+                if object_name in self.failures:
+                    del self.failures[object_name]
+                # file has already been imported successfully
+                # reload_file must be explicitly called to reload the file
+                else:
+                    return
         try:
             json_data = process_json(filename)
             self.file_data[filename] = json_data
@@ -259,46 +295,70 @@ class LocationImporter(Importer):
 
     def __init__(self, lib={}):
         '''
-        exit_failures: dict mapping destination names to a dict:
+        exit_faults: maps location responsible for error -> (location, reason for failure, exit_data)
+        note that we only add the "exit_fault" if another location causes the issue
+        otherwise, we simply remove the location
+
         {"reason" : [reason for failure], "affected": [names of locations affected]}
+
         '''
-        self.exit_failures = {}
+        self.exit_causes = {}
+        self.exit_effects = {}
         super().__init__(lib)
 
     def _do_import(self, json_data):
+        #TODO: if this location was responsible for an exit build error, fix it
         return json_data["name"], Location(json_data["name"], json_data["description"])
 
     #TODO: delete all existing exits
-    def build_exits(self, *names, chars={}):
+    def build_exits(self, *loc_names, chars={}):
         '''This method is always executed on locations
         that have already passed through _do_import.
         Thus, we can assume the types of each field are correct.
         '''
-        for loc_name in names:
+        for loc_name in loc_names:
             location = self.objects[loc_name]
             json_data = self.file_data[self.object_source[loc_name]]
             if "exits" in json_data:
                 for exit_data in json_data["exits"]:
-                    dest_name = exit_data["destination"]
-                    try:
-                        dest = self.objects[exit_data["destination"]]
-                    except KeyError:
-                        if dest_name in self.exit_failures:
-                            self.exit_failures[dest_name]["affected"].append(loc_name)
-                        else:
-                            new_failure = {"affected" : [loc_name]}
-                            if dest_name in self.failures:
-                                new_failure["reason"] = "Destination failed to load."
-                            else:
-                                new_failure["reason"] = "Destination not found."
-                            self.exit_failures[dest_name] = new_failure
-                        continue
-                    # this only handles CharacterClasses
-                    # TODO: handle "proper" characters
+                    self._add_single_exit(location, exit_data, chars)
+                    
+    def _add_single_exit(self, loc, exit_data, chars):
+        dest_name = exit_data["destination"]
+        # first, check the destination
+        try:
+            dest = self.objects[dest_name]
+        except KeyError:
+            # destination is not loaded correctly
+            if loc not in self.exit_effects:
+                self.exit_effects[loc] = []
+            if dest_name not in self.exit_causes:
+                self.exit_causes[dest_name] = []
+            if dest_name in self.failures:
+                reason = "Destination '%s' failed to load." % dest_name
+            else:
+                reason = "Destination '%s' not found." % dest_name
+            self.exit_effects[loc].append((exit_data, reason))
+            self.exit_causes[dest_name].append((loc, exit_data, reason))
+            return
+        kwargs = {"name": exit_data["name"], "destination": dest}
+        try:
+            if "access" in exit_data:
+                kwargs["access"] = dict_to_filter(exit_data["access"], chars)
+            if "visibility" in exit_data:
+                kwargs["visibility"] = dict_to_filter(exit_data["visibility"], chars)
+        except KeyError as ex:
+            reason = "Invalid CharFilter field '%s'" % ex.args
+            if loc not in self.exit_effects:
+                self.exit_effects[loc] = []
+            self.exit_effects[loc].append((exit_data, reason))
+        try: 
+            loc.add_exit(Exit(**kwargs))
+        except Exception as ex:
+            if loc not in self.exit_effects:
+                self.exit_effects[loc] = []
+            self.exit_effects[loc].append((exit_data, traceback.format_exc()))
 
-                    kwargs = dict(exit_data)
-                    kwargs["destination"] = dest
-                    location.add_exit(Exit(**kwargs))
 
 #    def add_items(self):
 #        '''looks at the skeletons, adds items for each
@@ -324,6 +384,34 @@ class LocationImporter(Importer):
 #        on fail, an entity is simply not added'''
 #        # entities have not been added yet
 #        pass
+
+    def __str__(self):
+        output = []
+        if self.objects:
+            output.append("\tSuccesses [%s]" % len(self.objects))
+            for name, loc in self.objects.items():
+                output.append(name)
+                if loc in self.exit_effects:
+                    output.append("\tFailed Exits")
+                    for exit_data, reason in self.exit_effects[loc]:
+                        output.append("\t%s: %s" % (exit_data["name"], reason))
+        else:
+            output.append("\t[No Successes]")
+        if self.file_fails:
+            output.append("\tFile Failures [%s]" % len(self.file_fails))
+            for fail_name, fail in self.file_fails.items():
+                output.append(fail_name)
+                output.append(fail)
+        else:
+            output.append("\t[No File Failures]")
+        if self.failures:
+            output.append("\tBuild Failures [%s]" % len(self.failures))
+            for fail_name, fail in self.failures.items():
+                output.append(fail_name)
+                output.append(fail)
+        else:
+            output.append("\t[No Build Failures]")
+        return "\n".join(output)
 
 
 class CharacterClassImporter(Importer):
