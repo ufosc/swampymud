@@ -18,8 +18,12 @@ def build_char_class_distr():
     can be called again to rebuild the distribution
     '''
     global random_class
-    frequencies = [char_class.frequency for char_class in character_classes.values()]
-    random_class = RandDist(list(character_classes.values()), frequencies)
+    # grab character classes with frequency > 0
+    to_include = [c_class for c_class in character_classes.values() 
+                   if c_class.frequency > 0]
+    if len(to_include) == 0:
+        raise Exception("No valid classes with frequency greater than 0")
+    random_class = RandDist(to_include, list(map(lambda x: x.frequency, to_include)))
 
 
 def store_server(input_server):

@@ -1,17 +1,19 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 '''main script for MuddySwamp'''
 import sys
 import logging
 import threading
 import queue
 import enum
-import mudimport
-import library
+import traceback
+import errno
 # import the MUD server class
 from mudserver import MudServer, Event, EventType
-from location import Location, Exit
+# import modules from the MuddySwamp engine
+import mudimport
+import library
 import control
-import traceback
+from location import Location, Exit
 
 
 # Setup the logger
@@ -43,11 +45,13 @@ class ServerComand:
         self.params = params
 
 class MudServerWorker(threading.Thread):
-    def __init__(self, q, *args, **kwargs):
+    def __init__(self, q, server, *args, **kwargs):
         self.keep_running = True
         self.q = q
         mudimport.import_files(**IMPORT_PATHS)
         library.build_char_class_distr()
+        self.mud = server
+        library.store_server(self.mud)
         super().__init__(*args, **kwargs)
 
     # Cannot call mud.shutdown() here because it will try to call the sockets in run on the final go through
@@ -56,8 +60,6 @@ class MudServerWorker(threading.Thread):
 
     def run(self):
         logging.info("Starting server.")
-        self.mud = MudServer()
-        library.store_server(self.mud)
         logging.info("Server started successfully.")
         # main game loop. We loop forever (i.e. until the program is terminated)
         while self.keep_running:
@@ -120,53 +122,76 @@ class MudServerWorker(threading.Thread):
         # Shut down the mud instance after the while loop finishes
         self.mud.shutdown()
 
-# Create a threadsafe queue for commands entered on the server side
-command_queue = queue.Queue()
-# Create an instance of the thread and start it
-thread = MudServerWorker(command_queue)
-thread.setName("MudServerThread")
-thread.start()
-
-# Look for input on the server and send it to the thread
-while True:
+if __name__ == "__main__":
+    # parse arguments for port number
+    # if we get more complex, we will need an argparser
+    port = 1234
+    if len(sys.argv) > 1:
+        try:
+            port = int(sys.argv[1])
+        except ValueError:
+            print("Error. Port must be an integer.", file=sys.stderr)
+            exit(-1)
     try:
-        command, params = (input("").split(" ", 1) + ["", ""])[:2]
-        if command == "broadcast":
-            command_queue.put(ServerComand(ServerCommandEnum.BROADCAST_MESSAGE, u"\u001b[32m" + "[Server] " + params + u"\u001b[0m"))
-        elif command == "players":
-            command_queue.put(ServerComand(ServerCommandEnum.GET_PLAYERS, ""))
-        elif command == "stop":
+        server = MudServer(port)
+    except PermissionError:
+        print("Error. Do not have permission to use port '%s'" % port, file=sys.stderr)
+        exit(-1)
+    except OSError as ex:
+        if ex.errno == errno.EADDRINUSE:
+            print("Error. Port '%s' is already in use." % port, file=sys.stderr)
+        else:
+            print(ex, file=sys.stderr)
+        exit(-1)
+
+
+    # Create a threadsafe queue for commands entered on the server side
+    command_queue = queue.Queue()
+    # Create an instance of the thread and start it
+    thread = MudServerWorker(command_queue, server)
+    thread.setName("MudServerThread")
+    thread.start()
+
+    # Look for input on the server and send it to the thread
+    while True:
+        try:
+            command, params = (input("").split(" ", 1) + ["", ""])[:2]
+            if command == "broadcast":
+                command_queue.put(ServerComand(ServerCommandEnum.BROADCAST_MESSAGE, u"\u001b[32m" + "[Server] " + params + u"\u001b[0m"))
+            elif command == "players":
+                command_queue.put(ServerComand(ServerCommandEnum.GET_PLAYERS, ""))
+            elif command == "stop":
+                command_queue.put(ServerComand(ServerCommandEnum.BROADCAST_MESSAGE, u"\u001b[32m" + "[Server] " + "Server shutting down..." + u"\u001b[0m"))
+                break
+            elif command == "help":
+                logging.info("Server commands are: \n" \
+                " broadcast [message] - Broadcasts a message to the entire server\n"\
+                " players - Prints a list of all players\n" \
+                " stop - Stops the server\n" \
+                " list [locations|items|chars|] - list all available loaded locations/items/chars\n")
+            elif command == "list":
+                if params == "locations":
+                    location_list = "Loaded Locations:\n"
+                    for name, ref in library.locations.items():
+                        location_list += "Name: %s\n" \
+                        "Object:\n%s\n" % (name, repr(ref))
+                    logging.info(location_list)
+                elif params == "items":
+                    pass
+                elif params == "chars":
+                    pass
+                else:
+                    logging.info("Argument not recognized. Type help for a list of commands.")
+            else:
+                logging.info("Command not recognized. Type help for a list of commands.")
+        except KeyboardInterrupt:
+            logging.info("Keyboard interrupt detected. Shutting down.")
             command_queue.put(ServerComand(ServerCommandEnum.BROADCAST_MESSAGE, u"\u001b[32m" + "[Server] " + "Server shutting down..." + u"\u001b[0m"))
             break
-        elif command == "help":
-            logging.info("Server commands are: \n" \
-            " broadcast [message] - Broadcasts a message to the entire server\n"\
-            " players - Prints a list of all players\n" \
-            " stop - Stops the server\n" \
-            " list [locations|items|chars|] - list all available loaded locations/items/chars\n")
-        elif command == "list":
-            if params == "locations":
-                location_list = "Loaded Locations:\n"
-                for name, ref in library.locations.items():
-                    location_list += "Name: %s\n" \
-                    "Object:\n%s\n" % (name, repr(ref))
-                logging.info(location_list)
-            elif params == "items":
-                pass
-            elif params == "chars":
-                pass
-            else:
-                logging.info("Argument not recognized. Type help for a list of commands.")
-        else:
-            logging.info("Command not recognized. Type help for a list of commands.")
-    except KeyboardInterrupt:
-        logging.info("Keyboard interrupt detected. Shutting down.")
-        command_queue.put(ServerComand(ServerCommandEnum.BROADCAST_MESSAGE, u"\u001b[32m" + "[Server] " + "Server shutting down..." + u"\u001b[0m"))
-        break
 
 
-# Shut down the server gracefully
-logging.info("Shutting down server")
-thread.shutdown()
-thread.join()
-logging.info("Server shutdown. Good bye!!")
+    # Shut down the server gracefully
+    logging.info("Shutting down server")
+    thread.shutdown()
+    thread.join()
+    logging.info("Server shutdown. Good bye!!")

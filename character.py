@@ -3,8 +3,8 @@ import location
 import control
 import inventory
 import item
+import enum
 from time import time
-
 
 def camel_to_space(name):
     '''adds spaces before capital letters
@@ -45,10 +45,10 @@ class AmbiguityError(CharException):
         query = "epic sword"
         options = [list of results from inventory.get_item()]
         '''
-        super().__init__(self, indices, options, phrase)
+        super().__init__()
         self.indices = indices
         self.options = options
-        self.phrase = phrase
+        self.query = query
 
 
 class CharacterClass(type):
@@ -167,9 +167,9 @@ class Character(control.Monoreceiver, metaclass=CharacterClass):
             return
         method = self.commands[command]
         try:
-            method(self, args[1::])
+            method(self, args)
         except AmbiguityError as amb:
-            self._parser = AmbiguityResolver(self, args, amb.indices, amb.phrase, amb.options)
+            self._parser = AmbiguityResolver(self, args, amb)
         except CharException as ex:
             self.message(str(ex))
     
@@ -181,9 +181,9 @@ class Character(control.Monoreceiver, metaclass=CharacterClass):
         if len(options) == 1:
             return options[0]
         elif len(options) == 0:
-            self.message("Error: '%s' not found." % (phrase) )
+            raise CharException("Error: '%s' not found." % (phrase) )
         else:
-            raise AmbiguityError(indices, phrase, options)        
+            raise AmbiguityError(indices, phrase, options)
 
     def set_name(self, new_name):
         '''changes a characters's name, with all appropriate error checking'''
@@ -262,9 +262,10 @@ class Character(control.Monoreceiver, metaclass=CharacterClass):
             pass
         self.location = new_location
         self.location.add_char(self)
+        self.cmd_look(verbose=False)
 
     #inventory/item related methods
-    def equip(self, item, add_inv=True):
+    def equip(self, item, remove_inv=True):
         print(item)
         if item.target in self.equip_dict:
             already_equip = self.equip_dict[item.target]
@@ -272,10 +273,9 @@ class Character(control.Monoreceiver, metaclass=CharacterClass):
                 self.unequip(already_equip)
             item.equip(self)
             self.equip_dict[item.target] = item
-            # check that add_inv is not present and true
-            # if so, we dont remove the item on equip
-            # duplicating it.
-            if not add_inv:
+            # check remove_inv, if true, remove item
+            # this avoids duplication
+            if remove_inv:
                 self.inv -= item
             self.message("Equipped %s." % item)
         else:
@@ -298,29 +298,27 @@ class Character(control.Monoreceiver, metaclass=CharacterClass):
         usage: help [command]
         If no command is supplied, a list of all commands is shown.
         '''
-        if len(args) == 0:
+        if len(args) < 2:
             self.message(self.__class__.help_menu)
             return
-        command = args[0]
+        command = args[1]
         if command in self.commands:
             self.message(str(self.commands[command].__doc__))
         else:
             self.message("Command \'%s\' not recognized." % command)
 
-    def cmd_look(self, *args):
-        '''Provide information about the current location.
+    def cmd_look(self, *args, verbose=True):
+        '''Gives description of current location
         usage: look
-        '''
-        self.message(self.location.__str__(True))
-        exit_list = self.location.exit_list()
-        exit_msg = "\nExits Available:\n"
-        if len(exit_list) == 0:
-            exit_msg += "None"
-        else:
-            exit_msg += ", ".join(map(str, exit_list))
-        self.message(exit_msg)
-        char_list = self.location.get_character_list()
-        char_msg = "You see"
+        '''      
+        if verbose:
+            self.message(self.location.__str__(True))
+        char_list = self.location.character_list
+        try:
+            char_list.remove(self)
+        except ValueError:
+            pass
+        char_msg = "\nYou see "
         if len(char_list) == 0:
             pass
         elif len(char_list) == 1:
@@ -330,20 +328,27 @@ class Character(control.Monoreceiver, metaclass=CharacterClass):
             char_msg += " and ".join(map(str, char_list)) + "."
             self.message(char_msg)
         else:
-            char_msg += ", ".join(map(str, char_list[:-1])) + ", and " + char_list[-1] + "."
+            char_msg += ", ".join(map(str, char_list[:-1])) + ", and " + str(char_list[-1]) + "."
             self.message(char_msg)
+        exit_list = self.location.exit_list()
+        exit_msg = "\nExits Available:\n"
+        if len(exit_list) == 0:
+            exit_msg += "None"
+        else:
+            exit_msg += ", ".join(map(str, exit_list))
+        self.message(exit_msg)
 
-    def cmd_say(self, *args):
+    def cmd_say(self, args):
         '''Say a message aloud, sent to all players in your current locaton.
         usage: say [msg]
         '''
-        self.location.message_chars("%s : %s" % (self, " ".join(args)))
+        self.location.message_chars("%s : %s" % (self, " ".join(args[1:])))
     
-    def cmd_walk(self, *args):
+    def cmd_walk(self, args):
         '''Walk to an accessible location.
         usage: walk [exit name]
         '''
-        exit_name = " ".join(args)
+        exit_name = " ".join(args[1:])
         exit = self.location.get_exit(exit_name)
         self.set_location(exit.get_destination(), False, exit)
     
@@ -351,20 +356,30 @@ class Character(control.Monoreceiver, metaclass=CharacterClass):
     # Why should we assume the player can do these things?
     def cmd_equip(self, args):
         '''Equip an equippable item from your inventory.'''
-        item_name = " ".join(args)
-        item = self._check_ambiguity(indices, item_name, self.inv.get_item(item_name))
+        if len(args) < 2:
+            self.message("Provide an item to equip.")
+            return
+        try:
+            item_name = " ".join(args[1::])
+            item = self._check_ambiguity(slice(1, len(args)), item_name, self.inv.get_item(item_name))
+        except TypeError:
+            # args must be item that we already have
+            item = args[1]
         self.equip(item)
 
-    def cmd_unequip(self, *args):
+    def cmd_unequip(self, args):
         '''Unequip an equipped item.'''
+        if len(args) < 2:
+            self.message("Provide an item to equip.")
+            return
         options = []
-        for target,item in self.equip_dict.items():
-            if item == args[0]:
+        for target, item in self.equip_dict.items():
+            if item == args[1]:
                 options.append(item)
-        item = self._handle_ambiguity(args[0], options)
+        item = self._check_ambiguity(1, args[1], options)
         self.unequip(item) 
             
-    def cmd_inv(self, *args):
+    def cmd_inv(self, args):
         '''Show your inventory.'''
         output = ""
         for target, equipped in self.equip_dict.items():
@@ -373,32 +388,110 @@ class Character(control.Monoreceiver, metaclass=CharacterClass):
 
     #TODO: provide a static method that transforms characters from one class to another
 
+#TODO: clean this up, provide documentation
 class AmbiguityResolver:
-    def __init__(self, character, old_args, indices, phrase, options):
-        self._character = character
-        self._old_args = old_args
-        self._index = index
-        self._target = target
-        self._indices = indices
-        self._phrase = phrase
-        self._options = options
-        self._character.message(str(self))
+    def __init__(self, char, args, amb):
+        self._char = char
+        self._old_args = args
+        self._amb = amb
+        # send the char the ambiguity message
+        self._char.message(str(self))
     
     def __call__(self, inp):
         try:
             inp = int(inp)
         except ValueError:
-            self._character.message("Please enter an integer.")
+            self._char.message("Please enter an integer.")
             return
-        if inp not in range(len(options)):
-            self._character.message("Provided integer out of range.")
+        if inp not in range(len(self._amb.options)):
+            self._char.message("Provided integer out of range.")
             return
-        choice = self._options(inp)
-        old_args[indices] = choice
-        self._character._parser = lambda line : Character.parse_command(character, line)
-        self._character.parse_command()
+        choice = self._amb.options[inp]
+        # delete the invalid options
+        del self._old_args[self._amb.indices]
+        if type(self._amb.indices) is slice:
+            self._old_args.insert(self._amb.indices.start + 1, choice)
+        else:
+            self._old_args.insert(self._amb.indices + 1, choice)
+        self._char._parser = lambda line: Character.parse_command(self._char, line)
+        self._char.parse_command(args=self._old_args)
 
     def __str__(self):
-        string = "Multiple options for %s:\n" % self.phrase
-        string += "\n".join(["\t%s) %s" % (index, repr(option)) for index, option in enumerate(self.options)])
-        string += "\nEnter a number to resolve it:"   
+        string = "Multiple options for %s:\n" % self._amb.query
+        string += "\n".join(["\t%s) %s" % (index, repr(option)) for index, option in enumerate(self._amb.options)])
+        string += "\nEnter a number to resolve it:" 
+        return string
+
+class MaskMode(enum.Enum):
+    WHITELIST = True
+    BLACKLIST = False
+
+class CharFilter:
+    '''Filter for screening out certain CharacterClasses and Characters
+        _set  - set of Characters and CharacterClasses tracked by the filter
+        _mode - MaskMode.WHITELIST or MaskMode.BLACKLIST
+                if WHITELIST is selected, only tracked chars are allowed in
+                if BLACKLIST is selected, tracked chars are excluded
+    '''
+
+    def __init__(self, mode, iter=[]):
+        '''initialize a CharFilter with [mode]
+        if [mode] is True, the CharFilter will act as a whitelist
+        if [mode] is False, the CharFilter will act as a blacklist
+        [iter] can be optionally set to pre-load the whitelist/blacklist
+        '''
+        self._set = set(iter)
+        self._mode = mode
+        if type(mode) is bool:
+            if mode:
+                self._mode = MaskMode.WHITELIST
+            else:
+                self._mode = MaskMode.BLACKLIST
+    
+    def permits(self, other):
+        '''returns True if Character/CharacterClass is allowed in
+        the individual Character is evaluated first,
+        then the Character's class, then all the Character's
+        ancestor classes
+        '''
+        if isinstance(other, Character):
+            if other in self._set:
+                return self._mode.value
+            # now try the Character's class
+            other = type(other)
+        if isinstance(other, CharacterClass):
+            # cycle through each ancestor
+            ancestors = filter(lambda x: isinstance(x, CharacterClass),
+                              other.__mro__)
+            for char_class in ancestors:
+                if char_class in self._set:
+                    return self._mode.value
+        # "other" is neither a CharClass nor Character
+        else:
+            return False
+        # the character / ancestors cannot be found in the list
+        return not self._mode.value
+    
+    def include(self, other):
+        '''Set the filter to return 'True' if [other] is supplied
+        to permit()'''
+        # check that other is a Character / CharacterClass
+        assert(isinstance(other, Character) or
+               isinstance(other, CharacterClass))
+        if self._mode is MaskMode.WHITELIST:
+            self._set.add(other)
+        else:
+            if other in self._set:
+                self._set.remove(other)
+    
+    def exclude(self, other):
+        '''Set the filter to return 'False' if [other] is supplied
+        to permit()'''
+        # check that other is a Character / CharacterClass
+        assert(isinstance(other, Character) or
+               isinstance(other, CharacterClass))
+        if self._mode is MaskMode.WHITELIST:
+            if other in self._set:
+                self._set.remove(other)
+        else:
+            self._set.add(other)
