@@ -190,6 +190,8 @@ class Character(control.Monoreceiver, metaclass=CharacterClass):
         '''changes a characters's name, with all appropriate error checking'''
         if new_name in Character._names:
             raise CharException("Name already taken.")
+        # TODO: check that new_name is not a globally-registered 
+        # location, CharClass, etc.
         if self.name is not None:
             del(self._names[self.name])
         self.name = new_name
@@ -421,31 +423,41 @@ class AmbiguityResolver:
         string += "\nEnter a number to resolve it:" 
         return string
 
-class MaskMode(enum.Enum):
+class FilterMode(enum.Enum):
     WHITELIST = True
     BLACKLIST = False
+
 
 class CharFilter:
     '''Filter for screening out certain CharacterClasses and Characters
         _set  - set of Characters and CharacterClasses tracked by the filter
-        _mode - MaskMode.WHITELIST or MaskMode.BLACKLIST
+        _mode - FilterMode.WHITELIST or FilterMode.BLACKLIST
                 if WHITELIST is selected, only tracked chars are allowed in
                 if BLACKLIST is selected, tracked chars are excluded
     '''
 
-    def __init__(self, mode, iter=[]):
+    def __init__(self, mode, items=[]):
         '''initialize a CharFilter with [mode]
         if [mode] is True, the CharFilter will act as a whitelist
         if [mode] is False, the CharFilter will act as a blacklist
         [iter] can be optionally set to pre-load the whitelist/blacklist
         '''
-        self._set = set(iter)
-        self._mode = mode
-        if type(mode) is bool:
+        self._set = set(items)
+        if isinstance(mode, FilterMode):
+            self._mode = mode
+        elif isinstance(mode, bool):
             if mode:
-                self._mode = MaskMode.WHITELIST
+                self._mode = FilterMode.WHITELIST
             else:
-                self._mode = MaskMode.BLACKLIST
+                self._mode = FilterMode.BLACKLIST
+        else:
+            if mode == "whitelist":
+                self._mode = FilterMode.WHITELIST
+            elif mode == "blacklist":
+                self._mode = FilterMode.BLACKLIST
+            else:
+                raise ValueError("Unrecognized mode %s" % repr(mode))
+        
     
     def permits(self, other):
         '''returns True if Character/CharacterClass is allowed in
@@ -477,7 +489,7 @@ class CharFilter:
         # check that other is a Character / CharacterClass
         assert(isinstance(other, Character) or
                isinstance(other, CharacterClass))
-        if self._mode is MaskMode.WHITELIST:
+        if self._mode is FilterMode.WHITELIST:
             self._set.add(other)
         else:
             if other in self._set:
@@ -489,8 +501,11 @@ class CharFilter:
         # check that other is a Character / CharacterClass
         assert(isinstance(other, Character) or
                isinstance(other, CharacterClass))
-        if self._mode is MaskMode.WHITELIST:
+        if self._mode is FilterMode.WHITELIST:
             if other in self._set:
                 self._set.remove(other)
         else:
             self._set.add(other)
+    
+    def __repr__(self):
+        return "CharFilter(%s, %s)" % (self._mode.value, self._set)

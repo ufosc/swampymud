@@ -16,7 +16,7 @@ class Exit:
         access     = CharFilter that permits accessing the exit 
         visibility = CharFilter that permits viewing the exit
     '''
-    def __init__(self, destination, name, other_names=[], access=None, visibility=None, **kwargs):
+    def __init__(self, destination, name, other_names=[], access=None, visibility=None):
         '''Constructor for Exit
         Takes as input:
             location [location it points to]
@@ -127,7 +127,6 @@ class Location:
 
     def remove_item(self, item, quantity=1):
         self._items.remove_item(item, quantity)
-
 
     def __contains__(self, other):
         '''Overriding in operator
