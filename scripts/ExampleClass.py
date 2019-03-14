@@ -1,9 +1,9 @@
 from character import Character
 import item
-import library 
+import mudscript
 
 class ExampleClass(Character):
-    starting_location = library.locations["Marston Basement"]
+    mudscript.get_location("Marston Basement")
     equip_slots = ["Head", "Torso", "Feet"]
 
     def cmd_echo(self, args):
