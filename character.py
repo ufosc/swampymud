@@ -133,7 +133,7 @@ class Character(control.Monoreceiver, metaclass=CharacterClass):
 
     def message(self, msg):
         '''send a message to the controller of this character'''
-        if self.controller is not None:
+        if self.controller:
             self.controller.write_msg(msg)
     
     def update(self):
@@ -343,8 +343,6 @@ class Character(control.Monoreceiver, metaclass=CharacterClass):
         exit = self.location.get_exit(exit_name)
         self.set_location(exit.get_destination(), False, exit)
     
-    # TODO: Move these into a "human" class
-    # Why should we assume the player can do these things?
     def cmd_equip(self, args):
         '''Equip an equippable item from your inventory.'''
         if len(args) < 2:
@@ -363,11 +361,14 @@ class Character(control.Monoreceiver, metaclass=CharacterClass):
         if len(args) < 2:
             self.message("Provide an item to equip.")
             return
+        item_name = " ".join(args[1::])
         options = []
         for target, item in self.equip_dict.items():
-            if item == args[1]:
+            print(target)
+            print(item)
+            if item and item.name.lower() == item_name:
                 options.append(item)
-        item = self._check_ambiguity(1, args[1], options)
+        item = self._check_ambiguity(1, item_name, options)
         self.unequip(item) 
             
     def cmd_inv(self, args):

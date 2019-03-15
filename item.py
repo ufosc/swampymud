@@ -44,16 +44,7 @@ class Equippable(Item):
 class EquippableBase(metaclass=Equippable):
     '''Base class for all Equippable items
     You must define your own "target", "equip", and "unequip" methods
-    Optionally, you can provide a list of "key_names".
-    These "key_names" *must* be accurate and hashable.
     '''
-
-    def __init__(self):
-        '''Initialize an EquippableBase'''
-        # build a tuple with all keys
-        # TODO: try and move this functionality into the metaclass
-        self._key_vals = (getattr(self, name) for name in self.key_names)
-
     @property
     def name(self):
         '''Creating a readonly "name" property'''
@@ -129,8 +120,10 @@ class EquipTarget:
 
     @staticmethod
     def make_dict(*names):
-        '''returns a dictionary mapping each name in [names] to an
-        EquipTarget with that name'''
+        '''create an equip_dict containing EquipTargets generated
+        from the list of names. An equip_dict in use might look like:
+        {EquipTarget("Torso") : "Cuirass", EquipTarget("Feet") : "Boots"}
+        '''
         equip_dict = {}
         for name in names:
             equip_dict[EquipTarget(name)] = None
@@ -149,15 +142,7 @@ class Usable(Item):
 class UsableBase(metaclass=Usable):
     '''Base class for all Usable items
     You must define your own "use" methods
-    Optionally, you can provide a list of "key_names".
-    These "key_names" *must* be accurate and hashable.
     '''
-    key_names = ("_item_name")
-    def __init__(self):
-        '''Initialize an EquippableBase'''
-        # build a tuple with all keys
-        # TODO: try and move this functionality into the metaclass
-        self._key_vals = (getattr(self, name) for name in self.key_names)
 
     @property
     def name(self):
@@ -181,18 +166,10 @@ class UsableBase(metaclass=Usable):
 
 
 class MiscItemBase(metaclass=Item):
-    '''Base class for all Usable items
-    You must define your own "use" methods
-    Optionally, you can provide a list of "key_names".
-    These "key_names" *must* be accurate and hashable.
+    '''Base class for all MiscItems
+    These items cannot be used, and will be typically
+    used to store value (e.g. money, gold, building materials)
     '''
-    key_names = ("_item_name",)
-    item_type = "Misc. Item"
-    def __init__(self):
-        '''Initialize an EquippableBase'''
-        # build a tuple with all keys
-        # TODO: try and move this functionality into the metaclass
-        self._key_vals = (getattr(self, name) for name in self.key_names)
 
     @property
     def name(self):
