@@ -22,9 +22,9 @@ from util import camel_to_space
 class Item(type):
     '''The metaclass establishing behavior for all items'''
     def __init__(self, cls, bases, dic):
-        if "item_name" not in dic:
-            self.item_name = camel_to_space(cls)
-        if "item_type" not in dic:
+        if "_item_name" not in dic:
+            self._item_name = camel_to_space(cls)
+        if "_item_type" not in dic:
             self.item_type = "Item"
         super().__init__(cls, bases, dic)
 
@@ -34,24 +34,41 @@ class Equippable(Item):
         super().__init__(cls, bases, dic)
         self.item_type = "Equippable"
         if cls != "EquippableBase": 
+            #TODO: assert that target is an EquipTarget
             assert "target" in dic or any([hasattr(base, "target") for base in bases])
             assert "equip" in dic or any([hasattr(base, "equip") for base in bases])
             assert "unequip" in dic or any([hasattr(base, "unequip") for base in bases])
 
 
 class EquippableBase(metaclass=Equippable):
-    def __str__(self):
-        return self.item_name
-    
-    def __eq__(self, other):
-        if type(other) is str:
-            return self.item_name.lower() == item_name.lower()
-        elif type(other) is type(self):
-            return hash(self) == hash(other)
-        return False 
+    '''Base class for all Equippable items
+    You must define your own "target", "equip", and "unequip" methods
+    Optionally, you can provide a list of "keys".
+    These "keys" *must* be accurate and hashable.
+    '''
+    key_names = ("_item_name")
+    def __init__(self):
+        '''Initialize an EquippableBase'''
+        # build a tuple with all keys
+        # TODO: try and move this functionality into the metaclass
+        self._key_vals = (getattr(self, name) for name in self.key_names)
 
-    def __hash__(self):
-        return hash((self.__class__, self.name))
+    @property
+    def name(self):
+        '''Creating a readonly "name" property'''
+        return self._item_name
+        
+    def __str__(self):
+        '''Return a string representing the object
+        this will be how the item appears to the player'''
+        return self._item_name
+
+    def __eq__(self, other):
+        return hash(self) == hash(other)
+
+    def __hash__(self): 
+        return hash(self.item_type, *self._key_vals)
+
 
 class EquipTarget:
     '''Class for identifying specific slots that an equippable item
@@ -107,60 +124,9 @@ class EquipTarget:
 
     @staticmethod
     def make_dict(*names):
-        '''returns a dictionary mapping each name in [names] to an 
+        '''returns a dictionary mapping each name in [names] to an
         EquipTarget with that name'''
         equip_dict = {}
         for name in names:
             equip_dict[EquipTarget(name)] = None
         return equip_dict
-
-
-class Consumable(Item):
-    def __init__(self, cls, bases, dic):
-        super().__init__(cls, bases, dic)
-        self.item_type = "Item"
-        if cls != "ConsumableBase": 
-            assert "target" in dic or any([hasattr(base, "target") for base in bases])
-            assert "consume" in dic or any([hasattr(base, "consume") for base in bases])
-
-
-class ConsumableBase(metaclass=Consumable):
-    def use(self, character, *args):
-        self.consume(self, character, *args)
-
-    def __str__(self):
-        return self.name
-    
-    def __eq__(self, other):
-        if type(other) is str:
-            return self.name.lower() == other.lower()
-        elif type(other) is type(self):
-            return hash(self) == hash(other)
-        return False 
-
-    def __hash__(self):
-        return hash((self.__class__, self.name))
-
-
-class Throwable(Item):
-    def __init__(self, cls, bases, dic):
-        super().__init__(cls, bases, dic)
-        self.item_type = "Item"
-        if cls != "ThrowableBase":
-            assert "target" in dic or any([hasattr(base, "target") for base in bases])
-            assert "throw" in dic or any([hasattr(base, "throw") for base in bases])
-
-
-class ThrowableBase(metaclass=Throwable):
-    def __str__(self):
-        return self.name
-    
-    def __eq__(self, other):
-        if type(other) is str:
-            return self.name.lower() == other.lower()
-        elif type(other) is type(self):
-            return hash(self) == hash(other)
-        return False
-
-    def __hash__(self):
-        return hash((self.__class__, self.name))
