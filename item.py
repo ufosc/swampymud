@@ -6,8 +6,9 @@ It is up to the item to correctly
 
 There are 3 major item families:
 Equipables:
-    Things that have an equip() method.
+    Things that have an equip() and an unequip() method.
     Upon equip, they are bound to a character, and must be unequipped.
+    
 Consumables:
     Things that have a consume() method.
     Upon consume, they are removed from the inventory, and incur some
@@ -21,8 +22,9 @@ class Item(type):
     '''The metaclass establishing behavior for all items'''
     def __init__(self, cls, bases, dic):
         if "item_name" not in dic:
-            self.name = cls
-        self.item_type = "Item"
+            self.item_name = cls
+        if "item_type" not in dic:
+            self.item_type = "Item"
         super().__init__(cls, bases, dic)
 
 
@@ -36,18 +38,13 @@ class Equippable(Item):
             assert "unequip" in dic or any([hasattr(base, "unequip") for base in bases])
 
 
-#TODO: make it so that metaclass automatically detects KEY attributes
 class EquippableBase(metaclass=Equippable):
-    def __init__(self):
-        self.name = self.__class__.name
-        self.is_equipped = False
-
     def __str__(self):
-        return self.__class__.name
+        return self.item_name
     
     def __eq__(self, other):
         if type(other) is str:
-            return self.name.lower() == other.lower()
+            return self.item_name.lower() == item_name.lower()
         elif type(other) is type(self):
             return hash(self) == hash(other)
         return False 
@@ -56,7 +53,10 @@ class EquippableBase(metaclass=Equippable):
         return hash((self.__class__, self.name))
 
 class EquipTarget:
-    '''Class for identifying specific 'regions' '''
+    '''Class for identifying specific slots that an equippable item
+    may be equipped to
+    Each CharacterClass has a field, 'equip_slots', that specifies what
+    types of items they can equip'''
     # next id to be used
     next_id = 0
     # all targets mapped by name
@@ -122,6 +122,7 @@ class Consumable(Item):
             assert "target" in dic or any([hasattr(base, "target") for base in bases])
             assert "consume" in dic or any([hasattr(base, "consume") for base in bases])
 
+
 class ConsumableBase(metaclass=Consumable):
     def use(self, character, *args):
         self.consume(self, character, *args)
@@ -144,7 +145,7 @@ class Throwable(Item):
     def __init__(self, cls, bases, dic):
         super().__init__(cls, bases, dic)
         self.item_type = "Item"
-        if cls != "ThrowableBase": 
+        if cls != "ThrowableBase":
             assert "target" in dic or any([hasattr(base, "target") for base in bases])
             assert "throw" in dic or any([hasattr(base, "throw") for base in bases])
 
