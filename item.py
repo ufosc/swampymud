@@ -20,7 +20,7 @@ Throwables:
 from util import camel_to_space
 
 class Item(type):
-    '''The metaclass establishing behavior for all items'''
+    '''Metaclass establishing behavior for all items'''
     def __init__(self, cls, bases, dic):
         if "_item_name" not in dic:
             self._item_name = camel_to_space(cls)
@@ -30,6 +30,7 @@ class Item(type):
 
 
 class Equippable(Item):
+    '''Metaclass for all items that can be equipped'''
     def __init__(self, cls, bases, dic):
         super().__init__(cls, bases, dic)
         self.item_type = "Equippable"
@@ -43,10 +44,10 @@ class Equippable(Item):
 class EquippableBase(metaclass=Equippable):
     '''Base class for all Equippable items
     You must define your own "target", "equip", and "unequip" methods
-    Optionally, you can provide a list of "keys".
-    These "keys" *must* be accurate and hashable.
+    Optionally, you can provide a list of "key_names".
+    These "key_names" *must* be accurate and hashable.
     '''
-    key_names = ("_item_name")
+
     def __init__(self):
         '''Initialize an EquippableBase'''
         # build a tuple with all keys
@@ -64,10 +65,14 @@ class EquippableBase(metaclass=Equippable):
         return self._item_name
 
     def __eq__(self, other):
-        return hash(self) == hash(other)
-
-    def __hash__(self): 
-        return hash(self.item_type, *self._key_vals)
+        '''Test if the other item is equivalent, based on
+        the item_name and the item_type being the same
+        '''
+        try:
+            return (self.name == other.name and
+                    self.item_type == other.item_type)
+        except:
+            return False
 
 
 class EquipTarget:
@@ -130,3 +135,81 @@ class EquipTarget:
         for name in names:
             equip_dict[EquipTarget(name)] = None
         return equip_dict
+
+
+class Usable(Item):
+    def __init__(self, cls, bases, dic):
+        super().__init__(cls, bases, dic)
+        self.item_type = "Usable"
+        if cls != "UsableBase": 
+            #TODO: assert that target is an EquipTarget
+            assert "use" in dic or any([hasattr(base, "target") for base in bases])
+
+
+class UsableBase(metaclass=Usable):
+    '''Base class for all Usable items
+    You must define your own "use" methods
+    Optionally, you can provide a list of "key_names".
+    These "key_names" *must* be accurate and hashable.
+    '''
+    key_names = ("_item_name")
+    def __init__(self):
+        '''Initialize an EquippableBase'''
+        # build a tuple with all keys
+        # TODO: try and move this functionality into the metaclass
+        self._key_vals = (getattr(self, name) for name in self.key_names)
+
+    @property
+    def name(self):
+        '''Creating a readonly "name" property'''
+        return self._item_name
+        
+    def __str__(self):
+        '''Return a string representing the object
+        this will be how the item appears to the player'''
+        return self._item_name
+
+    def __eq__(self, other):
+        '''Test if the other item is equivalent, based on
+        the item_name and the item_type being the same
+        '''
+        try:
+            return (self.name == other.name and
+                    self.item_type == other.item_type)
+        except:
+            return False
+
+
+class MiscItemBase(metaclass=Item):
+    '''Base class for all Usable items
+    You must define your own "use" methods
+    Optionally, you can provide a list of "key_names".
+    These "key_names" *must* be accurate and hashable.
+    '''
+    key_names = ("_item_name",)
+    item_type = "Misc. Item"
+    def __init__(self):
+        '''Initialize an EquippableBase'''
+        # build a tuple with all keys
+        # TODO: try and move this functionality into the metaclass
+        self._key_vals = (getattr(self, name) for name in self.key_names)
+
+    @property
+    def name(self):
+        '''Creating a readonly "name" property'''
+        return self._item_name
+        
+    def __str__(self):
+        '''Return a string representing the object
+        this will be how the item appears to the player'''
+        return self._item_name
+
+    def __eq__(self, other):
+        '''Test if the other item is equivalent, based on
+        the item_name and the item_type being the same
+        '''
+        try:
+            return (self.name == other.name and
+                    self.item_type == other.item_type)
+        except:
+            return False
