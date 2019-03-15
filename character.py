@@ -257,7 +257,6 @@ class Character(control.Monoreceiver, metaclass=CharacterClass):
 
     #inventory/item related methods
     def equip(self, item, remove_inv=True):
-        print(item)
         if item.target in self.equip_dict:
             already_equip = self.equip_dict[item.target]
             if already_equip is not None:
@@ -364,8 +363,6 @@ class Character(control.Monoreceiver, metaclass=CharacterClass):
         item_name = " ".join(args[1::])
         options = []
         for target, item in self.equip_dict.items():
-            print(target)
-            print(item)
             if item and item.name.lower() == item_name:
                 options.append(item)
         item = self._check_ambiguity(1, item_name, options)

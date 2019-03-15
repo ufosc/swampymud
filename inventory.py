@@ -50,7 +50,6 @@ class Inventory:
         '''
         results = []
         for name_list in self._items.values():
-            print(name_list)
             for item_name, item_list in name_list.items():
                 if name == item_name.lower():
                     results.append(item_list[-1])
