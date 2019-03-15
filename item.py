@@ -1,21 +1,11 @@
 '''
 This module provides several base classes for items
-Every item must provide a use() method.
-This will be invoked when a user types "use [item name] ..."
-It is up to the item to correctly
-
-There are 3 major item families:
-Equipables:
-    Things that have an equip() and an unequip() method.
-    Upon equip, they are bound to a character, and must be unequipped.
-    
-Consumables:
-    Things that have a consume() method.
-    Upon consume, they are removed from the inventory, and incur some
-        effect to the player specifically.
-Throwables:
-    Things that have a throw() method.
-    These items are consumed upon use, and a target must be specified.
+EquippableBase:
+    base class for items with "equip" and "unequip" methods
+UsableBase
+    base class for items with a "use" methods
+MiscItemBase
+    items with no methods requirements
 '''
 from util import camel_to_space
 
