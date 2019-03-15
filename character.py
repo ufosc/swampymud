@@ -1,20 +1,11 @@
 '''Module defining the CharacterClass metaclass, and Character base class'''
+import enum
+from time import time
+from util import camel_to_space
 import location
 import control
 import inventory
 import item
-import enum
-from time import time
-
-def camel_to_space(name):
-    '''adds spaces before capital letters
-    ex: CamelCaseClass => Camel Case Class'''
-    output = ""
-    for letter in name:
-        if letter.upper() == letter:
-            output += " "
-        output += letter
-    return output.strip()
 
 class CharException(Exception):
     pass

@@ -17,12 +17,13 @@ Throwables:
     Things that have a throw() method.
     These items are consumed upon use, and a target must be specified.
 '''
+from util import camel_to_space
 
 class Item(type):
     '''The metaclass establishing behavior for all items'''
     def __init__(self, cls, bases, dic):
         if "item_name" not in dic:
-            self.item_name = cls
+            self.item_name = camel_to_space(cls)
         if "item_type" not in dic:
             self.item_type = "Item"
         super().__init__(cls, bases, dic)
