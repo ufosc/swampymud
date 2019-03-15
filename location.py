@@ -36,7 +36,8 @@ class Exit:
         if visibility is None:
             self.visibility = character.CharFilter(False)
 
-    def get_destination(self):
+    @property
+    def destination(self):
         return self._destination
 
     def __eq__(self, other):
@@ -94,7 +95,8 @@ class Location:
             else:
                 self.message_chars("%s left." % char)
 
-    def get_character_list(self):
+    @property
+    def character_list(self):
         return list(self._character_list)
 
     def message_chars(self, msg):
