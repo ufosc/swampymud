@@ -20,7 +20,7 @@ Throwables:
 class Item(type):
     '''The metaclass establishing behavior for all items'''
     def __init__(self, cls, bases, dic):
-        if "name" not in dic:
+        if "item_name" not in dic:
             self.name = cls
         self.item_type = "Item"
         super().__init__(cls, bases, dic)
@@ -56,27 +56,40 @@ class EquippableBase(metaclass=Equippable):
         return hash((self.__class__, self.name))
 
 class EquipTarget:
+    '''Class for identifying specific 'regions' '''
+    # next id to be used
     next_id = 0
+    # all targets mapped by name
     _targets = {}
 
     def __new__(cls, name):
+        '''Create a new EquipTarget'''
         name = name.capitalize()
+        # if the target name has already been registered,
+        # return the existing object
+        # this is done to save memory
         if name in cls._targets:
             return cls._targets[name]
         return super().__new__(cls)
 
     def __init__(self, name):
+        '''initialize an equip target with [name]'''
         name = name.capitalize()
         if name not in self._targets:
+            '''obtain a new id and and register it under _targets'''
             self.name = name
             self.target_id = EquipTarget.next_id
             EquipTarget.next_id += 1
             self._targets[name] = self
 
     def __str__(self):
+        '''Return target's name'''
         return self.name 
 
-    def __eq__(self, other):
+    def __eq__(self, value):
+        '''Return self.target_id == other.target_id
+        (if value is not an EquipTarget, returns False)
+        '''
         try:
             return self.target_id == other.target_id
         except AttributeError:
@@ -84,14 +97,17 @@ class EquipTarget:
             return False
     
     def __hash__(self):
+        '''Return hash based on name and id'''
         return hash((self.name, self.target_id))
     
     def __repr__(self):
-        return "<%s : %s>" % (self, self.target_id)
+        '''Return repr(self)'''
+        return "EffectTarget(%s)" % (self.name)
 
     @staticmethod
     def make_dict(*names):
-        #TODO: make support for default items?
+        '''returns a dictionary mapping each name in [names] to an 
+        EquipTarget with that name'''
         equip_dict = {}
         for name in names:
             equip_dict[EquipTarget(name)] = None
