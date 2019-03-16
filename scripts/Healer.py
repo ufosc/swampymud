@@ -16,7 +16,7 @@ class Healer(Humanoid):
         '''Cast a spell
         Usage: cast [spell] [player/entity]
         '''
-        if len(args) < 1:
+        if len(args) < 2:
             return
         if args[1] in self.spells:
             self.spells[args[1]](args[2])
