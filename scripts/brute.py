@@ -3,7 +3,7 @@ import item
 from scripts.basic_rpg import Humanoid
 
 class Brute(Humanoid):
-    starting_location = library.locations["Marston Basement"]
+    mudscript.get_location("Marston Basement")
 
     def __init__(self):
         super().__init__()
