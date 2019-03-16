@@ -37,11 +37,13 @@ class Inventory:
             raise KeyError("Item %s not found" % item)
         if len(self._items[item_type][name]) < quantity:
             raise ArithmeticError("Attempted to remove too many items")
+        item = self._items[item_type][name]
         del self._items[item_type][name][-quantity:]
         if not self._items[item_type][name]:
             del self._items[item_type][name]
         if not self._items[item_type]:
             del self._items[item_type]
+        return item
 
     def get_item(self, name):
         '''Return all items with a matching name
