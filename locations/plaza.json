@@ -1,4 +1,11 @@
 {
     "name" : "Hoggetown Pub and Inn",
-    "description" : "A warm fire crackles in the corner. The countertop is dotted with stains of ale--a good sign."
+    "description" : "A warm fire crackles in the corner. The countertop is dotted with stains of ale--a good sign.",
+    "exits": [
+        {
+            "destination": "Hoggetown Market",
+            "name": "outside",
+            "other_names": ["market", "out"]
+        }
+    ]
 }
