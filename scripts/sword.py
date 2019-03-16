@@ -15,14 +15,9 @@ class Sword(EquippableBase):
 
     # Applies all of effects on target
     def use(self, target):
-        if isinstance(target, Character):
-            for effect in self.effects:
-                try:
-                    effect.apply(target)
-                except:
-                    pass
-        else:
-            pass
+        for effect in self.effects:
+            effect.apply(target)
+        self.durability -= 1
             
 
 

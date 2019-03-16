@@ -1,6 +1,7 @@
-from abc import ABC, abstractclassmethod, ABCMeta
+from abc import ABC, abstractmethod, ABCMeta
 
 class Effect(metaclass=ABCMeta):
+    ''' Effect metaclass, establishing all necessary effect behavior '''
 
     def __init__(self):
         self.name = self.__class__.__name__
@@ -13,19 +14,46 @@ class Effect(metaclass=ABCMeta):
     def str(self):
         return self.name
 
-class Damage(Effect):
+    def repr(self):
+        pass
 
-    def __init__(self, num):
+class Damage(Effect):
+    ''' Effect which decrements the targets health by a number specified during instantiation '''
+
+    def __init__(self, dmg_points):
         super().__init__()
-        self.damage = num
+        self.damage = dmg_points
     
     def apply(self, target):
         try:
-            target.health -= num
+            target.health -= self.dmg_points
         except:
             pass
 
-    def repr(self):
-        pass
-        
+
+class Ignite(Effect):
+
+    def __init__(self):
+        super().__init__()
+
+    def apply(self, target):
+        try:
+            target.status.add(str(target) + "is on fire")
+            # OR target.ignite() and handle the ignite descriptionn target-side
+        except:
+            pass
+
+class Burn(Damage, Ignite):
+    ''' Combination of Damage and Ignite effects; constructor requires dmg_points keyword '''
+
+    def __init__(self, **kwds):
+        super().__init__(**kwds)
+
+    def apply(self, target):
+        try:
+            Damage.apply(target)
+            Ignite.apply(target)
+        except:
+            pass
+
     
