@@ -1,4 +1,4 @@
-import library
+import mudscript
 import item
 from scripts.basic_rpg import Humanoid
 
