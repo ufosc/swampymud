@@ -5,12 +5,14 @@
         {
             "destination": "Marston Basement Bathroom",
             "name" : "bathroom",
-            "other_names": ["marston basement bathroom"],
-            "whitelist" : ["Example Class"]
+            "other_names": ["marston basement bathroom"]
         },
         {
             "destination": "Marston First Floor",
             "name" : "upstairs"
         }
-    ]
+    ],
+    "items": {
+        "Chipotle Tray": "10"
+    }
 }

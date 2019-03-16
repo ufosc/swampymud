@@ -11,9 +11,16 @@ import errno
 from mudserver import MudServer, Event, EventType
 # import modules from the MuddySwamp engine
 import mudimport
-import library
+from glob import glob
+import mudscript
 import control
-from location import Location, Exit
+
+# better names welcome
+class MainServer(MudServer):
+    '''Bundles a server and a library together'''
+    def __init__(self, port=1234):
+        self.lib = mudimport.Library()
+        super().__init__(port)
 
 
 # Setup the logger
@@ -28,9 +35,9 @@ logging.basicConfig(format='%(asctime)s [%(threadName)s] [%(levelname)s] %(messa
 # defining a set of paths
 # by default, we import every json in chars and locations
 IMPORT_PATHS = {
-    "locations" : mudimport.get_filenames("./locations/", ".json"),
-    "chars" : mudimport.get_filenames("./chars/", ".json"),
-    "items" : mudimport.get_filenames("./items/", ".json")
+    "locations" : glob("locations/*.json"),
+    "chars" : glob("chars/*json"),
+    "items" : glob("items/*json")
 }
 
 class ServerCommandEnum(enum.Enum):
@@ -48,11 +55,13 @@ class MudServerWorker(threading.Thread):
     def __init__(self, q, server, *args, **kwargs):
         self.keep_running = True
         self.q = q
-        mudimport.import_files(**IMPORT_PATHS)
-        library.build_char_class_distr()
         self.mud = server
-        library.store_server(self.mud)
+        mudscript.export_server(self.mud)
+        self.mud.lib.import_files(**IMPORT_PATHS)
+        logging.info(self.mud.lib.import_results())
+        self.mud.lib.build_class_distr()
         super().__init__(*args, **kwargs)
+        
 
     # Cannot call mud.shutdown() here because it will try to call the sockets in run on the final go through
     def shutdown(self):
@@ -89,7 +98,7 @@ class MudServerWorker(threading.Thread):
                     logging.info("Player %s joined." % event.id)
                     # notifying the player of their class, creating the character
                     self.mud.send_message(id, "Welcome to MuddySwamp!")
-                    PlayerClass = library.random_class.get()
+                    PlayerClass = self.mud.lib.random_class.get()
                     self.mud.send_message(id, "You are a(n) %s" % PlayerClass)
                     self.mud.send_message(id, "What is your name?")
                     # creating a controler (a 'Player'), then giving that Player control of a new character
@@ -133,7 +142,7 @@ if __name__ == "__main__":
             print("Error. Port must be an integer.", file=sys.stderr)
             exit(-1)
     try:
-        server = MudServer(port)
+        server = MainServer(port)
     except PermissionError:
         print("Error. Do not have permission to use port '%s'" % port, file=sys.stderr)
         exit(-1)
@@ -172,7 +181,7 @@ if __name__ == "__main__":
             elif command == "list":
                 if params == "locations":
                     location_list = "Loaded Locations:\n"
-                    for name, ref in library.locations.items():
+                    for name, ref in self.mud.lib.locations.items():
                         location_list += "Name: %s\n" \
                         "Object:\n%s\n" % (name, repr(ref))
                     logging.info(location_list)
@@ -182,6 +191,13 @@ if __name__ == "__main__":
                     pass
                 else:
                     logging.info("Argument not recognized. Type help for a list of commands.")
+            elif command == ">":
+                try:
+                    result = eval(params)
+                    if result:
+                        print(repr(result))
+                except:
+                    print(traceback.format_exc())
             else:
                 logging.info("Command not recognized. Type help for a list of commands.")
         except KeyboardInterrupt:

@@ -1,0 +1,11 @@
+{
+    "name": "Hoggetown Market",
+    "description": "You see a few merchants. One sells salad, another sells dressing.",
+    "exits": [
+        {
+            "destination": "Hoggetown Pub and Inn",
+            "name": "pub",
+            "other_names": ["pub and inn", "pub in"]
+        }
+    ]
+}

@@ -11,5 +11,17 @@
             "destination": "here is another destination",
             "name": "primary name",
         }
+        {
+            "destination": "secret location",
+            "name": "primary name",
+            "visibility" : {
+                "type": "blacklist",
+                "set" : ["Paladin", "lame_guy"]
+            },
+            "access" : {
+                "type": "whitelist",
+                "set" : ["Wizard", "Sorcerer", "cool_guy"]
+            }
+        }
     ]
 }
