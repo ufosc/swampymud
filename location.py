@@ -150,6 +150,19 @@ class Location:
             raise ValueError("Received %s, expected Exit, Character, or Item"
                              % type(other))
 
+    def find(self, query):
+        str_char_list = list(map(str, self._character_list))
+        for char in str_char_list:
+            if query == char:
+                return self._character_list[str_char_list.index(char)]
+        for exit_name in self._exit_list:
+            if exit_name == query:
+                return exit_name
+        print("Preparing to search items. . .")
+        if self._items.get_item(query):
+            return self._items.get_item(query)
+        return False
+
     def __repr__(self):
         #TODO: make the output more pythonic
         output = "Name:\t%s\n" % self.name
