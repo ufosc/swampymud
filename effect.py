@@ -26,7 +26,7 @@ class Damage(Effect):
     
     def apply(self, target):
         try:
-            target.health -= self.dmg_points
+            target.health -= self.damage
         except:
             pass
 
@@ -51,9 +51,8 @@ class Burn(Damage, Ignite):
 
     def apply(self, target):
         try:
-            Damage.apply(target)
-            Ignite.apply(target)
+            Damage(self.damage).apply(target)
+            Ignite().apply(target)
         except:
             pass
 
-    
