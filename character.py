@@ -6,6 +6,7 @@ import location
 import control
 import inventory
 import item
+import mudscript
 
 class CharException(Exception):
     pass
