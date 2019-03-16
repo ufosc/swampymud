@@ -184,3 +184,6 @@ class MiscItemBase(metaclass=Item):
                     self.item_type == other.item_type)
         except:
             return False
+
+#TODO: add a class wrapper that allows the item to function as a 
+# singleton (even if this may not be pythonic)

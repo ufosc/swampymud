@@ -65,8 +65,9 @@ class Library:
             for filename in items:
                 self._item_importer.import_file(filename)
         if locations:
+            # TODO: make these operations idempotent
             self._loc_importer.build_exits(self.locations.keys(), self.char_classes)
-            #self._loc_importer.add_items()
+            self._loc_importer.add_items(self.locations.keys(), self.items)
             #self._loc_importer.add_entities()
 
     def import_results(self):
@@ -99,22 +100,26 @@ class ValidateError(Exception):
     def __str__(self):
         return str(self.component) + "\n" + self.msg
 
-#TODO: warn on unused fields?
+#TODO: warn on unused fields?https://www.youtube.com/watch?v=wuQNxwOhGmAdal
 def validate(schema, data):
     '''validate that [data] fits a provided [schema]'''
     if "check" in schema:
+        err = None
         try:
             schema["check"](data)
-        except Exception as err:
-            raise ValidateError(data, "Failed check: %s " % err)
+        except Exception as ex:
+            err = ValidateError(data, "Failed check: %s " % ex)
+        if err:
+            raise err
     if "type" in schema:
         if schema["type"] is not type(data):
             raise ValidateError(data, "Invalid type %s, expected %s."
                                 % (type(data), schema["type"]))
-    if isinstance(data, list):
+    if isinstance(data, list) and "items" in data:
         for sub in data:
-            validate(schema["items"], sub)
-    if isinstance(data, dict):
+            if "items" in schema:
+                validate(schema["items"], sub)
+    if isinstance(data, dict) and "properties" in schema:
         for field, subschema in schema["properties"].items():
             # if "required" is not provided by schema, assume field is required
             if (("required" not in subschema or subschema["required"])
@@ -171,6 +176,7 @@ class Importer:
     file_data:      dict mapping filenames -> filedata
     file_fails:     dict mapping filenames -> reasons while file failed to load
     failures:       dict mapping object names -> reasons why they could not be constructed
+    warnings:       dict mapping object names -> warnings about content
     '''
     SCHEMA = {}
 
@@ -180,6 +186,7 @@ class Importer:
         self.file_data = {}
         self.file_fails = {}
         self.failures = {}
+        self.warnings = {}
 
     def import_file(self, filename, **kwargs):
         '''Import one file with name [filename]'''
@@ -239,6 +246,9 @@ class Importer:
             output.append("\tSuccesses [%s]" % len(self.objects))
             for success in self.objects:
                 output.append(success)
+                if success in self.warnings:
+                    for warning in self.warnings[success]:
+                        output.append("\t%s" % warning)
         else:
             output.append("\t[No Successes]")
         if self.file_fails:
@@ -258,14 +268,16 @@ class Importer:
         return "\n".join(output)
 
 def _check_item_dict(items):
+    ex = None
     for item_name, quantity in items.items():
         if not isinstance(item_name, str):
             raise Exception("Item names must be strings.")
         try:
             int(quantity)
         except ValueError:
-            raise Exception("Item quantity could not be converted to \
-                            int: %s" % quantity)
+            raise Exception("Item quantity could not be converted to"
+                                 " int: %s" % quantity)
+    
 
 class LocationImporter(Importer):
     '''Imports Locations from json'''
@@ -383,31 +395,23 @@ class LocationImporter(Importer):
             if "items" in json_data:
                 for item_name, quantity in json_data["items"].items():
                     self._add_item(location, item_name, quantity, items)
-        for name in loc_names:
-            
-            failures = {}
-            # items might be provided, in which case we just continue
-            if "items" not in skeleton:
-                continue
-            for item_name, quantity in skeleton["items"].items():
-                try:
-                    item = library.items[item_name]
-                    quanity = int(quantity)
-                    self.successes[location_name].add_items(item, quanity)
-                except Exception as ex:
-                    failures[item_name] = traceback.format_exc()
-                    # this is an idempotent operation
-                    # even if we re-assign the dict multiple times, it has the same effect
-                    self.item_failures[location_name] = failures
     
     def _add_item(self, loc, item_name, quantity, items):
         # our schema should guarantee that quantity can be
         # coerced into an int
         quantity = int(quantity)
         try:
-            item = items[item_name]
+            Item = items[item_name]
         except KeyError:
-            print("whoopsie poopsie")
+            if loc.name not in self.warnings:
+                self.warnings[loc.name] = []
+            self.warnings[loc.name].append("Could not find item"
+                                           " named '%s'." % item_name)
+            return
+        # we add a new instance of Item [quantity] times
+        # this is done so that two users don't wind up sharing state somehow
+        for i in range(quantity):
+            loc.add_item(Item())
 
 
     def add_entities(self):
@@ -422,6 +426,9 @@ class LocationImporter(Importer):
             output.append("\tSuccesses [%s]" % len(self.objects))
             for name, loc in self.objects.items():
                 output.append(name)
+                if name in self.warnings:
+                    for warning in self.warnings[name]:
+                        output.append("\t%s" % warning)
                 if loc in self.exit_fail_effects:
                     output.append("\tFailed Exits")
                     for exit_data, reason in self.exit_fail_effects[loc]:
