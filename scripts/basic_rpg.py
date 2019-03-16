@@ -44,7 +44,7 @@ class Humanoid(Character):
         '''
         if len(args) < 2:
             return
-        for char in self.location.get_character_list():
+        for char in self.location.character_list:
             if args[1] == char.name:
                 break
         else:
