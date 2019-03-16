@@ -2,5 +2,5 @@
     "name" : "Healer",
     "path" : "scripts/Healer.py",
     "starting_location" : "Hoggetown Pub and Inn",
-    "frequency" : 0.0
+    "frequency" : 1.0
 }
