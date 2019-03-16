@@ -376,14 +376,15 @@ class Character(control.Monoreceiver, metaclass=CharacterClass):
         if len(args) < 2:
             self.message("Provide an item to pick up.")
             return
-        try:
-            item_name = " ".join(args[1::])
-            item = self.location.remove_item(item_name)
-        except KeyError:
-            self.message("Item not found")
-            return
-        self.inv.add_item(item)
-                    
+        
+        item_name = " ".join(args[1::])
+        item = self.location.find(item_name)
+        if item:
+            self.inv.add_item(item)
+            self.location.remove_item(item)
+        else:
+            self.message("Could not find item")
+
     def cmd_inv(self, args):
         '''Show your inventory.'''
         output = ""
