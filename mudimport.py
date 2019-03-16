@@ -10,12 +10,6 @@ from util.stocstring import StocString
 from util.distr import RandDist
 from character import CharFilter
 
-#TODO remove this function and replace it with a glob
-def get_filenames(directory, ext=""):
-    '''returns all filenames in [directory] with extension [ext]'''
-    return [directory + name for name in os.listdir(directory) \
-            if name.endswith(ext)]
-
 
 def process_json(filename):
     '''load a json from [filename], return a pythonic representation'''
@@ -71,7 +65,7 @@ class Library:
             for filename in items:
                 self._item_importer.import_file(filename)
         if locations:
-            self._loc_importer.build_exits(*self.locations.keys())
+            self._loc_importer.build_exits(self.locations.keys(), self.char_classes)
             #self._loc_importer.add_items()
             #self._loc_importer.add_entities()
 
@@ -263,6 +257,15 @@ class Importer:
             output.append("\t[No Build Failures]")
         return "\n".join(output)
 
+def _check_item_dict(items):
+    for item_name, quantity in items.items():
+        if not isinstance(item_name, str):
+            raise Exception("Item names must be strings.")
+        try:
+            int(quantity)
+        except ValueError:
+            raise Exception("Item quantity could not be converted to \
+                            int: %s" % quantity)
 
 class LocationImporter(Importer):
     '''Imports Locations from json'''
@@ -289,6 +292,11 @@ class LocationImporter(Importer):
             "exits" : {
                 "type" : list,
                 "items" : EXIT_SCHEMA
+            },
+            "items": {
+                "type": dict,
+                "required" : False,
+                "check": _check_item_dict
             }
         }
     }
@@ -302,8 +310,8 @@ class LocationImporter(Importer):
         {"reason" : [reason for failure], "affected": [names of locations affected]}
 
         '''
-        self.exit_causes = {}
-        self.exit_effects = {}
+        self.exit_fail_causes = {}
+        self.exit_fail_effects = {}
         super().__init__(lib)
 
     def _do_import(self, json_data):
@@ -321,9 +329,9 @@ class LocationImporter(Importer):
             json_data = self.file_data[self.object_source[loc_name]]
             if "exits" in json_data:
                 for exit_data in json_data["exits"]:
-                    self._add_single_exit(location, exit_data, chars)
+                    self._build_exit(location, exit_data, chars)
                     
-    def _add_single_exit(self, loc, exit_data, chars):
+    def _build_exit(self, loc, exit_data, chars):
         '''build and add a single exit to loc, with [exit_data]
         [exit_data] should confrom to EXIT_SCHEMA
         chars must be a dictionary mapping names to CharacterClasses (used for building)
@@ -334,16 +342,16 @@ class LocationImporter(Importer):
             dest = self.objects[dest_name]
         except KeyError:
             # destination is not loaded correctly
-            if loc not in self.exit_effects:
-                self.exit_effects[loc] = []
-            if dest_name not in self.exit_causes:
-                self.exit_causes[dest_name] = []
+            if loc not in self.exit_fail_effects:
+                self.exit_fail_effects[loc] = []
+            if dest_name not in self.exit_fail_causes:
+                self.exit_fail_causes[dest_name] = []
             if dest_name in self.failures:
                 reason = "Destination '%s' failed to load." % dest_name
             else:
                 reason = "Destination '%s' not found." % dest_name
-            self.exit_effects[loc].append((exit_data, reason))
-            self.exit_causes[dest_name].append((loc, exit_data, reason))
+            self.exit_fail_effects[loc].append((exit_data, reason))
+            self.exit_fail_causes[dest_name].append((loc, exit_data, reason))
             return
         kwargs = {"name": exit_data["name"], "destination": dest}
         try:
@@ -353,15 +361,15 @@ class LocationImporter(Importer):
                 kwargs["visibility"] = dict_to_filter(exit_data["visibility"], chars)
         except KeyError as ex:
             reason = "Invalid CharFilter field '%s'" % ex.args
-            if loc not in self.exit_effects:
-                self.exit_effects[loc] = []
-            self.exit_effects[loc].append((exit_data, reason))
+            if loc not in self.exit_fail_effects:
+                self.exit_fail_effects[loc] = []
+            self.exit_fail_effects[loc].append((exit_data, reason))
         try: 
             loc.add_exit(Exit(**kwargs))
         except Exception as ex:
-            if loc not in self.exit_effects:
-                self.exit_effects[loc] = []
-            self.exit_effects[loc].append((exit_data, traceback.format_exc()))
+            if loc not in self.exit_fail_effects:
+                self.exit_fail_effects[loc] = []
+            self.exit_fail_effects[loc].append((exit_data, traceback.format_exc()))
 
 
     def add_items(self, loc_names, items):
@@ -369,6 +377,12 @@ class LocationImporter(Importer):
         in the 'items' line of the location JSON
         [items] must be dictionary mapping names to Item classes
         '''
+        for loc_name in loc_names:
+            location = self.objects[loc_name]
+            json_data = self.file_data[self.object_source[loc_name]]
+            if "items" in json_data:
+                for item_name, quantity in json_data["items"].items():
+                    self._add_item(location, item_name, quantity, items)
         for name in loc_names:
             
             failures = {}
@@ -385,6 +399,16 @@ class LocationImporter(Importer):
                     # this is an idempotent operation
                     # even if we re-assign the dict multiple times, it has the same effect
                     self.item_failures[location_name] = failures
+    
+    def _add_item(self, loc, item_name, quantity, items):
+        # our schema should guarantee that quantity can be
+        # coerced into an int
+        quantity = int(quantity)
+        try:
+            item = items[item_name]
+        except KeyError:
+            print("whoopsie poopsie")
+
 
     def add_entities(self):
         '''looks at , adds entity for each
@@ -398,9 +422,9 @@ class LocationImporter(Importer):
             output.append("\tSuccesses [%s]" % len(self.objects))
             for name, loc in self.objects.items():
                 output.append(name)
-                if loc in self.exit_effects:
+                if loc in self.exit_fail_effects:
                     output.append("\tFailed Exits")
-                    for exit_data, reason in self.exit_effects[loc]:
+                    for exit_data, reason in self.exit_fail_effects[loc]:
                         output.append("\t%s: %s" % (exit_data["name"], reason))
         else:
             output.append("\t[No Successes]")
