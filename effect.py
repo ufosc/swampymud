@@ -38,7 +38,8 @@ class Ignite(Effect):
 
     def apply(self, target):
         try:
-            target.status.add(str(target) + "is on fire")
+            pass
+            # target.status.add(str(target) + "is on fire")
             # OR target.ignite() and handle the ignite descriptionn target-side
         except:
             pass
