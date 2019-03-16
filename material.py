@@ -18,11 +18,15 @@ class Material:
     def damage(self):
         return self.damage
 
-Iron = Material(max_durability=100, damage=20) 
+iron = Material(max_durability=100, damage=20) 
 
-Steel = Material(max_durability=120, damage=30)
+steel = Material(max_durability=120, damage=30)
 
-Gatorbone = Material(max_durability=1000, damage=500)
+gatorbone = Material(max_durability=1000, damage=500)
+
+default_material = Material(max_durability=1, damage=0)
+
+wood = Material(max_durability=15, damage=5)
 
     
 

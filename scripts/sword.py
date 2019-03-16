@@ -1,9 +1,10 @@
-from item import EquippableBase
+from item import EquippableBase, EquipTarget
 from character import Character
 from effect import Damage
 
 class Sword(EquippableBase):
 
+    target = EquipTarget("hand")
     multiplier = 2 
 
     def __init__(self, material, *args):
@@ -18,6 +19,7 @@ class Sword(EquippableBase):
         for effect in self.effects:
             effect.apply(target)
         self.durability -= 1
+
             
 
 

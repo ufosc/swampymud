@@ -14,4 +14,5 @@ class Paladin(Humanoid):
         '''
         if len(args) < 2:
             return
-        for 
+        # TODO: finish this method
+        pass
