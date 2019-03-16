@@ -311,7 +311,7 @@ class LocationImporter(Importer):
         return json_data["name"], Location(json_data["name"], json_data["description"])
 
     #TODO: delete all existing exits
-    def build_exits(self, *loc_names, chars={}):
+    def build_exits(self, loc_names, chars):
         '''This method is always executed on locations
         that have already passed through _do_import.
         Thus, we can assume the types of each field are correct.
@@ -324,6 +324,10 @@ class LocationImporter(Importer):
                     self._add_single_exit(location, exit_data, chars)
                     
     def _add_single_exit(self, loc, exit_data, chars):
+        '''build and add a single exit to loc, with [exit_data]
+        [exit_data] should confrom to EXIT_SCHEMA
+        chars must be a dictionary mapping names to CharacterClasses (used for building)
+        '''
         dest_name = exit_data["destination"]
         # first, check the destination
         try:
@@ -360,30 +364,33 @@ class LocationImporter(Importer):
             self.exit_effects[loc].append((exit_data, traceback.format_exc()))
 
 
-#    def add_items(self):
-#        '''looks at the skeletons, adds items for each
-#        on fail, an item is simply not added'''
-#        for location_name, skeleton in self.skeletons.items():
-#            failures = {}
-#            # items might be provided, in which case we just continue
-#            if "items" not in skeleton:
-#                continue
-#            for item_name, quantity in skeleton["items"].items():
-#                try:
-#                    item = library.items[item_name]
-#                    quanity = int(quantity)
-#                    self.successes[location_name].add_items(item, quanity)
-#                except Exception as ex:
-#                    failures[item_name] = traceback.format_exc()
-#                    # this is an idempotent operation
-#                    # even if we re-assign the dict multiple times, it has the same effect
-#                    self.item_failures[location_name] = failures
-#
-#    def add_entities(self):
-#        '''looks at skeletons, adds entity for each
-#        on fail, an entity is simply not added'''
-#        # entities have not been added yet
-#        pass
+    def add_items(self, loc_names, items):
+        '''for each loc_name in [loc_names], add items specified 
+        in the 'items' line of the location JSON
+        [items] must be dictionary mapping names to Item classes
+        '''
+        for name in loc_names:
+            
+            failures = {}
+            # items might be provided, in which case we just continue
+            if "items" not in skeleton:
+                continue
+            for item_name, quantity in skeleton["items"].items():
+                try:
+                    item = library.items[item_name]
+                    quanity = int(quantity)
+                    self.successes[location_name].add_items(item, quanity)
+                except Exception as ex:
+                    failures[item_name] = traceback.format_exc()
+                    # this is an idempotent operation
+                    # even if we re-assign the dict multiple times, it has the same effect
+                    self.item_failures[location_name] = failures
+
+    def add_entities(self):
+        '''looks at , adds entity for each
+        on fail, an entity is simply not added'''
+        # entities have not been added yet
+        pass
 
     def __str__(self):
         output = []
