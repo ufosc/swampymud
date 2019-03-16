@@ -1,0 +1,6 @@
+{
+    "name" : "Paladin",
+    "path" : "scripts/Paladin.py",
+    "starting_location" : "Hoggetown Pub and Inn",
+    "frequency" : 1.0
+}

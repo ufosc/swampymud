@@ -8,5 +8,10 @@ class Paladin(Humanoid):
     def __init__(self):
         super().__init__()
 
-
-    
+    def cmd_craft(self, args):
+        ''' Craft an item 
+        Usage: craft [material] [item]
+        '''
+        if len(args) < 2:
+            return
+        for 

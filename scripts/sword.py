@@ -6,11 +6,11 @@ class Sword(EquippableBase):
 
     multiplier = 2 
 
-    def __init__(self, material):
+    def __init__(self, material, *args):
         super().__init__()
         self.durability = material.max_durability
         self.damage = material.damage * self.multiplier
-        self.effects = material.effects
+        self.effects = material.effects + args
         self.effects.append(Damage(self.damage))
 
     # Applies all of effects on target

@@ -22,7 +22,7 @@ Iron = Material(max_durability=100, damage=20)
 
 Steel = Material(max_durability=120, damage=30)
 
-Dragonbone = Material(max_durability=1000, damage=500)
+Gatorbone = Material(max_durability=1000, damage=500)
 
     
 
