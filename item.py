@@ -18,6 +18,10 @@ class Item(type):
             self.item_type = "Item"
         super().__init__(cls, bases, dic)
 
+    def __str__(self):
+        '''return str(self)'''
+        return self._item_name
+
 
 class Equippable(Item):
     '''Metaclass for all items that can be equipped'''
@@ -180,3 +184,6 @@ class MiscItemBase(metaclass=Item):
                     self.item_type == other.item_type)
         except:
             return False
+
+#TODO: add a class wrapper that allows the item to function as a 
+# singleton (even if this may not be pythonic)

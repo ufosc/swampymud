@@ -11,6 +11,7 @@ import errno
 from mudserver import MudServer, Event, EventType
 # import modules from the MuddySwamp engine
 import mudimport
+from glob import glob
 import mudscript
 import control
 
@@ -34,9 +35,9 @@ logging.basicConfig(format='%(asctime)s [%(threadName)s] [%(levelname)s] %(messa
 # defining a set of paths
 # by default, we import every json in chars and locations
 IMPORT_PATHS = {
-    "locations" : mudimport.get_filenames("./locations/", ".json"),
-    "chars" : mudimport.get_filenames("./chars/", ".json"),
-    "items" : mudimport.get_filenames("./items/", ".json")
+    "locations" : glob("locations/*.json"),
+    "chars" : glob("chars/*json"),
+    "items" : glob("items/*json")
 }
 
 class ServerCommandEnum(enum.Enum):
@@ -190,6 +191,13 @@ if __name__ == "__main__":
                     pass
                 else:
                     logging.info("Argument not recognized. Type help for a list of commands.")
+            elif command == ">":
+                try:
+                    result = eval(params)
+                    if result:
+                        print(repr(result))
+                except:
+                    print(traceback.format_exc())
             else:
                 logging.info("Command not recognized. Type help for a list of commands.")
         except KeyboardInterrupt:

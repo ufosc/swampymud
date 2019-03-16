@@ -10,12 +10,6 @@ from util.stocstring import StocString
 from util.distr import RandDist
 from character import CharFilter
 
-#TODO remove this function and replace it with a glob
-def get_filenames(directory, ext=""):
-    '''returns all filenames in [directory] with extension [ext]'''
-    return [directory + name for name in os.listdir(directory) \
-            if name.endswith(ext)]
-
 
 def process_json(filename):
     '''load a json from [filename], return a pythonic representation'''
@@ -71,8 +65,9 @@ class Library:
             for filename in items:
                 self._item_importer.import_file(filename)
         if locations:
-            self._loc_importer.build_exits(*self.locations.keys())
-            #self._loc_importer.add_items()
+            # TODO: make these operations idempotent
+            self._loc_importer.build_exits(self.locations.keys(), self.char_classes)
+            self._loc_importer.add_items(self.locations.keys(), self.items)
             #self._loc_importer.add_entities()
 
     def import_results(self):
@@ -105,22 +100,26 @@ class ValidateError(Exception):
     def __str__(self):
         return str(self.component) + "\n" + self.msg
 
-#TODO: warn on unused fields?
+#TODO: warn on unused fields?https://www.youtube.com/watch?v=wuQNxwOhGmAdal
 def validate(schema, data):
     '''validate that [data] fits a provided [schema]'''
     if "check" in schema:
+        err = None
         try:
             schema["check"](data)
-        except Exception as err:
-            raise ValidateError(data, "Failed check: %s " % err)
+        except Exception as ex:
+            err = ValidateError(data, "Failed check: %s " % ex)
+        if err:
+            raise err
     if "type" in schema:
         if schema["type"] is not type(data):
             raise ValidateError(data, "Invalid type %s, expected %s."
                                 % (type(data), schema["type"]))
-    if isinstance(data, list):
+    if isinstance(data, list) and "items" in data:
         for sub in data:
-            validate(schema["items"], sub)
-    if isinstance(data, dict):
+            if "items" in schema:
+                validate(schema["items"], sub)
+    if isinstance(data, dict) and "properties" in schema:
         for field, subschema in schema["properties"].items():
             # if "required" is not provided by schema, assume field is required
             if (("required" not in subschema or subschema["required"])
@@ -177,6 +176,7 @@ class Importer:
     file_data:      dict mapping filenames -> filedata
     file_fails:     dict mapping filenames -> reasons while file failed to load
     failures:       dict mapping object names -> reasons why they could not be constructed
+    warnings:       dict mapping object names -> warnings about content
     '''
     SCHEMA = {}
 
@@ -186,6 +186,7 @@ class Importer:
         self.file_data = {}
         self.file_fails = {}
         self.failures = {}
+        self.warnings = {}
 
     def import_file(self, filename, **kwargs):
         '''Import one file with name [filename]'''
@@ -245,6 +246,9 @@ class Importer:
             output.append("\tSuccesses [%s]" % len(self.objects))
             for success in self.objects:
                 output.append(success)
+                if success in self.warnings:
+                    for warning in self.warnings[success]:
+                        output.append("\t%s" % warning)
         else:
             output.append("\t[No Successes]")
         if self.file_fails:
@@ -263,6 +267,17 @@ class Importer:
             output.append("\t[No Build Failures]")
         return "\n".join(output)
 
+def _check_item_dict(items):
+    ex = None
+    for item_name, quantity in items.items():
+        if not isinstance(item_name, str):
+            raise Exception("Item names must be strings.")
+        try:
+            int(quantity)
+        except ValueError:
+            raise Exception("Item quantity could not be converted to"
+                                 " int: %s" % quantity)
+    
 
 class LocationImporter(Importer):
     '''Imports Locations from json'''
@@ -289,6 +304,11 @@ class LocationImporter(Importer):
             "exits" : {
                 "type" : list,
                 "items" : EXIT_SCHEMA
+            },
+            "items": {
+                "type": dict,
+                "required" : False,
+                "check": _check_item_dict
             }
         }
     }
@@ -302,8 +322,8 @@ class LocationImporter(Importer):
         {"reason" : [reason for failure], "affected": [names of locations affected]}
 
         '''
-        self.exit_causes = {}
-        self.exit_effects = {}
+        self.exit_fail_causes = {}
+        self.exit_fail_effects = {}
         super().__init__(lib)
 
     def _do_import(self, json_data):
@@ -321,9 +341,9 @@ class LocationImporter(Importer):
             json_data = self.file_data[self.object_source[loc_name]]
             if "exits" in json_data:
                 for exit_data in json_data["exits"]:
-                    self._add_single_exit(location, exit_data, chars)
+                    self._build_exit(location, exit_data, chars)
                     
-    def _add_single_exit(self, loc, exit_data, chars):
+    def _build_exit(self, loc, exit_data, chars):
         '''build and add a single exit to loc, with [exit_data]
         [exit_data] should confrom to EXIT_SCHEMA
         chars must be a dictionary mapping names to CharacterClasses (used for building)
@@ -334,16 +354,16 @@ class LocationImporter(Importer):
             dest = self.objects[dest_name]
         except KeyError:
             # destination is not loaded correctly
-            if loc not in self.exit_effects:
-                self.exit_effects[loc] = []
-            if dest_name not in self.exit_causes:
-                self.exit_causes[dest_name] = []
+            if loc not in self.exit_fail_effects:
+                self.exit_fail_effects[loc] = []
+            if dest_name not in self.exit_fail_causes:
+                self.exit_fail_causes[dest_name] = []
             if dest_name in self.failures:
                 reason = "Destination '%s' failed to load." % dest_name
             else:
                 reason = "Destination '%s' not found." % dest_name
-            self.exit_effects[loc].append((exit_data, reason))
-            self.exit_causes[dest_name].append((loc, exit_data, reason))
+            self.exit_fail_effects[loc].append((exit_data, reason))
+            self.exit_fail_causes[dest_name].append((loc, exit_data, reason))
             return
         kwargs = {"name": exit_data["name"], "destination": dest}
         try:
@@ -353,15 +373,15 @@ class LocationImporter(Importer):
                 kwargs["visibility"] = dict_to_filter(exit_data["visibility"], chars)
         except KeyError as ex:
             reason = "Invalid CharFilter field '%s'" % ex.args
-            if loc not in self.exit_effects:
-                self.exit_effects[loc] = []
-            self.exit_effects[loc].append((exit_data, reason))
+            if loc not in self.exit_fail_effects:
+                self.exit_fail_effects[loc] = []
+            self.exit_fail_effects[loc].append((exit_data, reason))
         try: 
             loc.add_exit(Exit(**kwargs))
         except Exception as ex:
-            if loc not in self.exit_effects:
-                self.exit_effects[loc] = []
-            self.exit_effects[loc].append((exit_data, traceback.format_exc()))
+            if loc not in self.exit_fail_effects:
+                self.exit_fail_effects[loc] = []
+            self.exit_fail_effects[loc].append((exit_data, traceback.format_exc()))
 
 
     def add_items(self, loc_names, items):
@@ -369,22 +389,30 @@ class LocationImporter(Importer):
         in the 'items' line of the location JSON
         [items] must be dictionary mapping names to Item classes
         '''
-        for name in loc_names:
-            
-            failures = {}
-            # items might be provided, in which case we just continue
-            if "items" not in skeleton:
-                continue
-            for item_name, quantity in skeleton["items"].items():
-                try:
-                    item = library.items[item_name]
-                    quanity = int(quantity)
-                    self.successes[location_name].add_items(item, quanity)
-                except Exception as ex:
-                    failures[item_name] = traceback.format_exc()
-                    # this is an idempotent operation
-                    # even if we re-assign the dict multiple times, it has the same effect
-                    self.item_failures[location_name] = failures
+        for loc_name in loc_names:
+            location = self.objects[loc_name]
+            json_data = self.file_data[self.object_source[loc_name]]
+            if "items" in json_data:
+                for item_name, quantity in json_data["items"].items():
+                    self._add_item(location, item_name, quantity, items)
+    
+    def _add_item(self, loc, item_name, quantity, items):
+        # our schema should guarantee that quantity can be
+        # coerced into an int
+        quantity = int(quantity)
+        try:
+            Item = items[item_name]
+        except KeyError:
+            if loc.name not in self.warnings:
+                self.warnings[loc.name] = []
+            self.warnings[loc.name].append("Could not find item"
+                                           " named '%s'." % item_name)
+            return
+        # we add a new instance of Item [quantity] times
+        # this is done so that two users don't wind up sharing state somehow
+        for i in range(quantity):
+            loc.add_item(Item())
+
 
     def add_entities(self):
         '''looks at , adds entity for each
@@ -398,9 +426,12 @@ class LocationImporter(Importer):
             output.append("\tSuccesses [%s]" % len(self.objects))
             for name, loc in self.objects.items():
                 output.append(name)
-                if loc in self.exit_effects:
+                if name in self.warnings:
+                    for warning in self.warnings[name]:
+                        output.append("\t%s" % warning)
+                if loc in self.exit_fail_effects:
                     output.append("\tFailed Exits")
-                    for exit_data, reason in self.exit_effects[loc]:
+                    for exit_data, reason in self.exit_fail_effects[loc]:
                         output.append("\t%s: %s" % (exit_data["name"], reason))
         else:
             output.append("\t[No Successes]")
