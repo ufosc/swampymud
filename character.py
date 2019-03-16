@@ -383,9 +383,7 @@ class Character(control.Monoreceiver, metaclass=CharacterClass):
             self.message("Item not found")
             return
         self.inv.add_item(item)
-
-
-            
+                    
     def cmd_inv(self, args):
         '''Show your inventory.'''
         output = ""
