@@ -370,20 +370,18 @@ class Character(control.Monoreceiver, metaclass=CharacterClass):
         item = self._check_ambiguity(1, item_name, options)
         self.unequip(item) 
     
-    def cmd_pickup(self, args)
+    def cmd_pickup(self, args):
         ''' Pick up item from the environment'''        
         if len(args) < 2:
             self.message("Provide an item to pick up.")
             return
         try:
             item_name = " ".join(args[1::])
-            self.current_location.remove_item(self, item_name)
-            #item = self._check_ambiguity(slice(1, len(args)), item_name, self.inv.get_item(item_name))
-        except TypeError:
-            # args must be item that we already have
-            item = args[1]
-        
-        self.pickup(item)
+            item = self.current_location.remove_item(item_name)
+        except KeyError:
+            self.message("Item not found")
+            return
+        self.inv.add_item(item)
 
 
             

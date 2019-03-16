@@ -128,7 +128,7 @@ class Location:
         self._items.add_item(item, quantity)
 
     def remove_item(self, item, quantity=1):
-        self._items.remove_item(item, quantity)
+        return self._items.remove_item(item, quantity)      
 
     def __contains__(self, other):
         '''Overriding in operator
