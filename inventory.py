@@ -20,7 +20,7 @@ class Inventory:
         if item_type not in self._items:
             self._items[item_type] = {}
         if name not in self._items[item.item_type]:
-            self._items[item_type][name] = [item]
+            self._items[item_type][name] = [item] * quantity
         else:
             self._items[item_type][name] += [item] * quantity
 
@@ -50,12 +50,10 @@ class Inventory:
         Recepient of the objects is responsible for handling
         ambiguity
         '''
-        results = []
         for name_list in self._items.values():
             for item_name, item_list in name_list.items():
                 if name.lower() == item_name.lower():
-                    results.append(item_list[-1])
-        return results
+                    return item_list[-1]
 
     def readable(self):
         output = ""
