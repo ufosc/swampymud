@@ -1,0 +1,5 @@
+{
+    "name" : "Brute",
+    "path" : "scripts/brute.py",
+    "frequency" : 1000.0
+}
