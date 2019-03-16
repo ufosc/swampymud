@@ -313,7 +313,7 @@ class Character(control.Monoreceiver, metaclass=CharacterClass):
         '''      
         if verbose:
             self.message(self.location.__str__(True))
-        char_list = self.location.get_character_list()
+        char_list = self.location.character_list
         try:
             char_list.remove(self)
         except ValueError:
