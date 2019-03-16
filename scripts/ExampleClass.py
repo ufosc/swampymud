@@ -3,7 +3,7 @@ import item
 import mudscript
 
 class ExampleClass(Character):
-    mudscript.get_location("Marston Basement")
+    #mudscript.get_location("Marston Basement")
     equip_slots = ["Head", "Torso", "Feet"]
 
     def cmd_echo(self, args):
@@ -57,3 +57,6 @@ class Cuirass(Necklace):
 
 class BetterCuirass(Necklace):
     name = "Cuirass"
+
+#bob = ExampleClass()
+#bob.cmd_gimmie([])

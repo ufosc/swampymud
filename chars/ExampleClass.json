@@ -1,5 +1,5 @@
 {
     "name" : "ExampleClass",
     "path" : "scripts/ExampleClass.py",
-    "frequency" : 0.0
+    "frequency" : 10000.0
 }
