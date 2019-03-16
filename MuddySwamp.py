@@ -191,6 +191,13 @@ if __name__ == "__main__":
                     pass
                 else:
                     logging.info("Argument not recognized. Type help for a list of commands.")
+            elif command == ">":
+                try:
+                    result = eval(params)
+                    if result:
+                        print(repr(result))
+                except:
+                    print(traceback.format_exc())
             else:
                 logging.info("Command not recognized. Type help for a list of commands.")
         except KeyboardInterrupt:
