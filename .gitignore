@@ -1,6 +1,7 @@
 # Ignore complied python folders and files
 __pycache__/
 *.pyc
+*.vscode
 
 # Ignore the log files
 *.log
