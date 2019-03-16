@@ -378,7 +378,7 @@ class Character(control.Monoreceiver, metaclass=CharacterClass):
             return
         try:
             item_name = " ".join(args[1::])
-            item = self.current_location.remove_item(item_name)
+            item = self.location.remove_item(item_name)
         except KeyError:
             self.message("Item not found")
             return
