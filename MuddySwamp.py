@@ -98,8 +98,6 @@ class MudServerWorker(threading.Thread):
                 id = event.id
                 if event.type is EventType.PLAYER_JOIN:
                     logging.info("Player %s joined." % event.id)
-                    if SHELL_MODE:
-                        print(">>> ")
                     # notifying the player of their class, creating the character
                     self.mud.send_message(id, "Welcome to MuddySwamp!")
                     PlayerClass = self.mud.lib.random_class.get()
@@ -114,8 +112,6 @@ class MudServerWorker(threading.Thread):
                 elif event.type is EventType.MESSAGE_RECEIVED:
                     # log the message
                     logging.debug("Event message: " + event.message)
-                    if SHELL_MODE:
-                        print(">>> ")
                     try:
                         control.Player.send_command(id, event.message)
                     except Exception:
@@ -125,8 +121,6 @@ class MudServerWorker(threading.Thread):
                     # logging data of the player
                     player = control.Player.player_ids[id]
                     logging.info("%s left" % player)
-                    if SHELL_MODE:
-                        print(">>> ")
                     if player.receiver is not None:
                         pass
                         #self.mud.send_message_to_all("%s quit the game" % player.receiver)
@@ -170,6 +164,7 @@ if __name__ == "__main__":
     thread.start()
 
     # Look for input on the server and send it to the thread
+    inp = ""
     while True:
         if not SHELL_MODE:
             try:
@@ -191,7 +186,7 @@ if __name__ == "__main__":
                 elif command == "list":
                     if params == "locations":
                         location_list = "Loaded Locations:\n"
-                        for name, ref in self.mud.lib.locations.items():
+                        for name, ref in server.lib.locations.items():
                             location_list += "Name: %s\n" \
                             "Object:\n%s\n" % (name, repr(ref))
                         logging.info(location_list)
@@ -213,15 +208,20 @@ if __name__ == "__main__":
             except EOFError:
                 logging.info("EOF character detected. Shutting down.")
                 command_queue.put(ServerComand(ServerCommandEnum.BROADCAST_MESSAGE, u"\u001b[32m" + "[Server] " + "Server shutting down..." + u"\u001b[0m"))
+                break
         else:
             try:
-                inp = input(">>> ")
+                inp = inp + input(">>> ")
                 result = eval(inp)
                 if result is not None:
                     print(repr(result))
             except KeyboardInterrupt:
                 print("\nLeaving shell mode...")
                 SHELL_MODE = False
+            except EOFError:
+                logging.info("EOF character detected. Shutting down.")
+                command_queue.put(ServerComand(ServerCommandEnum.BROADCAST_MESSAGE, u"\u001b[32m" + "[Server] " + "Server shutting down..." + u"\u001b[0m"))
+                break
             except SyntaxError:
                 try:
                     exec(inp)
