@@ -69,6 +69,8 @@ class Exit:
         for name in self._names:
             yield name
 
+    #TODO replace this with a .info method
+    # reclaim string as a simple function to return the name
     def __str__(self):
         '''overriding str() function'''
         return "%s -> %s" % (self._names[0], self._destination.name)
@@ -91,26 +93,21 @@ class Location:
     def add_char(self, char):
         self._character_list.append(char)
 
-    def remove_char(self, char, silent=False, exit=None):
+    def remove_char(self, char):
         self._character_list.remove(char)
-        if not silent:
-            if exit is not None:
-                self.message_chars("%s left via %s" % (char, exit))
-            else:
-                self.message_chars("%s left." % char)
-
+    
     @property
     def characters(self):
         return self._character_list.copy()
-    
-    @property
-    def exits(self):
-        return self._exit_list.copy()
 
     def message_chars(self, msg):
         '''send message to all characters currently in location'''
         for char in self._character_list:
             char.message(msg)
+    
+    @property
+    def exits(self):
+        return self._exit_list.copy()
 
     def add_exit(self, exit_to_add):
         '''adds an exit, while performing a check for any ambigious names'''
@@ -131,9 +128,6 @@ class Location:
 
     def all_items(self):
         return list(self._items)
-    
-    def readable_items(self):
-        return self._items.readable_list()
 
     def __contains__(self, other):
         '''Overriding in operator

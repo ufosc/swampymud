@@ -61,16 +61,6 @@ class Inventory:
             for item, lst in self._items[item_type].items():
                 output += "\t%s: %s\n" % (item, len(lst))
         return output
-    
-    def readable_list(self):
-        output = []
-        for name_dict in self._items.values():
-            for name, item_list in name_dict.items():
-                if len(item_list) == 1:
-                    output.append(name)
-                else:
-                    output.append("%s [%i]" % (name, len(item_list)))
-        return "\n".join(output)
 
     def __iadd__(self, item):
         '''overloading += with add_item'''

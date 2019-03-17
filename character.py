@@ -1,7 +1,7 @@
 '''Module defining the CharacterClass metaclass, and Character base class'''
 import enum
 from time import time
-from util import camel_to_space
+import util
 import location
 import control
 import inventory
@@ -54,7 +54,7 @@ class CharacterClass(type):
     def __init__(self, cls, bases, dict):
         # creating the proper name, if one is not provided
         if "name" not in dict:
-            self.name = camel_to_space(cls)
+            self.name = util.camel_to_space(cls)
         # adding a frequency field, if not already provided
         if "frequency" not in dict:
             self.frequency = 1
@@ -108,7 +108,7 @@ class Character(control.Monoreceiver, metaclass=CharacterClass):
         super().__init__()
         self.name = None
         self.location = None
-        self.set_location(self.starting_location, True)
+        self.set_location(self.starting_location)
         self.inv = inventory.Inventory()
         self.equip_dict = item.EquipTarget.make_dict(*self.equip_slots)
         self._parser = lambda line: Character.player_set_name(self, line)
@@ -182,7 +182,7 @@ class Character(control.Monoreceiver, metaclass=CharacterClass):
             mudscript.message_all("Welcome, %s, to the server!" % self)
         except mudscript.MuddyException:
             pass
-        self.cmd_look("")
+        self.cmd_look(["look"])
 
     def __repr__(self):
         '''return the player's name and class'''
@@ -227,19 +227,44 @@ class Character(control.Monoreceiver, metaclass=CharacterClass):
             pass
 
     #location manipulation methods        
-    def set_location(self, new_location, silent=False, reported_exit=None):
+    def set_location(self, new_location):
         '''sets location, updating the previous and new locations as appropriate
         if reported_exit is supplied, then other players in the location 
         will be notified of which location he is going to
         '''
         try:
-            self.location.remove_char(self, silent, reported_exit)
+            self.location.remove_char(self)
         except AttributeError:
             # location was none
             pass
         self.location = new_location
         self.location.add_char(self)
-        self.cmd_look(verbose=False)
+    
+    def take_exit(self, exit, show_leave=True, leave_via=None, 
+                  show_enter=True, enter_via=None):
+        if show_enter:
+            try:
+                if enter_via:
+                    exit.destination.message_chars("%s entered through %s."
+                                                 % (self, leave_via))
+                else:
+                    exit.destination.message_chars("%s entered." % (self,))
+            except AttributeError:
+                # self.location was none
+                pass
+        old_loc = self.location
+        self.set_location(exit.destination)
+        self.cmd_look(["look"], verbose=False)
+        if show_leave:
+            try:
+                if leave_via:
+                    old_loc.message_chars("%s left through %s."
+                                                 % (self, leave_via))
+                else:
+                    old_loc.location.message_chars("%s left" % (self,))
+            except AttributeError:
+                # self.location was none
+                pass
 
     #inventory/item related methods
     def equip(self, item, remove_inv=True):
@@ -283,10 +308,13 @@ class Character(control.Monoreceiver, metaclass=CharacterClass):
         else:
             self.message("Command \'%s\' not recognized." % command)
 
-    def cmd_look(self, *args, verbose=True):
+    def cmd_look(self, args, verbose=True):
         '''Gives description of current location
         usage: look
-        '''      
+        '''
+        #TODO: move much of this functionality into the Location.info method
+        # (replace the ugly formatting in that function)
+        # add an optional char_class parameter so we can filter it
         if verbose:
             self.message(self.location.__str__(True))
         char_list = self.location.characters
@@ -309,11 +337,12 @@ class Character(control.Monoreceiver, metaclass=CharacterClass):
         exit_list = self.location.exits
         exit_msg = "\nExits Available:\n"
         if exit_list:
-            exit_msg += "None"
-        else:
             exit_msg += "\n".join(map(str, exit_list))
+        else:
+            exit_msg += "None"
         self.message(exit_msg)
-        items = self.location.readable_items()
+        items = map(str, self.location.all_items())
+        items = util.group_and_count(list(items), format="%s(%i)", sep=", ")
         if items:
             item_msg = "\nItems Available:\n" + items
             self.message(item_msg)
@@ -329,9 +358,12 @@ class Character(control.Monoreceiver, metaclass=CharacterClass):
         usage: walk [exit name]
         '''
         exit_name = " ".join(args[1:])
+        #TODO: check for visibility
         found_exit = self.location.find_exit(exit_name)
         if found_exit:
-            self.set_location(exit.destination, False, exit)
+            #TODO: check for accessbility
+            self.take_exit(found_exit, True, 
+                           "exit '%s'" % str(found_exit), True)
         else:
             self.message("No exit with name %s" % exit_name)
     
