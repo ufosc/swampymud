@@ -98,15 +98,16 @@ class MudServerWorker(threading.Thread):
                 id = event.id
                 if event.type is EventType.PLAYER_JOIN:
                     logging.info("Player %s joined." % event.id)
-                    # notifying the player of their class, creating the character
+                    # welcome the player
                     self.mud.send_message(id, "Welcome to MuddySwamp!")
+                    # assign the player a random class and inform them
                     PlayerClass = self.mud.lib.random_class.get()
                     self.mud.send_message(id, "You are a(n) %s" % PlayerClass)
                     self.mud.send_message(id, "What is your name?")
-                    # creating a controler (a 'Player'), then giving that Player control of a new character
-                    # of whatever class the player is
+                    # create a controler (a 'Player')
                     new_player = control.Player(event.id)
                     new_character = PlayerClass()
+                    # give that Player control of a new character
                     new_player.assume_control(new_character)
 
                 elif event.type is EventType.MESSAGE_RECEIVED:
@@ -220,35 +221,34 @@ if __name__ == "__main__":
                 break
         else:
             try_exec = False
+            # try to eval the output first
             try:
                 inp =  input(">>> ")
                 result = eval(inp)
+                # show a representation of the input on the screen
                 if result is not None:
                     print(repr(result))
+            # leave the shell if ^C is pressed during input
             except KeyboardInterrupt:
                 print("\nLeaving shell mode...")
                 SHELL_MODE = False
+            # if ^D is pressed, we exit the entire server
             except EOFError:
                 logging.info("EOF character detected. Shutting down.")
                 command_queue.put(ServerComand(ServerCommandEnum.BROADCAST_MESSAGE, u"\u001b[32m" + "[Server] " + "Server shutting down..." + u"\u001b[0m"))
                 break
             except SyntaxError:
+                # if there was a syntax error, give exec a shot
                 try_exec = True
             except Exception:
-                 errmsg = traceback.format_exc()
+                # print any exceptions
+                print(traceback.format_exc())
             if try_exec:
                 try:
-                   exec(inp)
+                    exec(inp)
                 except Exception:
-                    errmsg = traceback.format_exc()
-                try_exec = False
-            previous = ""
-            if errmsg:
-                print(errmsg)
-                errmsg = ""
-            
-
-
+                    # print any exceptions
+                    print(traceback.format_exc())
 
     # Shut down the server gracefully
     logging.info("Shutting down server")

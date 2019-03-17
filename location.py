@@ -53,6 +53,12 @@ class Exit:
         else:
             return self is other
 
+    def __repr__(self):
+        '''Return an a representation of the exit'''
+        return ("Exit(%r, %r, other_names=%r, access=%r, visibility=%r)" 
+               % (self._destination, self._names[0], self._names[1:],
+                   self.access, self.visibility))
+
     def __contains__(self, other):
         '''Overriding in operator
         Returns True if other is in list of names
@@ -81,8 +87,6 @@ class Location:
         self._items = inv.Inventory()
         self.name = name
         self.description = description
-        # this will come into play later
-        self.owner = None
 
     def add_char(self, char):
         self._character_list.append(char)
@@ -128,7 +132,7 @@ class Location:
         self._items.add_item(item, quantity)
 
     def remove_item(self, item, quantity=1):
-        self._items.remove_item(item, quantity)      
+        return self._items.remove_item(item, quantity)      
 
     def __contains__(self, other):
         '''Overriding in operator
@@ -158,29 +162,28 @@ class Location:
         for exit_name in self._exit_list:
             if exit_name == query:
                 return exit_name
-        print("Preparing to search items. . .")
-        if self._items.get_item(query):
-            return self._items.get_item(query)
-        return False
+        item_result = self._items.find(query)
+        if item_result:
+            return item_result
 
-    def __repr__(self):
+    def info(self):
+        '''return a string containing detailed information'''
         #TODO: make the output more pythonic
         output = "Name:\t%s\n" % self.name
         output += "Desc:\t%s\n" % self.description
         output += "Chars:\t%s\n" % self._character_list
         output += "Exits:\t%s\n" % self._exit_list
-        output += "Owner:\t%s\n" % self.owner
+        output += "Items:\t%s\n" % list(self._items)
         return output
 
+    def __repr__(self):
+        return "Location(%r, %r)" % (self.name, self.description)
 
     def __str__(self, verbose=False):
         '''supplies a string
         if verbose is selected, description also supplied
         '''
-        if verbose:
-            return "%s:\n%s" % (self.name, self.description)
-        else:
-            return self.name
+        return self.name
 
 # explanation for this import statement being at the bottom
 # location uses the Character class

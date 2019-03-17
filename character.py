@@ -326,7 +326,7 @@ class Character(control.Monoreceiver, metaclass=CharacterClass):
         '''
         exit_name = " ".join(args[1:])
         exit = self.location.get_exit(exit_name)
-        self.set_location(exit.get_destination(), False, exit)
+        self.set_location(exit.destination, False, exit)
     
     def cmd_equip(self, args):
         '''Equip an equippable item from your inventory.'''
