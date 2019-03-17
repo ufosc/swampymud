@@ -37,7 +37,7 @@ class Inventory:
             raise KeyError("Item %s not found" % item)
         if len(self._items[item_type][name]) < quantity:
             raise ArithmeticError("Attempted to remove too many items")
-        item = self._items[item_type][name]
+        self._items[item_type][name]
         del self._items[item_type][name][-quantity:]
         if not self._items[item_type][name]:
             del self._items[item_type][name]
@@ -45,11 +45,8 @@ class Inventory:
             del self._items[item_type]
         return item
 
-    def get_item(self, name):
-        '''Return all items with a matching name
-        Recepient of the objects is responsible for handling
-        ambiguity
-        '''
+    def find(self, name):
+        '''Return all items with a matching name'''
         for name_list in self._items.values():
             for item_name, item_list in name_list.items():
                 if name.lower() == item_name.lower():
