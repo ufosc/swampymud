@@ -181,7 +181,7 @@ class Location:
     def __repr__(self):
         return "Location(%r, %r)" % (self.name, self.description)
 
-    def __str__(self, verbose=False):
+    def __str__(self):
         '''supplies a string
         if verbose is selected, description also supplied
         '''

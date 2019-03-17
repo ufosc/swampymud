@@ -316,7 +316,7 @@ class Character(control.Monoreceiver, metaclass=CharacterClass):
         # (replace the ugly formatting in that function)
         # add an optional char_class parameter so we can filter it
         if verbose:
-            self.message(self.location.__str__(True))
+            self.message(self.location.name + "\n" + self.location.description)
         char_list = self.location.characters
         try:
             char_list.remove(self)
