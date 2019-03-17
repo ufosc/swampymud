@@ -100,8 +100,12 @@ class Location:
                 self.message_chars("%s left." % char)
 
     @property
-    def character_list(self):
-        return list(self._character_list)
+    def characters(self):
+        return self._character_list.copy()
+    
+    @property
+    def exits(self):
+        return self._exit_list.copy()
 
     def message_chars(self, msg):
         '''send message to all characters currently in location'''
@@ -119,20 +123,17 @@ class Location:
         '''returns a copy of private exit list'''
         return list(self._exit_list)
 
-    def get_exit(self, exit_name):
-        '''returns an exit corresponding to exit name
-        if exit name is not in list, error is raised'''
-        for exit in self._exit_list:
-            if exit_name == exit:
-                return exit
-        raise KeyError("Exit with name \'%s\' not in Location %s"
-                       % (exit_name, self.name))
-
     def add_item(self, item, quantity=1):     
         self._items.add_item(item, quantity)
 
     def remove_item(self, item, quantity=1):
-        return self._items.remove_item(item, quantity)      
+        return self._items.remove_item(item, quantity)
+
+    def all_items(self):
+        return list(self._items)
+    
+    def readable_items(self):
+        return self._items.readable_list()
 
     def __contains__(self, other):
         '''Overriding in operator
@@ -165,6 +166,13 @@ class Location:
         item_result = self._items.find(query)
         if item_result:
             return item_result
+
+    def find_exit(self, exit_name):
+        '''returns an exit corresponding to exit name
+        returns 'None' if no exit is found'''
+        for exit in self._exit_list:
+            if exit_name == exit:
+                return exit
 
     def info(self):
         '''return a string containing detailed information'''

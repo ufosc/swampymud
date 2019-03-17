@@ -15,7 +15,7 @@ class Brute(Humanoid):
         '''
         if len(args) < 1:
             return
-        for char in self.location.get_character_list():
+        for char in self.location.characters:
             if args[0] == char.name:
                 break
         else:
@@ -32,4 +32,3 @@ class Brute(Humanoid):
     def cmd_rage(self, args):
         self.message("you get angry at nothing....weirdo")
         self.damage*=10
-        

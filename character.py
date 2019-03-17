@@ -289,7 +289,7 @@ class Character(control.Monoreceiver, metaclass=CharacterClass):
         '''      
         if verbose:
             self.message(self.location.__str__(True))
-        char_list = self.location.character_list
+        char_list = self.location.characters
         try:
             char_list.remove(self)
         except ValueError:
@@ -306,13 +306,17 @@ class Character(control.Monoreceiver, metaclass=CharacterClass):
         else:
             char_msg += ", ".join(map(str, char_list[:-1])) + ", and " + str(char_list[-1]) + "."
             self.message(char_msg)
-        exit_list = self.location.exit_list()
+        exit_list = self.location.exits
         exit_msg = "\nExits Available:\n"
-        if len(exit_list) == 0:
+        if exit_list:
             exit_msg += "None"
         else:
-            exit_msg += ", ".join(map(str, exit_list))
+            exit_msg += "\n".join(map(str, exit_list))
         self.message(exit_msg)
+        items = self.location.readable_items()
+        if items:
+            item_msg = "\nItems Available:\n" + items
+            self.message(item_msg)
 
     def cmd_say(self, args):
         '''Say a message aloud, sent to all players in your current locaton.
@@ -325,21 +329,26 @@ class Character(control.Monoreceiver, metaclass=CharacterClass):
         usage: walk [exit name]
         '''
         exit_name = " ".join(args[1:])
-        exit = self.location.get_exit(exit_name)
-        self.set_location(exit.destination, False, exit)
+        found_exit = self.location.find_exit(exit_name)
+        if found_exit:
+            self.set_location(exit.destination, False, exit)
+        else:
+            self.message("No exit with name %s" % exit_name)
     
     def cmd_equip(self, args):
         '''Equip an equippable item from your inventory.'''
         if len(args) < 2:
             self.message("Provide an item to equip.")
             return
-        try:
-            item_name = " ".join(args[1::])
-            item = self._check_ambiguity(slice(1, len(args)), item_name, self.inv.get_item(item_name))
-        except TypeError:
+        item_name = " ".join(args[1::])
+        #item = self._check_ambiguity(slice(1, len(args)), item_name, self.inv.find_all(item_name))
+        found_item = self.inv.find(item_name)
             # args must be item that we already have
-            item = args[1]
-        self.equip(item)
+            #item = args[1]
+        if found_item:
+            self.equip(found_item)
+        else:
+            self.message("Could not find item '%s'" % item_name)
 
     def cmd_unequip(self, args):
         '''Unequip an equipped item.'''
