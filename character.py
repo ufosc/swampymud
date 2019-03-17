@@ -91,23 +91,6 @@ class CharacterClass(type):
     def __str__(self):
         return self.name
 
-
-def cooldown(delay):
-    def delayed_cooldown(func):
-        setattr(func, "last_used", 0)
-        def cooled_down_func(*args, **kwargs):
-            print(func.last_used + delay)
-            print(time())
-            diff = func.last_used + delay - time()
-            if diff < 0:
-                func.last_used = time()
-                return func(*args, **kwargs)
-            else:
-                raise Exception("Cooldown expires in : %i" % diff)
-        return cooled_down_func
-    return delayed_cooldown
-
-
 class Character(control.Monoreceiver, metaclass=CharacterClass):
     '''Base class for all other CharacterClasses'''
 
@@ -173,7 +156,7 @@ class Character(control.Monoreceiver, metaclass=CharacterClass):
         if len(options) == 1:
             return options[0]
         elif len(options) == 0:
-            raise CharException("Error: '%s' not found." % (phrase) )
+            raise CharException("Error: '%s' not found." % (phrase))
         else:
             raise AmbiguityError(indices, phrase, options)
 
@@ -187,7 +170,7 @@ class Character(control.Monoreceiver, metaclass=CharacterClass):
             del(self._names[self.name])
         self.name = new_name
         self._names[self.name] = self
-    
+
     def player_set_name(self, new_name):
         '''intended for first time players set their name'''
         if not new_name.isalnum():
@@ -200,13 +183,13 @@ class Character(control.Monoreceiver, metaclass=CharacterClass):
         except mudscript.MuddyException:
             pass
         self.cmd_look("")
-    
+
     def __repr__(self):
         '''return the player's name and class'''
         if self.name is None:
             return "A nameless %s" % self.__class__.name
         return "%s the %s" % (self.name, self.__class__.name)
-    
+
     def __str__(self):
         '''return the player's name'''
         if self.name is None:
@@ -383,7 +366,7 @@ class Character(control.Monoreceiver, metaclass=CharacterClass):
             self.inv.add_item(item)
             self.location.remove_item(item)
         else:
-            self.message("Could not find item")
+            self.message("Could not find item with name '%s'" % item_name)
 
     def cmd_inv(self, args):
         '''Show your inventory.'''
@@ -392,7 +375,6 @@ class Character(control.Monoreceiver, metaclass=CharacterClass):
             output += str(target).upper() + "\n\t" + str(equipped) + "\n"
         self.message(output + self.inv.readable())
 
-    #TODO: provide a static method that transforms characters from one class to another
 
 #TODO: clean this up, provide documentation
 class AmbiguityResolver:
@@ -513,4 +495,4 @@ class CharFilter:
             self._set.add(other)
     
     def __repr__(self):
-        return "CharFilter(%s, %s)" % (self._mode.value, self._set)
+        return "CharFilter(%r, %r)" % (self._mode.value, self._set)

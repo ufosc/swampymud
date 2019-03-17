@@ -164,11 +164,11 @@ if __name__ == "__main__":
     thread.start()
 
     # Look for input on the server and send it to the thread
-    inp = ""
+    previous = ""
     while True:
         if not SHELL_MODE:
             try:
-                command, params = (input("").split(" ", 1) + ["", ""])[:2]
+                command, params = (input("> ").split(" ", 1) + ["", ""])[:2]
                 if command == "broadcast":
                     command_queue.put(ServerComand(ServerCommandEnum.BROADCAST_MESSAGE, u"\u001b[32m" + "[Server] " + params + u"\u001b[0m"))
                 elif command == "players":
@@ -186,21 +186,30 @@ if __name__ == "__main__":
                 elif command == "list":
                     if params == "locations":
                         location_list = "Loaded Locations:\n"
-                        for name, ref in server.lib.locations.items():
-                            location_list += "Name: %s\n" \
-                            "Object:\n%s\n" % (name, repr(ref))
+                        for loc in server.lib.locations.values():
+                            location_list += "\t%r\n" % loc
                         logging.info(location_list)
                     elif params == "items":
-                        pass
+                        item_list = "Loaded Items:\n"
+                        for name in server.lib.items.values():
+                            item_list += "\t%r\n" % name
+                        logging.info(item_list)
                     elif params == "chars":
-                        pass
+                        char_list = "Loaded CharacterClasses:\n"
+                        for name in server.lib.char_classes.values():
+                            char_list += "\t%s\n" % name
+                        logging.info(char_list)
                     else:
                         logging.info("Argument not recognized. Type help for a list of commands.")
                 elif command == "shell":
                     SHELL_MODE = True
                     print("Entering shell mode (press CTRL-C to exit)")
+                elif command.strip() == "":
+                    continue
                 else:
                     logging.info("Command not recognized. Type help for a list of commands.")
+                    continue
+                logging.log(0, "> " + command + " " + params)
             except KeyboardInterrupt:
                 logging.info("Keyboard interrupt detected. Shutting down.")
                 command_queue.put(ServerComand(ServerCommandEnum.BROADCAST_MESSAGE, u"\u001b[32m" + "[Server] " + "Server shutting down..." + u"\u001b[0m"))
@@ -210,8 +219,9 @@ if __name__ == "__main__":
                 command_queue.put(ServerComand(ServerCommandEnum.BROADCAST_MESSAGE, u"\u001b[32m" + "[Server] " + "Server shutting down..." + u"\u001b[0m"))
                 break
         else:
+            try_exec = False
             try:
-                inp = inp + input(">>> ")
+                inp =  input(">>> ")
                 result = eval(inp)
                 if result is not None:
                     print(repr(result))
@@ -223,12 +233,20 @@ if __name__ == "__main__":
                 command_queue.put(ServerComand(ServerCommandEnum.BROADCAST_MESSAGE, u"\u001b[32m" + "[Server] " + "Server shutting down..." + u"\u001b[0m"))
                 break
             except SyntaxError:
-                try:
-                    exec(inp)
-                except:
-                    print(traceback.format_exc())
+                try_exec = True
             except Exception:
-                print(traceback.format_exc())
+                 errmsg = traceback.format_exc()
+            if try_exec:
+                try:
+                   exec(inp)
+                except Exception:
+                    errmsg = traceback.format_exc()
+                try_exec = False
+            previous = ""
+            if errmsg:
+                print(errmsg)
+                errmsg = ""
+            
 
 
 
