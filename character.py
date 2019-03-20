@@ -1,7 +1,7 @@
 '''Module defining the CharacterClass metaclass, and Character base class'''
 import enum
 from time import time
-from util import camel_to_space
+import util
 import location
 import control
 import inventory
@@ -54,7 +54,7 @@ class CharacterClass(type):
     def __init__(self, cls, bases, dict):
         # creating the proper name, if one is not provided
         if "name" not in dict:
-            self.name = camel_to_space(cls)
+            self.name = util.camel_to_space(cls)
         # adding a frequency field, if not already provided
         if "frequency" not in dict:
             self.frequency = 1
@@ -91,23 +91,6 @@ class CharacterClass(type):
     def __str__(self):
         return self.name
 
-
-def cooldown(delay):
-    def delayed_cooldown(func):
-        setattr(func, "last_used", 0)
-        def cooled_down_func(*args, **kwargs):
-            print(func.last_used + delay)
-            print(time())
-            diff = func.last_used + delay - time()
-            if diff < 0:
-                func.last_used = time()
-                return func(*args, **kwargs)
-            else:
-                raise Exception("Cooldown expires in : %i" % diff)
-        return cooled_down_func
-    return delayed_cooldown
-
-
 class Character(control.Monoreceiver, metaclass=CharacterClass):
     '''Base class for all other CharacterClasses'''
 
@@ -125,7 +108,7 @@ class Character(control.Monoreceiver, metaclass=CharacterClass):
         super().__init__()
         self.name = None
         self.location = None
-        self.set_location(self.starting_location, True)
+        self.set_location(self.starting_location)
         self.inv = inventory.Inventory()
         self.equip_dict = item.EquipTarget.make_dict(*self.equip_slots)
         self._parser = lambda line: Character.player_set_name(self, line)
@@ -173,7 +156,7 @@ class Character(control.Monoreceiver, metaclass=CharacterClass):
         if len(options) == 1:
             return options[0]
         elif len(options) == 0:
-            raise CharException("Error: '%s' not found." % (phrase) )
+            raise CharException("Error: '%s' not found." % (phrase))
         else:
             raise AmbiguityError(indices, phrase, options)
 
@@ -187,7 +170,7 @@ class Character(control.Monoreceiver, metaclass=CharacterClass):
             del(self._names[self.name])
         self.name = new_name
         self._names[self.name] = self
-    
+
     def player_set_name(self, new_name):
         '''intended for first time players set their name'''
         if not new_name.isalnum():
@@ -199,14 +182,14 @@ class Character(control.Monoreceiver, metaclass=CharacterClass):
             mudscript.message_all("Welcome, %s, to the server!" % self)
         except mudscript.MuddyException:
             pass
-        self.cmd_look("")
-    
+        self.cmd_look(["look"])
+
     def __repr__(self):
         '''return the player's name and class'''
         if self.name is None:
             return "A nameless %s" % self.__class__.name
         return "%s the %s" % (self.name, self.__class__.name)
-    
+
     def __str__(self):
         '''return the player's name'''
         if self.name is None:
@@ -244,19 +227,44 @@ class Character(control.Monoreceiver, metaclass=CharacterClass):
             pass
 
     #location manipulation methods        
-    def set_location(self, new_location, silent=False, reported_exit=None):
+    def set_location(self, new_location):
         '''sets location, updating the previous and new locations as appropriate
         if reported_exit is supplied, then other players in the location 
         will be notified of which location he is going to
         '''
         try:
-            self.location.remove_char(self, silent, reported_exit)
+            self.location.remove_char(self)
         except AttributeError:
             # location was none
             pass
         self.location = new_location
         self.location.add_char(self)
-        self.cmd_look(verbose=False)
+    
+    def take_exit(self, exit, show_leave=True, leave_via=None, 
+                  show_enter=True, enter_via=None):
+        if show_enter:
+            try:
+                if enter_via:
+                    exit.destination.message_chars("%s entered through %s."
+                                                 % (self, leave_via))
+                else:
+                    exit.destination.message_chars("%s entered." % (self,))
+            except AttributeError:
+                # self.location was none
+                pass
+        old_loc = self.location
+        self.set_location(exit.destination)
+        self.cmd_look(["look"], verbose=False)
+        if show_leave:
+            try:
+                if leave_via:
+                    old_loc.message_chars("%s left through %s."
+                                                 % (self, leave_via))
+                else:
+                    old_loc.location.message_chars("%s left" % (self,))
+            except AttributeError:
+                # self.location was none
+                pass
 
     #inventory/item related methods
     def equip(self, item, remove_inv=True):
@@ -300,13 +308,16 @@ class Character(control.Monoreceiver, metaclass=CharacterClass):
         else:
             self.message("Command \'%s\' not recognized." % command)
 
-    def cmd_look(self, *args, verbose=True):
+    def cmd_look(self, args, verbose=True):
         '''Gives description of current location
         usage: look
-        '''      
+        '''
+        #TODO: move much of this functionality into the Location.info method
+        # (replace the ugly formatting in that function)
+        # add an optional char_class parameter so we can filter it
         if verbose:
-            self.message(self.location.__str__(True))
-        char_list = self.location.character_list
+            self.message(self.location.name + "\n" + self.location.description)
+        char_list = self.location.characters
         try:
             char_list.remove(self)
         except ValueError:
@@ -323,13 +334,18 @@ class Character(control.Monoreceiver, metaclass=CharacterClass):
         else:
             char_msg += ", ".join(map(str, char_list[:-1])) + ", and " + str(char_list[-1]) + "."
             self.message(char_msg)
-        exit_list = self.location.exit_list()
+        exit_list = self.location.exits
         exit_msg = "\nExits Available:\n"
-        if len(exit_list) == 0:
-            exit_msg += "None"
+        if exit_list:
+            exit_msg += "\n".join(map(str, exit_list))
         else:
-            exit_msg += ", ".join(map(str, exit_list))
+            exit_msg += "None"
         self.message(exit_msg)
+        items = map(str, self.location.all_items())
+        items = util.group_and_count(list(items), format="%s(%i)", sep=", ")
+        if items:
+            item_msg = "\nItems Available:\n" + items
+            self.message(item_msg)
 
     def cmd_say(self, args):
         '''Say a message aloud, sent to all players in your current locaton.
@@ -342,21 +358,29 @@ class Character(control.Monoreceiver, metaclass=CharacterClass):
         usage: walk [exit name]
         '''
         exit_name = " ".join(args[1:])
-        exit = self.location.get_exit(exit_name)
-        self.set_location(exit.get_destination(), False, exit)
+        #TODO: check for visibility
+        found_exit = self.location.find_exit(exit_name)
+        if found_exit:
+            #TODO: check for accessbility
+            self.take_exit(found_exit, True, 
+                           "exit '%s'" % str(found_exit), True)
+        else:
+            self.message("No exit with name %s" % exit_name)
     
     def cmd_equip(self, args):
         '''Equip an equippable item from your inventory.'''
         if len(args) < 2:
             self.message("Provide an item to equip.")
             return
-        try:
-            item_name = " ".join(args[1::])
-            item = self._check_ambiguity(slice(1, len(args)), item_name, self.inv.get_item(item_name))
-        except TypeError:
+        item_name = " ".join(args[1::])
+        #item = self._check_ambiguity(slice(1, len(args)), item_name, self.inv.find_all(item_name))
+        found_item = self.inv.find(item_name)
             # args must be item that we already have
-            item = args[1]
-        self.equip(item)
+            #item = args[1]
+        if found_item:
+            self.equip(found_item)
+        else:
+            self.message("Could not find item '%s'" % item_name)
 
     def cmd_unequip(self, args):
         '''Unequip an equipped item.'''
@@ -383,7 +407,7 @@ class Character(control.Monoreceiver, metaclass=CharacterClass):
             self.inv.add_item(item)
             self.location.remove_item(item)
         else:
-            self.message("Could not find item")
+            self.message("Could not find item with name '%s'" % item_name)
 
     def cmd_inv(self, args):
         '''Show your inventory.'''
@@ -392,7 +416,6 @@ class Character(control.Monoreceiver, metaclass=CharacterClass):
             output += str(target).upper() + "\n\t" + str(equipped) + "\n"
         self.message(output + self.inv.readable())
 
-    #TODO: provide a static method that transforms characters from one class to another
 
 #TODO: clean this up, provide documentation
 class AmbiguityResolver:
@@ -513,4 +536,4 @@ class CharFilter:
             self._set.add(other)
     
     def __repr__(self):
-        return "CharFilter(%s, %s)" % (self._mode.value, self._set)
+        return "CharFilter(%r, %r)" % (self._mode.value, self._set)

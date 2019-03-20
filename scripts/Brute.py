@@ -32,4 +32,3 @@ class Brute(Humanoid):
     def cmd_rage(self, args):
         self.message("you get angry at nothing....weirdo")
         self.damage*=10
-        
