@@ -1,5 +1,6 @@
 {
-    "name" : "brute",
-    "path" : "scripts/brute.py",
-    "frequency" : 1000.0
+    "name" : "Brute",
+    "path" : "scripts/Brute.py",
+    "starting_location" : "Marston Basement",
+    "frequency" : 1.0
 }
