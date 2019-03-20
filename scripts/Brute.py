@@ -15,8 +15,8 @@ class Brute(Humanoid):
         '''
         if len(args) < 1:
             return
-        for char in self.location.get_character_list():
-            if args[0] == char.name:
+        for char in self.location.character_list:
+            if args[1] == char.name:
                 break
         else:
             self.message("Could not find player with name %s." % args[0])
