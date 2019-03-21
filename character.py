@@ -408,6 +408,20 @@ class Character(control.Monoreceiver, metaclass=CharacterClass):
             self.location.remove_item(item)
         else:
             self.message("Could not find item with name '%s'" % item_name)
+    
+    def cmd_drop(self, args):
+        '''Drop an item into the environment'''
+        if len(args) < 2:
+            self.message("Provide an item to drop.")
+            return
+        
+        item_name = " ".join(args[1::])
+        found_item = self.inv.find(item_name)
+        if found_item:
+            self.inv.remove_item(item)
+            self.location.add_item(item)
+        else:
+            self.message("Could not find item with name '%s'" % item_name)
 
     def cmd_inv(self, args):
         '''Show your inventory.'''
