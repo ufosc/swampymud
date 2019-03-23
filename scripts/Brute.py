@@ -30,5 +30,8 @@ class Brute(Humanoid):
         
 
     def cmd_rage(self, args):
+        '''You channel your anger to unleash more ferocious attacks
+        Usage: rage
+        '''
         self.message("you get angry at nothing....weirdo")
         self.damage*=10
