@@ -85,7 +85,7 @@ class CharacterClass(type):
             if isinstance(base, CharacterClass):
                 output += base.help_menu
         output += "[%s Commands]\n" % self
-        output += "\t".join(self.unique_commands) + "\n"
+        output += util.TAB.join(self.unique_commands) + "\n"
         return output
 
     def __str__(self):
