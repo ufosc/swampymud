@@ -418,8 +418,8 @@ class Character(control.Monoreceiver, metaclass=CharacterClass):
         item_name = " ".join(args[1::])
         found_item = self.inv.find(item_name)
         if found_item:
-            self.inv.remove_item(item)
-            self.location.add_item(item)
+            self.inv.remove_item(found_item)
+            self.location.add_item(found_item)
         else:
             self.message("Could not find item with name '%s'" % item_name)
 

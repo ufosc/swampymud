@@ -57,6 +57,3 @@ class Cuirass(Necklace):
 
 class BetterCuirass(Necklace):
     name = "Cuirass"
-
-#bob = ExampleClass()
-#bob.cmd_gimmie([])
