@@ -13,9 +13,6 @@ def choices(population, weights=None, *, cum_weights=None, k=1):
     the selections are made with equal probability.
 
     """
-    print(population)
-    print(weights)
-    print(cum_weights)
     if cum_weights is None:
         if weights is None:
             _int = int

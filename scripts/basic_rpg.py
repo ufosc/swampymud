@@ -1,14 +1,12 @@
 '''Defining some basic RPG classes for testing'''
 from character import Character
 from time import time
-import library
+from mudscript import server
 
 def timed(delay):
     def delayed_cooldown(func):
         setattr(func, "last_used", 0)
         def cooled_down_func(*args, **kwargs):
-            print(func.last_used + delay)
-            print(time())
             diff = func.last_used + delay - time()
             if diff < 0:
                 func.last_used = time()
@@ -18,7 +16,7 @@ def timed(delay):
 
 class Humanoid(Character):
     '''Testing class that provides some basic traits'''
-    starting_location = library.locations["Hoggetown Pub and Inn"]
+    starting_location = server.lib.locations["Hoggetown Pub and Inn"]
     max_health = 100
     
     def __init__(self):
@@ -44,7 +42,7 @@ class Humanoid(Character):
         '''
         if len(args) < 2:
             return
-        for char in self.location.get_character_list():
+        for char in self.location.characters:
             if args[1] == char.name:
                 break
         else:
@@ -56,4 +54,5 @@ class Humanoid(Character):
             char.check_death()
         except:
             self.location.message_chars("%s tried to slap %s, to no avail." % (self, char))
+        
         
