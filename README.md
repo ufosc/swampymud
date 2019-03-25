@@ -1,6 +1,11 @@
 ﻿# MuddySwamp
 
-Multi-user dungeons, or "MUDs" are text-based role-playing games, that naturally evolved from the text-based rpg and adventure games of the 1970s. This project aims to introduce a new generation—one that never experienced a world without broadband internet—to this classic game genre. While this code can be adapted for any setting, we intend to render our university in beautiful ASCII. 
+Multi-user dungeons, or "MUDs" are text-based role-playing games, that naturally evolved from the text-based rpg and adventure games of the 1970s.
+This project aims to introduce a new generation—one that never experienced a world without broadband internet—to this classic game genre.
+While this code can be adapted for any setting, we intend to render our university in beautiful ASCII. 
+
+Note: this repo has the internal (less stable) branch `develop` set to default.
+For a more stable version, please look at the `master` branch.
 
 ## Requirements
 
