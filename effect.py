@@ -1,4 +1,5 @@
 '''Module defining the effect class'''
+from itertools import zip_longest
 import util
 from util.biject import Biject
 
@@ -8,7 +9,7 @@ class Effect(type):
     reverse = Biject()
     def __init__(self, cls, bases, dict, **kwargs):
         if "name" not in dict:
-            self.effect_name = util.camel_to_space(cls)
+            self.name = util.camel_to_space(cls)
         if cls != "BaseEffect":
             assert("apply" in dict and callable(dict["apply"]))
     
@@ -20,20 +21,40 @@ class Effect(type):
         return CompoundEffect(self, other)
     
     @staticmethod
-    def reverse_effect(self, effect):
-        #TODO: reverse effect, take all parameters into account
-        pass
+    def reverse_effect(eff):
+        if type(eff) not in Effect.reverse:
+            raise ValueError("Effect %s has no defined reverse" % (type(eff)))
+        return Effect.reverse[type(eff)](*eff.params)
+        
 
 
 class BaseEffect(metaclass=Effect):
+    param_schema = []
+
+    def __init__(self, *params):
+        for index, (typ, param) in enumerate(zip_longest(self.param_schema, params)):
+            if typ is None:
+                raise ValueError("%s received %i, expect arguments expected %i" % (self.__class__, len(self.param_schema), len(params)))
+            if not isinstance(param, typ):
+                raise ValueError("%s received argument %i of type %s, expected %s" % (self.__class__, index, type(param), typ))
+        self.params = params
+
     def __init_subclass__(self, reverse=None, **kwargs):
         '''overriding this method to allow the 'reverse' keyword to work'''
         #TODO: add support for parameterized effects
         # check __init__ method?
         if reverse:
             assert(isinstance(reverse, Effect))
+            assert(self.param_schema == reverse.param_schema)
             Effect.reverse[self] = reverse
         super().__init_subclass__(**kwargs)
+    
+    def __repr__(self):
+        if self.params:
+            return "%s%r" %(self.__class__.name, self.params)
+        else:
+            return "%s()" % self.__class__.name
+
 
 
 def cancel_out(self, effect_list):
@@ -102,6 +123,7 @@ class Freeze(BaseEffect, reverse=Melt):
             pass
 
 class Ignite(BaseEffect):
+    param_schema = [str]
     def apply(self, target):
         try:
             target.ignite()
@@ -109,6 +131,7 @@ class Ignite(BaseEffect):
             pass
 
 class Extinguish(BaseEffect, reverse=Ignite):
+    param_schema = [str]
     def apply(self, target):
         try:
             target.extinguish()
