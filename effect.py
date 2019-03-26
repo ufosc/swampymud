@@ -50,8 +50,10 @@ class Burn(Damage, Ignite):
     ''' Combination of Damage and Ignite effects; constructor requires dmg_points keyword '''
 
     def __init__(self, **kwargs):
-        super().__init__(**kwargs)
+        base_effects = list(self.__mro__)
+        for 
 
     def apply(self, target):
-        super().apply(target)
+        pass
+
 
