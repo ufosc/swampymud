@@ -3,6 +3,9 @@
 class Biject:
     '''class representing a bijection'''
     def __init__(self, start_dict=None):
+        '''start_dict can be provided to 
+        fill the bijection with something
+        otherwise, an empty bijection is created'''
         self._left = {}
         self._right = {}
         if start_dict:
@@ -10,12 +13,16 @@ class Biject:
                 self[l] = r
 
     def __getitem__(self, key):
+        '''get the object corresponding to 'key'''
         if key in self._left:
             return self._left[key]
         else:
             return self._right[key]
 
     def __setitem__(self, key, value):
+        '''create a pair with 'key' and 'value'
+        if key or value is already in use,
+        a KeyError is raised'''
         try:
             current_value = self[key]
             if current_value is not value:
@@ -32,6 +39,9 @@ class Biject:
         self._right[value] = key
 
     def __delitem__(self, key):
+        '''delete 'key'
+        raises KeyError if 'key' is not
+        in bijection'''
         if key in self._left:
             value = self._left[key]
             del self._left[key]
@@ -42,17 +52,22 @@ class Biject:
             del self._left[value]
     
     def __contains__(self, key):
+        '''returns true if 'key' is in bijection'''
         return key in self._left or self._right
 
     def __repr__(self):
+        '''return a representation of the bijection'''
         if self._left:
             return "Biject(%r)" % self._left
         else:
             return "Biject()"
 
     def __iter__(self):
+        '''iterate over (key, value) in bijection'''
         for left, right in self._left.items():
             yield (left, right)
     
     def __dict__(self):
+        '''return a dictionary representation
+        of the bijection'''
         return self._left.copy()
