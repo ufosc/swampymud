@@ -1,5 +1,6 @@
 import inventory as inv
 import item
+import character
 
 class Exit:
     '''Class representing an Exit
@@ -187,7 +188,4 @@ class Location:
         '''
         return self.name
 
-# explanation for this import statement being at the bottom
-# location uses the Character class
-# Character references Location class in body of Character class
-import character
+NULL_ISLAND = Location("Null Island", "You see nothing.")

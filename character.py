@@ -1,8 +1,7 @@
 '''Module defining the CharacterClass metaclass, and Character base class'''
 import enum
-from time import time
+import importlib
 import util
-import location
 import control
 import inventory
 import item
@@ -100,7 +99,7 @@ class Character(control.Monoreceiver, metaclass=CharacterClass):
     # DO NOT TOUCH
     _names = {}
     # Starting location for this player
-    starting_location = location.Location("NullLocation", "Default Location")
+    starting_location = None
     # Valid equip slots for characters of this class
     equip_slots = []
 
@@ -108,7 +107,9 @@ class Character(control.Monoreceiver, metaclass=CharacterClass):
         super().__init__()
         self.name = None
         self.location = None
-        self.set_location(self.starting_location)
+        if self.starting_location is None:
+            from location import null_location
+            self.set_location(null_location)
         self.inv = inventory.Inventory()
         self.equip_dict = item.EquipTarget.make_dict(*self.equip_slots)
         self._parser = lambda line: Character.player_set_name(self, line)
