@@ -1,6 +1,6 @@
 from scripts.sword import Sword
 import material
-import scripts.material_items as mi 
+import scripts.materialItems as mi 
 from character import CharException
 import item
 
@@ -23,32 +23,38 @@ class Recipe:
     def __contains__(self, other):
         return other in self.ingredients
 
-    def check_ingredients(self, *args):
+    def _check_ingredients(self, args):
         ''' Verifies user has the necessary ingredients; the *args put into this method will be
         either the inventory of the user or the crafting ingredients provided (if the user is
         prompted to provide ingredients) '''
-        user_ingredients = list(args)
+        user_ingredients = args.copy()
         fulfilled = False
         # This loop checks to make sure all necessary ingredients are present
         for ing in self.ingredients:
             if ing in user_ingredients:
-                user_ingredients.remove(ing)
                 fulfilled = True
             else:
                 fulfilled = False
                 break 
         # When we pass in the user_ingredients list, all that should be left are effect items 
-        if fulfilled:
-            self.make(user_ingredients)
-        else:
-            raise CharException
+        return fulfilled
             
-
-    def make(self, effect_items):
-        effect_list = []
-        for effect_item in effect_items:
-            effect_list += effect_item.effects
-        return self.item_class(self.material, *effect_list)
+    def make(self, args):
+        ''' Make calls check_ingredients to ensure that all ingredients used are present in the argument list
+            and, if true, returns the desired item. If false, returns None.
+        '''
+        user_ingredients = args.copy()
+        if(self._check_ingredients(user_ingredients)):
+            for ing in user_ingredients:
+                if ing in self.ingredients:
+                    user_ingredients.remove(ing)
+            # Now there should only be effect items in user_ingredients
+            effect_list = []
+            for effect_item in user_ingredients:
+                effect_list += effect_item.effects
+            return self.item_class(self.material, *effect_list)
+        else:
+            return None
 
     def __str__(self):
         return str(self.material) + (self.item_class)
@@ -66,3 +72,4 @@ class Recipe:
 '''
 
 iron_sword_recipe = Recipe(Sword, key_item=mi.IronIngot(), key_item_quantity=2 , other_items=[mi.WoodPlank()])
+
