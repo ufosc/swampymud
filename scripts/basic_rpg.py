@@ -7,8 +7,6 @@ def timed(delay):
     def delayed_cooldown(func):
         setattr(func, "last_used", 0)
         def cooled_down_func(*args, **kwargs):
-            print(func.last_used + delay)
-            print(time())
             diff = func.last_used + delay - time()
             if diff < 0:
                 func.last_used = time()
@@ -44,7 +42,7 @@ class Humanoid(Character):
         '''
         if len(args) < 2:
             return
-        for char in self.location.get_character_list():
+        for char in self.location.characters:
             if args[1] == char.name:
                 break
         else:
@@ -56,4 +54,5 @@ class Humanoid(Character):
             char.check_death()
         except:
             self.location.message_chars("%s tried to slap %s, to no avail." % (self, char))
+        
         

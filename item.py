@@ -99,7 +99,7 @@ class EquipTarget:
         (if value is not an EquipTarget, returns False)
         '''
         try:
-            return self.target_id == other.target_id
+            return self.target_id == value.target_id
         except AttributeError:
             # other item is not an EquipTarget
             return False

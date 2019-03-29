@@ -40,6 +40,8 @@ IMPORT_PATHS = {
     "items" : glob("items/*json")
 }
 
+SHELL_MODE = False
+
 class ServerCommandEnum(enum.Enum):
     ''' basic enum for the type of server command'''
     BROADCAST_MESSAGE = 0
@@ -96,15 +98,16 @@ class MudServerWorker(threading.Thread):
                 id = event.id
                 if event.type is EventType.PLAYER_JOIN:
                     logging.info("Player %s joined." % event.id)
-                    # notifying the player of their class, creating the character
+                    # welcome the player
                     self.mud.send_message(id, "Welcome to MuddySwamp!")
+                    # assign the player a random class and inform them
                     PlayerClass = self.mud.lib.random_class.get()
                     self.mud.send_message(id, "You are a(n) %s" % PlayerClass)
                     self.mud.send_message(id, "What is your name?")
-                    # creating a controler (a 'Player'), then giving that Player control of a new character
-                    # of whatever class the player is
+                    # create a controler (a 'Player')
                     new_player = control.Player(event.id)
                     new_character = PlayerClass()
+                    # give that Player control of a new character
                     new_player.assume_control(new_character)
 
                 elif event.type is EventType.MESSAGE_RECEIVED:
@@ -162,49 +165,90 @@ if __name__ == "__main__":
     thread.start()
 
     # Look for input on the server and send it to the thread
+    previous = ""
     while True:
-        try:
-            command, params = (input("").split(" ", 1) + ["", ""])[:2]
-            if command == "broadcast":
-                command_queue.put(ServerComand(ServerCommandEnum.BROADCAST_MESSAGE, u"\u001b[32m" + "[Server] " + params + u"\u001b[0m"))
-            elif command == "players":
-                command_queue.put(ServerComand(ServerCommandEnum.GET_PLAYERS, ""))
-            elif command == "stop":
+        if not SHELL_MODE:
+            try:
+                command, params = (input("> ").split(" ", 1) + ["", ""])[:2]
+                if command == "broadcast":
+                    command_queue.put(ServerComand(ServerCommandEnum.BROADCAST_MESSAGE, u"\u001b[32m" + "[Server] " + params + u"\u001b[0m"))
+                elif command == "players":
+                    command_queue.put(ServerComand(ServerCommandEnum.GET_PLAYERS, ""))
+                elif command == "stop":
+                    command_queue.put(ServerComand(ServerCommandEnum.BROADCAST_MESSAGE, u"\u001b[32m" + "[Server] " + "Server shutting down..." + u"\u001b[0m"))
+                    break
+                elif command == "help":
+                    logging.info("Server commands are: \n" \
+                    " broadcast [message] - Broadcasts a message to the entire server\n"\
+                    " players - Prints a list of all players\n" \
+                    " stop - Stops the server\n" \
+                    " list [locations|items|chars] - list all available loaded locations/items/chars\n" \
+                    " shell - enter a python shell\n")
+                elif command == "list":
+                    if params == "locations":
+                        location_list = "Loaded Locations:\n"
+                        for loc in server.lib.locations.values():
+                            location_list += "\t%r\n" % loc
+                        logging.info(location_list)
+                    elif params == "items":
+                        item_list = "Loaded Items:\n"
+                        for name in server.lib.items.values():
+                            item_list += "\t%r\n" % name
+                        logging.info(item_list)
+                    elif params == "chars":
+                        char_list = "Loaded CharacterClasses:\n"
+                        for name in server.lib.char_classes.values():
+                            char_list += "\t%s\n" % name
+                        logging.info(char_list)
+                    else:
+                        logging.info("Argument not recognized. Type help for a list of commands.")
+                elif command == "shell":
+                    SHELL_MODE = True
+                    print("Entering shell mode (press CTRL-C to exit)")
+                elif command.strip() == "":
+                    continue
+                else:
+                    logging.info("Command not recognized. Type help for a list of commands.")
+                    continue
+                logging.log(0, "> " + command + " " + params)
+            except KeyboardInterrupt:
+                logging.info("Keyboard interrupt detected. Shutting down.")
                 command_queue.put(ServerComand(ServerCommandEnum.BROADCAST_MESSAGE, u"\u001b[32m" + "[Server] " + "Server shutting down..." + u"\u001b[0m"))
                 break
-            elif command == "help":
-                logging.info("Server commands are: \n" \
-                " broadcast [message] - Broadcasts a message to the entire server\n"\
-                " players - Prints a list of all players\n" \
-                " stop - Stops the server\n" \
-                " list [locations|items|chars|] - list all available loaded locations/items/chars\n")
-            elif command == "list":
-                if params == "locations":
-                    location_list = "Loaded Locations:\n"
-                    for name, ref in self.mud.lib.locations.items():
-                        location_list += "Name: %s\n" \
-                        "Object:\n%s\n" % (name, repr(ref))
-                    logging.info(location_list)
-                elif params == "items":
-                    pass
-                elif params == "chars":
-                    pass
-                else:
-                    logging.info("Argument not recognized. Type help for a list of commands.")
-            elif command == ">":
+            except EOFError:
+                logging.info("EOF character detected. Shutting down.")
+                command_queue.put(ServerComand(ServerCommandEnum.BROADCAST_MESSAGE, u"\u001b[32m" + "[Server] " + "Server shutting down..." + u"\u001b[0m"))
+                break
+        else:
+            try_exec = False
+            # try to eval the output first
+            try:
+                inp =  input(">>> ")
+                result = eval(inp)
+                # show a representation of the input on the screen
+                if result is not None:
+                    print(repr(result))
+            # leave the shell if ^C is pressed during input
+            except KeyboardInterrupt:
+                print("\nLeaving shell mode...")
+                SHELL_MODE = False
+            # if ^D is pressed, we exit the entire server
+            except EOFError:
+                logging.info("EOF character detected. Shutting down.")
+                command_queue.put(ServerComand(ServerCommandEnum.BROADCAST_MESSAGE, u"\u001b[32m" + "[Server] " + "Server shutting down..." + u"\u001b[0m"))
+                break
+            except SyntaxError:
+                # if there was a syntax error, give exec a shot
+                try_exec = True
+            except Exception:
+                # print any exceptions
+                print(traceback.format_exc())
+            if try_exec:
                 try:
-                    result = eval(params)
-                    if result:
-                        print(repr(result))
-                except:
+                    exec(inp)
+                except Exception:
+                    # print any exceptions
                     print(traceback.format_exc())
-            else:
-                logging.info("Command not recognized. Type help for a list of commands.")
-        except KeyboardInterrupt:
-            logging.info("Keyboard interrupt detected. Shutting down.")
-            command_queue.put(ServerComand(ServerCommandEnum.BROADCAST_MESSAGE, u"\u001b[32m" + "[Server] " + "Server shutting down..." + u"\u001b[0m"))
-            break
-
 
     # Shut down the server gracefully
     logging.info("Shutting down server")

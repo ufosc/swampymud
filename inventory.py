@@ -8,9 +8,11 @@ class Inventory:
         item_type : { item_key : quantity }
     }
     '''
-    def __init__(self): 
+    def __init__(self, *items): 
         self._items = {}
-
+        for item in items:
+            self.add_item(item)
+        
     def add_item(self, item, quantity=1):
         '''adds an [item] of [quantity] to this inventory
         default quantity = 1
@@ -20,7 +22,7 @@ class Inventory:
         if item_type not in self._items:
             self._items[item_type] = {}
         if name not in self._items[item.item_type]:
-            self._items[item_type][name] = [item]
+            self._items[item_type][name] = [item] * quantity
         else:
             self._items[item_type][name] += [item] * quantity
 
@@ -37,23 +39,20 @@ class Inventory:
             raise KeyError("Item %s not found" % item)
         if len(self._items[item_type][name]) < quantity:
             raise ArithmeticError("Attempted to remove too many items")
+        self._items[item_type][name]
         del self._items[item_type][name][-quantity:]
         if not self._items[item_type][name]:
             del self._items[item_type][name]
         if not self._items[item_type]:
             del self._items[item_type]
+        return item
 
-    def get_item(self, name):
-        '''Return all items with a matching name
-        Recepient of the objects is responsible for handling
-        ambiguity
-        '''
-        results = []
+    def find(self, name):
+        '''Return all items with a matching name'''
         for name_list in self._items.values():
             for item_name, item_list in name_list.items():
-                if name == item_name.lower():
-                    results.append(item_list[-1])
-        return results
+                if name.lower() == item_name.lower():
+                    return item_list[-1]
 
     def readable(self):
         output = ""
@@ -73,8 +72,15 @@ class Inventory:
         self.remove_item(item)
         return self
 
+    def __iter__(self):
+        '''iterate over item in _items'''
+        for name_dict in self._items.values():
+            for item_list in name_dict.values():
+                for item in item_list:
+                    yield item
+
     def __repr__(self):
-        return repr(self._items)
+        return "Inventory(%s)" % " ,".join(map(repr,self))
 
     def __contains__(self, item):
         if type(type(item)) in self._items:

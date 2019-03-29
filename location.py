@@ -53,6 +53,12 @@ class Exit:
         else:
             return self is other
 
+    def __repr__(self):
+        '''Return an a representation of the exit'''
+        return ("Exit(%r, %r, other_names=%r, access=%r, visibility=%r)" 
+               % (self._destination, self._names[0], self._names[1:],
+                   self.access, self.visibility))
+
     def __contains__(self, other):
         '''Overriding in operator
         Returns True if other is in list of names
@@ -63,6 +69,8 @@ class Exit:
         for name in self._names:
             yield name
 
+    #TODO replace this with a .info method
+    # reclaim string as a simple function to return the name
     def __str__(self):
         '''overriding str() function'''
         return "%s -> %s" % (self._names[0], self._destination.name)
@@ -81,28 +89,25 @@ class Location:
         self._items = inv.Inventory()
         self.name = name
         self.description = description
-        # this will come into play later
-        self.owner = None
 
     def add_char(self, char):
         self._character_list.append(char)
 
-    def remove_char(self, char, silent=False, exit=None):
+    def remove_char(self, char):
         self._character_list.remove(char)
-        if not silent:
-            if exit is not None:
-                self.message_chars("%s left via %s" % (char, exit))
-            else:
-                self.message_chars("%s left." % char)
-
+    
     @property
-    def character_list(self):
-        return list(self._character_list)
+    def characters(self):
+        return self._character_list.copy()
 
     def message_chars(self, msg):
         '''send message to all characters currently in location'''
         for char in self._character_list:
             char.message(msg)
+    
+    @property
+    def exits(self):
+        return self._exit_list.copy()
 
     def add_exit(self, exit_to_add):
         '''adds an exit, while performing a check for any ambigious names'''
@@ -115,20 +120,14 @@ class Location:
         '''returns a copy of private exit list'''
         return list(self._exit_list)
 
-    def get_exit(self, exit_name):
-        '''returns an exit corresponding to exit name
-        if exit name is not in list, error is raised'''
-        for exit in self._exit_list:
-            if exit_name == exit:
-                return exit
-        raise KeyError("Exit with name \'%s\' not in Location %s"
-                       % (exit_name, self.name))
-
     def add_item(self, item, quantity=1):     
         self._items.add_item(item, quantity)
 
     def remove_item(self, item, quantity=1):
-        self._items.remove_item(item, quantity)
+        return self._items.remove_item(item, quantity)
+
+    def all_items(self):
+        return list(self._items)
 
     def __contains__(self, other):
         '''Overriding in operator
@@ -150,24 +149,43 @@ class Location:
             raise ValueError("Received %s, expected Exit, Character, or Item"
                              % type(other))
 
-    def __repr__(self):
+    def find(self, query):
+        str_char_list = list(map(str, self._character_list))
+        for char in str_char_list:
+            if query == char:
+                return self._character_list[str_char_list.index(char)]
+        for exit_name in self._exit_list:
+            if exit_name == query:
+                return exit_name
+        item_result = self._items.find(query)
+        if item_result:
+            return item_result
+
+    def find_exit(self, exit_name):
+        '''returns an exit corresponding to exit name
+        returns 'None' if no exit is found'''
+        for exit in self._exit_list:
+            if exit_name == exit:
+                return exit
+
+    def info(self):
+        '''return a string containing detailed information'''
         #TODO: make the output more pythonic
         output = "Name:\t%s\n" % self.name
         output += "Desc:\t%s\n" % self.description
         output += "Chars:\t%s\n" % self._character_list
         output += "Exits:\t%s\n" % self._exit_list
-        output += "Owner:\t%s\n" % self.owner
+        output += "Items:\t%s\n" % list(self._items)
         return output
 
+    def __repr__(self):
+        return "Location(%r, %r)" % (self.name, self.description)
 
-    def __str__(self, verbose=False):
+    def __str__(self):
         '''supplies a string
         if verbose is selected, description also supplied
         '''
-        if verbose:
-            return "%s:\n%s" % (self.name, self.description)
-        else:
-            return self.name
+        return self.name
 
 # explanation for this import statement being at the bottom
 # location uses the Character class

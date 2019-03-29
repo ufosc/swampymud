@@ -30,7 +30,7 @@ class Healer(Humanoid):
         '''
         if len(args) < 1:
             return
-        for char in self.location.get_character_list():
+        for char in self.location.characters:
             if args[0] == char.name:
                 break
         else:
