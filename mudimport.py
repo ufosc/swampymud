@@ -293,7 +293,11 @@ class LocationImporter(Importer):
                 "items" : {"type": str}
             },
             "visibility" : FILTER_SCHEMA,
-            "access" : FILTER_SCHEMA
+            "access" : FILTER_SCHEMA,
+            "hide_des" : {
+                "required" : False,
+                "type" : bool
+            }
         }
     }
 
@@ -366,6 +370,8 @@ class LocationImporter(Importer):
             self.exit_fail_causes[dest_name].append((loc, exit_data, reason))
             return
         kwargs = {"name": exit_data["name"], "destination": dest}
+        if "hide_des" in exit_data:
+            kwargs["hide_des"] = exit_data["hide_des"]
         try:
             if "access" in exit_data:
                 kwargs["access"] = dict_to_filter(exit_data["access"], chars)

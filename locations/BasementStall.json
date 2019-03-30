@@ -8,9 +8,18 @@
             "other_names": ["bathroom"]
         },
         {
-            "destination": "Portal",
-            "name" : "portal",
-            "other_names": ["enter", "this dependency should work"]
+            "destination": "Wonderful Wizard World",
+            "name" : "whirling portal",
+            "other_names": ["enter", "this dependency should work"],
+            "hide_des": true,
+            "visibility" : {
+                "type": "whitelist",
+                "set" : ["Brute"]
+            },
+            "access" : {
+                "type": "blacklist",
+                "set" : []
+            } 
         }
     ]
 }

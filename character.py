@@ -337,7 +337,9 @@ class Character(control.Monoreceiver, metaclass=CharacterClass):
         exit_list = self.location.exits
         exit_msg = "\nExits Available:\n"
         if exit_list:
-            exit_msg += "\n".join(map(str, exit_list))
+            for exit in exit_list:
+                if exit.visibility.permits(self):
+                    exit_msg += str(exit) + "\n"
         else:
             exit_msg += "None"
         self.message(exit_msg)
@@ -359,11 +361,16 @@ class Character(control.Monoreceiver, metaclass=CharacterClass):
         '''
         exit_name = " ".join(args[1:])
         #TODO: check for visibility
-        found_exit = self.location.find_exit(exit_name)
+        found_exit = self.location.find_exit(exit_name)            
         if found_exit:
             #TODO: check for accessbility
-            self.take_exit(found_exit, True, 
-                           "exit '%s'" % str(found_exit), True)
+            if found_exit.access.permits(self):
+                self.take_exit(found_exit, True, 
+                                "exit '%s'" % str(found_exit), True)
+            elif not found_exit.visibility.permits(self):
+                self.message("No exit with name %s" % exit_name)            
+            else:
+                self.message("The path to %s" % exit_name + " is unaccessible to you")
         else:
             self.message("No exit with name %s" % exit_name)
     
