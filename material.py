@@ -3,8 +3,8 @@ from effect import Effect
 class Material:
 
     def __init__(self, max_durability, damage, *effects):
-        self.max_durability = max_durability
-        self.damage = damage
+        self._max_durability = max_durability
+        self._damage = damage
         self.effects = []
         for effect in effects:
             if isinstance(effect, Effect):
@@ -12,11 +12,11 @@ class Material:
 
     @property
     def max_durability(self):
-        return self.max_durability
+        return self._max_durability
 
     @property
     def damage(self):
-        return self.damage
+        return self._damage
 
 iron = Material(max_durability=100, damage=20) 
 

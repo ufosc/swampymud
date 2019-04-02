@@ -8,13 +8,11 @@ class MaterialItem(MiscItemBase):
 
     def __init__(self):
         super().__init__()
-        self.name = self.__class__.name
-        
-    @property
-    def material(self):
-        return self._material
+        self._item_name = str(type(self))
 
-        
+    @classmethod
+    def material(cls):
+        return cls._material
 
 class IronIngot(MaterialItem):
     _material = material.iron
