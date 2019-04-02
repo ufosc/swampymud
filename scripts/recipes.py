@@ -81,3 +81,7 @@ class Recipe:
 
 iron_sword_recipe = Recipe(Sword, key_item_class=mi.IronIngot, key_item_quantity=2 , other_items_classes={mi.WoodPlank:1})
 
+steel_sword_recipe = Recipe(Sword, key_item_class=mi.SteelIngot, key_item_quantity=3 , other_items_classes={mi.WoodPlank:2})
+
+gator_bone_sword_recipe = Recipe(Sword, key_item_class=mi.GatorBoneShard, key_item_quantity=4 , other_items_classes={mi.WoodPlank:2})
+

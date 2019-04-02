@@ -19,3 +19,9 @@ class IronIngot(MaterialItem):
 
 class WoodPlank(MaterialItem):
     _material = material.wood
+
+class SteelIngot(MaterialItem):
+    _material = material.steel
+
+class GatorBoneShard(MaterialItem):
+    _material = material.gatorbone

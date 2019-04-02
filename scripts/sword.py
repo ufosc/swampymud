@@ -9,7 +9,7 @@ class Sword(UsableBase):
 
     def __init__(self, material, *args):
         super().__init__()
-        self._item_name = str(material) + "sword"
+        self._item_name = str(material) + " sword"
         self.durability = material.max_durability
         self.damage = material.damage * self.multiplier
         self.effects = material.effects + list(args)
