@@ -56,10 +56,12 @@ class Recipe:
                     if type(user_ingredients) is ing:
                         user_ingredients.remove(user_ing)
             # Now there should only be effect items in user_ingredients
-            effect_list = []
+            # The next three lines are currently not useful, but will be once effect items are implemented
+            # Once they are implemented, these items should be commented in
+            # effect_list = []
             # for effect_item in user_ingredients:
             #    effect_list += effect_item.effects
-            return self.item_class(self.key_item_class.material(), *effect_list)
+            return self.item_class(self.key_item_class.material())
         else:
             return None
 
