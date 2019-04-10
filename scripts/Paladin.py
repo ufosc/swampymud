@@ -9,6 +9,7 @@ class Paladin(Humanoid):
 
     def __init__(self):
         super().__init__()
+        # This default dict needs to be changed later, but is fine now for testing
         self.recipes_dict = {
             "iron sword" : iron_sword_recipe,
             "steel sword" : steel_sword_recipe,
@@ -17,7 +18,7 @@ class Paladin(Humanoid):
 
     def cmd_craft(self, args):
         ''' Craft an item 
-        Usage: craft [material] [item] with [ingredient1], [ingredient2], . . . [ingredient-n]
+        Usage: craft [material] [item] with [ingredient1] ([quantity]), [ingredient2] ([quantity]), . . . [ingredient-n] ([quantity])
         '''
         if len(args) < 3:
             self.message("Invalid syntax; try using 'help craft' to see how to use this command")
@@ -26,14 +27,27 @@ class Paladin(Humanoid):
         # The following two lines parse the comma delimited ingredients into a list of form ["ingredient1", "ingredient2". . .]
         ingredient_args = " ".join(args[4::])
         ingredient_args = ingredient_args.split(",")
-        # The following line removes leading and trailing whitespaces from each element
+        # Remove leading and trailing whitespaces from each element
         ingredient_args = list(map(lambda x: x.strip(), ingredient_args))
+        # This dict will contain ingredient names (e.g. "Iron Ingot") mapped to the quantity number
+        ingredients_dict = {}
+        for element in ingredient_args:
+            element = element.split("(")
+            element[0] = element[0].strip()
+            element[1] = element[1][0]
+            try:
+                ingredients_dict[element[0]] = int(element[1])
+            except:
+                pass
         if item_name in self.recipes_dict:
             ingredients_list = []
             # This loop adds all necessary items from the inventory to ingredients_list; if irrelevant, no item is added
-            for argument in ingredient_args:
-                if self.inv.find(argument):
-                    ingredients_list.append(self.inv.find(argument))
+            for key in ingredients_dict:
+                if self.inv.find(key):
+                    i = ingredients_dict[key]
+                    while(i > 0):
+                        ingredients_list.append(self.inv.find(key))
+                        i -= 1
             # If the necessary ingredients aren't provided item = None
             item = self.recipes_dict[item_name].make(ingredients_list)
             if item:
@@ -46,22 +60,6 @@ class Paladin(Humanoid):
         else:
             self.message("You don't know a recipe with that name.")
 
-    # Method used during testing
-    def cmd_gimme(self, args):
-        ''' Gives some items '''
-        self.inv += IronIngot()
-        self.inv += IronIngot()
-        for i in range(10):
-            self.inv += WoodPlank()
-        self.inv += SteelIngot()
-        self.inv += SteelIngot()
-        self.inv += SteelIngot()
-        self.inv += SteelIngot()
-        self.inv += GatorBoneShard()
-        self.inv += GatorBoneShard()
-        self.inv += GatorBoneShard()
-        self.inv += GatorBoneShard()
-        self.inv += GatorBoneShard()
 
 
 
