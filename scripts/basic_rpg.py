@@ -2,6 +2,7 @@
 from character import Character
 from time import time
 from mudscript import server
+import effect
 
 def timed(delay):
     def delayed_cooldown(func):
@@ -16,11 +17,11 @@ def timed(delay):
 
 class Humanoid(Character):
     '''Testing class that provides some basic traits'''
-    starting_location = server.lib.locations["Hoggetown Pub and Inn"]
+    #starting_location = server.lib.locations["Hoggetown Pub and Inn"]
     max_health = 100
     
     def __init__(self):
-        self.health = self.max_health
+        self._health = self.max_health
         super().__init__()
 
     def update(self):
@@ -28,13 +29,17 @@ class Humanoid(Character):
         if self.health < self.max_health:
             self._regen_health()
     
-    def check_death(self):
-        if self.health < 0:
+    @property
+    def health(self):
+        return self._health
+    
+    @health.setter
+    def health(self, value):
+        self._health = value
+        if value <= 0:
             self.die()
-
-    @timed(10)
-    def _regen_health(self):
-        self.health += 1
+        if value > self.max_health:
+            self._health = self.max_health
     
     def cmd_slap(self, args):
         '''Slap another player.
@@ -55,4 +60,24 @@ class Humanoid(Character):
         except:
             self.location.message_chars("%s tried to slap %s, to no avail." % (self, char))
         
-        
+class Heal(effect.BaseEffect):
+    param_schema = [int]
+
+    def apply(self, target):
+        '''attempt to harm character'''
+        try:
+            target.health -= self.params[0]
+        except AttributeError:
+            pass
+
+class Harm(effect.BaseEffect, reverse=Heal):
+    param_schema = [int]
+
+    def apply(self, target):
+        '''attempt to harm character'''
+        try:
+            target.health -= self.params[0]
+        except AttributeError:
+            pass
+
+Ignite, Extinguish = effect.StatusEffect.create_pair("Ignite", "Extinguish", "Fire")
