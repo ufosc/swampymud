@@ -14,11 +14,11 @@
             "hide_des": true,
             "visibility" : {
                 "type": "whitelist",
-                "set" : ["Brute"]
+                "classes" : ["Brute"]
             },
             "access" : {
                 "type": "blacklist",
-                "set" : []
+                "classes" : []
             } 
         }
     ]

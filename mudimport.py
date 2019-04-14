@@ -138,13 +138,13 @@ def _filter_type(typ):
     if typ not in ["blacklist", "whitelist"]:
         raise Exception("Must be 'whitelist' or 'blacklist'")
 
-
+# TODO: add include_chars and exclude_chars to this schema
 FILTER_SCHEMA = {
     "type" : dict,
     "required" : False,
     "properties" : {
         "type" : {"type" : str, "check" : _filter_type},
-        "set" : {
+        "classes" : {
             "type" : list,
             "required" : False,
             "items" : {
@@ -163,8 +163,8 @@ def dict_to_filter(filter_dict, chars):
     '''
     mode = filter_dict["type"]
     filter_set = []
-    if "set" in filter_dict:
-        for name in filter_dict["set"]:
+    if "classes" in filter_dict:
+        for name in filter_dict["classes"]:
             filter_set.append(chars[name])
     return CharFilter(mode, filter_set)
 
