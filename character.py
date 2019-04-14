@@ -479,7 +479,7 @@ class FilterMode(enum.Enum):
 
 class CharFilter:
     '''Filter for screening out certain CharacterClasses and Characters
-        _set  - set of Characters and CharacterClasses tracked by the filter
+        _classes  - set of CharacterClasses tracked by the filter
         _mode - FilterMode.WHITELIST or FilterMode.BLACKLIST
                 if WHITELIST is selected, only tracked chars are allowed in
                 if BLACKLIST is selected, tracked chars are excluded
@@ -512,9 +512,9 @@ class CharFilter:
             else:
                 self._mode = FilterMode.BLACKLIST
         else:
-            if mode == "whitelist":
+            if mode.lower() == "whitelist":
                 self._mode = FilterMode.WHITELIST
-            elif mode == "blacklist":
+            elif mode.lower() == "blacklist":
                 self._mode = FilterMode.BLACKLIST
             else:
                 raise ValueError("Unrecognized mode %s" % repr(mode))
@@ -538,7 +538,7 @@ class CharFilter:
             ancestors = filter(lambda x: isinstance(x, CharacterClass),
                               other.__mro__)
             for char_class in ancestors:
-                if char_class in self._set:
+                if char_class in self._classes:
                     return self._mode.value
         # "other" is neither a CharClass nor Character
         else:
@@ -575,9 +575,9 @@ class CharFilter:
             else:
                 self._classes.add(other)
         elif isinstance(other, Character):
-            if other in self._exclude_chars:
-                self._exclude_chars.remove(other)
-            self._include_chars.add(other)
+            if other in self._include_chars:
+                self._include_chars.remove(other)
+            self._exclude_chars.add(other)
         else:
             raise ValueError("Expected Character/CharacterClass,"
                              " received %s" % type(other))
