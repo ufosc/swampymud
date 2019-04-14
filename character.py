@@ -480,6 +480,8 @@ class FilterMode(enum.Enum):
 class CharFilter:
     '''Filter for screening out certain CharacterClasses and Characters
         _classes  - set of CharacterClasses tracked by the filter
+        _include_chars - set characters to be included, regardless of _classes
+        _exclude_chars - set characters to be included, regardless of _classes
         _mode - FilterMode.WHITELIST or FilterMode.BLACKLIST
                 if WHITELIST is selected, only tracked chars are allowed in
                 if BLACKLIST is selected, tracked chars are excluded
