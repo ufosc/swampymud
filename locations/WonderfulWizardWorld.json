@@ -1,0 +1,15 @@
+{
+    "name": "Wonderful Wizard World",
+    "description": "You're a wizard Harry",
+    "exits": [
+        {
+            "destination": "Basement Stall",
+            "name" : "exit",
+            "other_names": ["stall"]
+        }
+    ],
+    "items": {
+        "Chipotle Tray": "6",
+        "Big Club" : "9"
+    }
+}

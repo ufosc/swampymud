@@ -337,7 +337,9 @@ class Character(control.Monoreceiver, metaclass=CharacterClass):
         exit_list = self.location.exits
         exit_msg = "\nExits Available:\n"
         if exit_list:
-            exit_msg += "\n".join(map(str, exit_list))
+            for exit in exit_list:
+                if exit.visibility.permits(self):
+                    exit_msg += str(exit) + "\n"
         else:
             exit_msg += "None"
         self.message(exit_msg)
@@ -359,11 +361,16 @@ class Character(control.Monoreceiver, metaclass=CharacterClass):
         '''
         exit_name = " ".join(args[1:])
         #TODO: check for visibility
-        found_exit = self.location.find_exit(exit_name)
+        found_exit = self.location.find_exit(exit_name)            
         if found_exit:
             #TODO: check for accessbility
-            self.take_exit(found_exit, True, 
-                           "exit '%s'" % str(found_exit), True)
+            if found_exit.access.permits(self):
+                self.take_exit(found_exit, True, 
+                                "exit '%s'" % str(found_exit), True)
+            elif not found_exit.visibility.permits(self):
+                self.message("No exit with name %s" % exit_name)            
+            else:
+                self.message("The path to %s" % exit_name + " is unaccessible to you")
         else:
             self.message("No exit with name %s" % exit_name)
     
@@ -472,19 +479,33 @@ class FilterMode(enum.Enum):
 
 class CharFilter:
     '''Filter for screening out certain CharacterClasses and Characters
-        _set  - set of Characters and CharacterClasses tracked by the filter
+        _classes  - set of CharacterClasses tracked by the filter
+        _include_chars - set characters to be included, regardless of _classes
+        _exclude_chars - set characters to be included, regardless of _classes
         _mode - FilterMode.WHITELIST or FilterMode.BLACKLIST
                 if WHITELIST is selected, only tracked chars are allowed in
                 if BLACKLIST is selected, tracked chars are excluded
     '''
 
-    def __init__(self, mode, items=[]):
+    def __init__(self, mode, classes=[], include_chars=[], exclude_chars=[]):
         '''initialize a CharFilter with [mode]
         if [mode] is True, the CharFilter will act as a whitelist
         if [mode] is False, the CharFilter will act as a blacklist
-        [iter] can be optionally set to pre-load the whitelist/blacklist
+        [classes] are those classes to be whitelisted/blacklisted
+        [include_chars] are specific characters to be included
+        [exclude_chars] are specific characters to be excluded
         '''
-        self._set = set(items)
+        self._classes = set(classes)
+        for char in include_chars:
+            if char in exclude_chars:
+                raise ValueError("Cannot have character in both include" 
+                                 " and exclude")
+        for char in exclude_chars:
+            if char in include_chars:
+                raise ValueError("Cannot have character in both include"
+                                 " and exclude")
+        self._include_chars = set(include_chars)
+        self._exclude_chars = set(exclude_chars)
         if isinstance(mode, FilterMode):
             self._mode = mode
         elif isinstance(mode, bool):
@@ -493,9 +514,9 @@ class CharFilter:
             else:
                 self._mode = FilterMode.BLACKLIST
         else:
-            if mode == "whitelist":
+            if mode.lower() == "whitelist":
                 self._mode = FilterMode.WHITELIST
-            elif mode == "blacklist":
+            elif mode.lower() == "blacklist":
                 self._mode = FilterMode.BLACKLIST
             else:
                 raise ValueError("Unrecognized mode %s" % repr(mode))
@@ -508,8 +529,10 @@ class CharFilter:
         ancestor classes
         '''
         if isinstance(other, Character):
-            if other in self._set:
-                return self._mode.value
+            if other in self._include_chars:
+                return True
+            elif other in self._exclude_chars:
+                return False
             # now try the Character's class
             other = type(other)
         if isinstance(other, CharacterClass):
@@ -517,7 +540,7 @@ class CharFilter:
             ancestors = filter(lambda x: isinstance(x, CharacterClass),
                               other.__mro__)
             for char_class in ancestors:
-                if char_class in self._set:
+                if char_class in self._classes:
                     return self._mode.value
         # "other" is neither a CharClass nor Character
         else:
@@ -529,25 +552,40 @@ class CharFilter:
         '''Set the filter to return 'True' if [other] is supplied
         to permit()'''
         # check that other is a Character / CharacterClass
-        assert(isinstance(other, Character) or
-               isinstance(other, CharacterClass))
-        if self._mode is FilterMode.WHITELIST:
-            self._set.add(other)
+        if isinstance(other, CharacterClass):
+            if self._mode is FilterMode.WHITELIST:
+                self._classes.add(other)
+            else:
+                if other in self._classes:
+                    self._classes.remove(other)
+        elif isinstance(other, Character):
+            if other in self._exclude_chars:
+                self._exclude_chars.remove(other)
+            self._include_chars.add(other)
         else:
-            if other in self._set:
-                self._set.remove(other)
+            raise ValueError("Expected Character/CharacterClass,"
+                             " received %s" % type(other))
     
     def exclude(self, other):
         '''Set the filter to return 'False' if [other] is supplied
         to permit()'''
         # check that other is a Character / CharacterClass
-        assert(isinstance(other, Character) or
-               isinstance(other, CharacterClass))
-        if self._mode is FilterMode.WHITELIST:
-            if other in self._set:
-                self._set.remove(other)
+        if isinstance(other, CharacterClass):
+            if self._mode is FilterMode.WHITELIST:
+                if other in self._classes:
+                    self._classes.remove(other)
+            else:
+                self._classes.add(other)
+        elif isinstance(other, Character):
+            if other in self._include_chars:
+                self._include_chars.remove(other)
+            self._exclude_chars.add(other)
         else:
-            self._set.add(other)
+            raise ValueError("Expected Character/CharacterClass,"
+                             " received %s" % type(other))
     
     def __repr__(self):
-        return "CharFilter(%r, %r)" % (self._mode.value, self._set)
+        '''overriding repr()'''
+        return ("CharFilter(%r, %r, %r, %r)" 
+                % (self._mode.value, self._classes, self._include_chars,
+                  self._exclude_chars))

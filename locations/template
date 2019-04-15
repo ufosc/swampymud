@@ -16,11 +16,11 @@
             "name": "primary name",
             "visibility" : {
                 "type": "blacklist",
-                "set" : ["Paladin", "lame_guy"]
+                "classes" : ["Paladin"]
             },
             "access" : {
                 "type": "whitelist",
-                "set" : ["Wizard", "Sorcerer", "cool_guy"]
+                "set" : ["Wizard", "Sorcerer"]
             }
         }
     ]

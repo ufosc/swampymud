@@ -138,13 +138,13 @@ def _filter_type(typ):
     if typ not in ["blacklist", "whitelist"]:
         raise Exception("Must be 'whitelist' or 'blacklist'")
 
-
+# TODO: add include_chars and exclude_chars to this schema
 FILTER_SCHEMA = {
     "type" : dict,
     "required" : False,
     "properties" : {
         "type" : {"type" : str, "check" : _filter_type},
-        "set" : {
+        "classes" : {
             "type" : list,
             "required" : False,
             "items" : {
@@ -163,8 +163,8 @@ def dict_to_filter(filter_dict, chars):
     '''
     mode = filter_dict["type"]
     filter_set = []
-    if "set" in filter_dict:
-        for name in filter_dict["set"]:
+    if "classes" in filter_dict:
+        for name in filter_dict["classes"]:
             filter_set.append(chars[name])
     return CharFilter(mode, filter_set)
 
@@ -293,7 +293,11 @@ class LocationImporter(Importer):
                 "items" : {"type": str}
             },
             "visibility" : FILTER_SCHEMA,
-            "access" : FILTER_SCHEMA
+            "access" : FILTER_SCHEMA,
+            "hide_des" : {
+                "required" : False,
+                "type" : bool
+            }
         }
     }
 
@@ -366,6 +370,8 @@ class LocationImporter(Importer):
             self.exit_fail_causes[dest_name].append((loc, exit_data, reason))
             return
         kwargs = {"name": exit_data["name"], "destination": dest}
+        if "hide_des" in exit_data:
+            kwargs["hide_des"] = exit_data["hide_des"]
         try:
             if "access" in exit_data:
                 kwargs["access"] = dict_to_filter(exit_data["access"], chars)

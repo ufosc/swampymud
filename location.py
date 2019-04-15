@@ -16,7 +16,8 @@ class Exit:
         access     = CharFilter that permits accessing the exit 
         visibility = CharFilter that permits viewing the exit
     '''
-    def __init__(self, destination, name, other_names=[], access=None, visibility=None):
+    def __init__(self, destination, name, other_names=[],
+                 access=None, visibility=None, hide_des=False):
         '''Constructor for Exit
         Takes as input:
             location [location it points to]
@@ -35,6 +36,7 @@ class Exit:
         self.visibility = visibility
         if visibility is None:
             self.visibility = character.CharFilter(False)
+        self.hide_des = hide_des
 
     @property
     def destination(self):
@@ -73,7 +75,10 @@ class Exit:
     # reclaim string as a simple function to return the name
     def __str__(self):
         '''overriding str() function'''
-        return "%s -> %s" % (self._names[0], self._destination.name)
+        if not self.hide_des:
+            return "%s -> %s" % (self._names[0], self._destination.name)
+        else:
+            return self._names[0]
 
 
 class Location:
