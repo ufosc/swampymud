@@ -1,4 +1,7 @@
-'''module containing the ShadowDict class'''
+'''module containing the ShadowDict class
+a ShadowDict functions like a normal dictionary, 
+except each key actually points to a stack, with the most
+recent value being used/deleted when __getitem__ is called'''
 
 class ShadowDict:
     '''class representing a ShadowDict,
@@ -53,7 +56,18 @@ class ShadowDict:
         for k in self._dict.keys():
             yield k
     
-    def __dict__(self):
-        '''return a dictionary representation
-        of the ShadowDict'''
-        return self._dict.copy()
+    def items(self):
+        '''iterate over the current key, value pairs'''
+        for k in self._dict:
+            yield (k, self[k])
+
+    def remove_value(self, key, value):
+        '''remove a value stored under key, even if value is shadowed
+        raises a KeyError if the key is not in the ShadowDict
+        raises a ValueError if the value is not stored under the key'''
+        lst = self._dict[key]
+        lst.remove(value)
+
+    def __len__(self):
+        '''returns the number of keys in ShadowDict'''
+        return len(self._dict)
