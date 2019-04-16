@@ -66,8 +66,3 @@ class Biject:
         '''iterate over (key, value) in bijection'''
         for left, right in self._left.items():
             yield (left, right)
-    
-    def __dict__(self):
-        '''return a dictionary representation
-        of the bijection'''
-        return self._left.copy()
