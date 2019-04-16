@@ -56,6 +56,10 @@ class ShadowDict:
         for k in self._dict.keys():
             yield k
     
+    def copy(self):
+        '''return a shallow copy of this ShadowDict'''
+        return ShadowDict(start_dict=self._dict)
+    
     def items(self):
         '''iterate over the current key, value pairs'''
         for k in self._dict:
