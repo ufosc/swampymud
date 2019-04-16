@@ -18,6 +18,7 @@ class Command:
 
 
 class CommandDict:
+
     def __init__(self, cmds=[]):
         self._commands = {}
         self._command_names = {}
@@ -28,11 +29,11 @@ class CommandDict:
     def add_cmd(self, cmd, name=None):
         if name is None:
             name = str(cmd)
-        self._commands[name] = func
-        self._command_names[func] = name
+        self._commands[name] = cmd
+        self._command_names[cmd] = name
         if cmd.type_name not in self._types:
             self._types[cmd.type_name] = []
-        self._types[cmd.type_name].append(func)
+        self._types[cmd.type_name].append(cmd)
     
     def remove_cmd(self, cmd):
         '''provide a command to remove from the dict'''
@@ -77,17 +78,34 @@ class CommandDict:
         '''returns true if cmd with name 'name' exists'''
         return cmd in self._command_names
 
-    def help(self, width=40):
+    def help(self, width=30):
         output = ""
-        for type, cmds in self._commands:
+        for type, cmds in self._types.items():
             output += "{0:-^{width}}\n".format(type, width=width)
             length = 0
+            maxlength = 0
             names = []
             for cmd in cmds:
                 name = self._command_names[cmd]
                 length += len(name) + 1
-                if length < width:
-                    length = len(name) + 1
-                    output += " ".join(names) + "\n"
-                    name = []
+                if length >= width - 2:
+                    length = len(name)
+                    output += " " +  " ".join(names) + " \n"
+                    names = []
+                    maxlength = 0
                 names.append(name)
+            output += " " +  " ".join(names) + " \n"
+        return output
+
+def dummy_command(name, type_name):
+    return Command(name, lambda x: x, type_name)
+m = dummy_command("make", "BUILDING")
+c = dummy_command("compile", "BUILDING")
+d = dummy_command("decant", "ALCHEMY")
+b = dummy_command("brew", "ALCHEMY")
+cd = CommandDict()
+cd.add_cmd(m)
+cd.add_cmd(c)
+cd.add_cmd(d)
+cd.add_cmd(b)
+print(cd.help())
