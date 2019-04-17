@@ -28,6 +28,15 @@ class Command:
 
     def __repr__(self):
         return "Command%r" % ((self.name, self._func, self.type_name, self.source),)
+    
+    def __hash__(self):
+        # TODO: make these properties immutable somehow?
+        return hash((self.name, self._func, self.type_name, self.source))
+
+    def __eq__(self, other):
+        '''overriding  =='''
+        return all((self.name == other.name, self._func is other._func,
+                    self.type_name == other.type_name, self.source is other.source))
 
     def __str__(self):
         return self.name
@@ -51,6 +60,7 @@ class CommandDict:
         self._commands[name] = cmd
         self._command_names[cmd] = name
 
+    #TODO: document shadowing behavior
     def remove_cmd(self, cmd):
         '''provide a command to remove from the dict'''
         name = self._command_names[cmd]
