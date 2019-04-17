@@ -2,13 +2,30 @@
 import character
 from location import NULL_ISLAND
 from util import camel_to_space
+from command import Command
 
 class EntityMeta(type):
-    def __init__(self, cls, namespace, bases):
+    def __init__(self, cls, bases, namespace):
+        super().__init__(cls, bases, namespace)
         if "name" not in namespace:
             self.name = camel_to_space(cls)
         self._instances = {}
         self._nextid = 0
+        self._commands = {}
+        for item in namespace.values():
+            if isinstance(item, EntityCommand):
+                self._commands[item.name] = item
+        
+        entity_bases = list(filter(lambda x: isinstance(x, EntityMeta),
+                            self.__mro__))
+        # build the set of command names / commands by looking through
+        # the mro
+        # there is probably a better way to do this
+        for base in entity_bases:
+            for cmd in base._commands.values():
+                if cmd.name not in self._commands:
+                    self._commands[cmd.name] = cmd
+
     
     def __getitem__(self, key):
         return self._instances[key]
@@ -18,29 +35,61 @@ class EntityMeta(type):
     
     def __delitem__(self, key):
         del self._instances[key]
-
-class EntityCommand:
-    def __init__(self, command, perms=None):
-        self.perms = perms
-        if perms is None:
-            self.perms = character.CharFilter("blacklist")
-        self.command = command
     
+    def cmd_name_set(cls, char=None):
+        if char is None:
+            return set(cls._commands)
+        else:
+            nameset = set()
+            for cmd in cls._commands.values():
+                if cmd.filter.permits(char):
+                    nameset.add(cmd.name)
+            return nameset
+    
+    def intersect(cls, other_entity, char=None):
+        '''returns the set of names that have corresponding commands 
+        in both classes
+        if a char is provided, only those commands that the 
+        character can use are included'''
+        if other_entity is cls:
+            return True
+        names = cls.cmd_name_set(char)
+        other_names = other_entity.cmd_name_set(char)
+        return names & other_names
+        
+
+class EntityCommand(Command):
+    def __init__(self, name, func, type_name="Environmental", source=None, char=None, filter=None):
+        super().__init__(name, func, type_name, source)
+        self.filter = filter
+        if filter is None:
+            self.filter = character.CharFilter("blacklist")
+        self.char = char
+    
+    def specify(self, new_source=None, new_char=None):
+        '''return a copy of this command with a new source/char'''
+        new_cmd = EntityCommand(self.name, self._func, self.type_name, 
+                                new_source, new_char, self.filter)
+        return new_cmd
+
     def __call__(self, *args, **kwargs):
-        return self.command(*args, **kwargs)
+        '''call entity command'''
+        # should we always assume that a char is specified?
+        return self._func(self.source, self.char, *args, **kwargs)
     
     def __repr__(self):
-        return "EntityCommand(%r, %r)" % (self.command, self.perms)
+        return "EntityCommand%r" % ((self.name, self._func, self.type_name, 
+                                    self.source, self.char, self.filter),)
 
-def filtered_command(perms):
+def filtered_command(filt):
     '''decorator for methods with CharFilters'''
     def inner(func):
-        return EntityCommand(func, perms)
+        return EntityCommand(func.__name__, func, filter=filt)
     return inner
 
 def entity_command(func):
     '''decorator for methods without CharFilters'''
-    return EntityCommand(func)
+    return EntityCommand(func.__name__, func)
 
 class Entity(metaclass=EntityMeta):
     def __init__(self, proper_name=None):
@@ -58,6 +107,42 @@ class Entity(metaclass=EntityMeta):
             return self.proper_name
         else:
             return repr(self)
+    
+    def add_commands(self, char):
+        '''add a command to a character'''
+        cmd_dict = char.cmd_dict
+        for cmd in self._commands:
+            cmd = cmd.specify(self, char)
+            # only add the command if the filter permits the char
+            if cmd.filter.permits(char):
+                # search through and confirm that there are not other
+                # entities with the same name
+                for entity in self.location.entities:
+                    if entity is not self:
+                        pass
+                else:
+                    char.cmd_dict.add_cmd(cmd)
+
+class Wizard(character.Character):
+    pass
+
+class Brute(character.Character):
+    pass
+
+brute = Brute()
+wiz = Wizard()
+
+class Button(Entity):
+    @entity_command
+    def push(self, char):
+        '''Push the button'''
+        char.message("You pushed the button.")
+
+class MagicButton(Entity):
+    @filtered_command(character.CharFilter(True, [Wizard]))
+    def push(self, char):
+        '''Push the button'''
+        char.message("You pushed the magic button.")
 
 
 class DroppedItem(Entity):
