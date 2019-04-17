@@ -22,6 +22,9 @@ class Command:
             return self._func(self.source, *args, **kwargs)
         else:
             return self._func(*args, **kwargs)
+    
+    def help(self):
+        return self._func.__doc__
 
     def __repr__(self):
         return "Command%r" % ((self.name, self._func, self.type_name, self.source),)
@@ -90,7 +93,7 @@ class CommandDict:
 
     def help(self, width=30):
         '''produce a formatted help menu with width [width]'''
-        output = ""
+        output = []
 
         # TODO: improve this sorting process
         types = {}
@@ -104,10 +107,9 @@ class CommandDict:
         # sorting through the typelist to ensure a reliable ordering
         # TODO: find a better way of doing this
         typelist.sort()
-        print(typelist)
         if "Player" in typelist:
-            typelist.remove("Player")
-            typelist.insert(0, "Player")
+            typelist.remove("Default")
+            typelist.insert(0, "Default")
             print(typelist)
         if "Equipped" in typelist:
             typelist.remove("Equipped")
@@ -117,18 +119,18 @@ class CommandDict:
             typelist.append("Environmental")
         for typ in typelist:
             names = types[typ]
-            output += "{0:-^{width}}\n".format(typ + " Commands", width=width)
+            output.append("{0:-^{width}}".format(typ + " Commands", width=width))
             length = 0
             name_row = []
             for name in names:
-                length += len(name) + 1
+                length += len(name) + 2
                 if length >= width - 2:
                     length = len(name)
-                    output += " " +  " ".join(name_row) + " \n"
+                    output.append("{0: ^{width}}".format("  ".join(name_row), width=width))
                     name_row = []
                 name_row.append(name)
-            output += " " +  " ".join(name_row) + " \n"
-        return output
+            output.append("{0: ^{width}}".format("  ".join(name_row), width=width))
+        return "\n".join(output)
 
 
 # def dummy_command(name, type_name):
