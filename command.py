@@ -33,11 +33,11 @@ class Command:
 # options include adding indicies for CommandTypes
 # or simply caching the help menu
 class CommandDict:
-    def __init__(self, cmds=[]):
+    '''dictionary that maps names (strings) to commands (functions)'''
+    def __init__(self):
+        '''initialize a CommandDict with commands [cmds]'''
         self._commands = ShadowDict()
         self._command_names = {}
-        for cmd in cmds:
-            self.add_cmd(cmd)
 
     def add_cmd(self, cmd, name=None):
         '''add cmd to the dict with name
@@ -51,7 +51,6 @@ class CommandDict:
     def remove_cmd(self, cmd):
         '''provide a command to remove from the dict'''
         name = self._command_names[cmd]
-        type_name = cmd.type_name
         self._commands.remove_value(name, cmd)
         del self._command_names[cmd]
 
@@ -59,7 +58,6 @@ class CommandDict:
     def remove_name(self, name):
         '''provide a name to remove from the dict'''
         cmd = self._commands[name]
-        type_name = cmd.type_name
         del self._commands[name]
         del self._command_names[cmd]
 
