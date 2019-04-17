@@ -107,7 +107,7 @@ class CommandDict:
         # sorting through the typelist to ensure a reliable ordering
         # TODO: find a better way of doing this
         typelist.sort()
-        if "Player" in typelist:
+        if "Default" in typelist:
             typelist.remove("Default")
             typelist.insert(0, "Default")
             print(typelist)
