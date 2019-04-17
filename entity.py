@@ -81,6 +81,8 @@ class EntityCommand(Command):
     def __repr__(self):
         return "EntityCommand%r" % ((self.name, self._func, self.type_name, 
                                     self.source, self.char, self.filter),)
+    
+    # TODO: implement __hash__ / __eq__ method, look at Command class
 
 def filtered_command(filt):
     '''decorator for methods with CharFilters'''
@@ -94,15 +96,13 @@ def entity_command(func):
 
 class Entity(metaclass=EntityMeta):
     def __init__(self, proper_name=None, location=None):
-        self.location = location
         if location is None:
-            self.set_location(NULL_ISLAND)
-        else:
-            self.set_location(location)
+            location = NULL_ISLAND
         self.proper_name = proper_name
         self._id = self._nextid
         self._nextid += 1
         self._instances[self._id] = self
+        self.set_location(location)
     
     def __repr__(self):
         return "%s[%i]" % (type(self).__name__, self._id)
@@ -117,10 +117,19 @@ class Entity(metaclass=EntityMeta):
         '''sets location, updating previous location as appropriate'''
         try:
             self.location.remove_entity(self)
-        except Exception:
+            # remove this entity's commands from all the 
+            # characters in the current location
+            for char in self.location.characters:
+                self.remove_cmds(char)
+        except AttributeError:
+            # location was none
             pass
         self.location = new_location
         self.location.add_entity(self)
+        # add this entity's commands to all the
+        # characters in the current location
+        for char in new_location.characters:
+            self.add_cmds(char)
     
     def add_cmds(self, char):
         '''add a command to a character'''
@@ -132,8 +141,6 @@ class Entity(metaclass=EntityMeta):
         for entity in self.location.entities:
             if entity is not self:
                 collided_cmds.update(type(self).intersect(type(entity), char))
-        print(collided_cmds)
-        print(self._commands)
         for cmd in self._commands.values():
             cmd = cmd.specify(self, char)
             # only add the command if the filter permits the char
@@ -151,7 +158,6 @@ class Entity(metaclass=EntityMeta):
         for cmd in self._commands.values():
             cmd = cmd.specify(self, char)
             if char.cmd_dict.has_cmd(cmd):
-                print("removing command")
                 char.cmd_dict.remove_cmd(cmd)
             
 
@@ -187,9 +193,14 @@ class DroppedItem(Entity):
         char.inv
         self.location
 
+
 test_location = location.Location("Test Location", "my loc")
+wiz.set_location(test_location)
+
 normal = Button("Normal", test_location)
 magic = MagicButton("Magic", test_location)
+
+brute.set_location(test_location)
 
 def test_add(char):
     normal.add_cmds(char)

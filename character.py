@@ -249,11 +249,19 @@ class Character(control.Monoreceiver, metaclass=CharacterClass):
         '''
         try:
             self.location.remove_char(self)
+            # remove commands from all the entities
+            # in the current location
+            for entity in self.location.entities:
+                entity.remove_cmds(self)
         except AttributeError:
             # location was none
             pass
         self.location = new_location
         self.location.add_char(self)
+        # add commands from all the entities
+        # in the current locations
+        for entity in new_location.entities:
+            entity.add_cmds(self)
 
     def take_exit(self, exit, show_leave=True, leave_via=None, 
                   show_enter=True, enter_via=None):
