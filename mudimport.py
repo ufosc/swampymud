@@ -100,7 +100,7 @@ class ValidateError(Exception):
     def __str__(self):
         return str(self.component) + "\n" + self.msg
 
-#TODO: warn on unused fields?https://www.youtube.com/watch?v=wuQNxwOhGmAdal
+#TODO: warn on unused fields?
 def validate(schema, data):
     '''validate that [data] fits a provided [schema]'''
     if "check" in schema:
