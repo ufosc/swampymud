@@ -120,7 +120,6 @@ class CommandDict:
         if "Default" in typelist:
             typelist.remove("Default")
             typelist.insert(0, "Default")
-            print(typelist)
         if "Equipped" in typelist:
             typelist.remove("Equipped")
             typelist.append("Equipped")
