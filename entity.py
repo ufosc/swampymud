@@ -3,6 +3,7 @@ import character
 from location import NULL_ISLAND
 from util import camel_to_space
 from command import Command
+import location
 
 class EntityMeta(type):
     def __init__(self, cls, bases, namespace):
@@ -52,7 +53,7 @@ class EntityMeta(type):
         if a char is provided, only those commands that the 
         character can use are included'''
         if other_entity is cls:
-            return True
+            return cls.cmd_name_set(char)
         names = cls.cmd_name_set(char)
         other_names = other_entity.cmd_name_set(char)
         return names & other_names
@@ -92,8 +93,12 @@ def entity_command(func):
     return EntityCommand(func.__name__, func)
 
 class Entity(metaclass=EntityMeta):
-    def __init__(self, proper_name=None):
-        self.location = None
+    def __init__(self, proper_name=None, location=None):
+        self.location = location
+        if location is None:
+            self.set_location(NULL_ISLAND)
+        else:
+            self.set_location(location)
         self.proper_name = proper_name
         self._id = self._nextid
         self._nextid += 1
@@ -108,20 +113,47 @@ class Entity(metaclass=EntityMeta):
         else:
             return repr(self)
     
-    def add_commands(self, char):
+    def set_location(self, new_location):
+        '''sets location, updating previous location as appropriate'''
+        try:
+            self.location.remove_entity(self)
+        except Exception:
+            pass
+        self.location = new_location
+        self.location.add_entity(self)
+    
+    def add_cmds(self, char):
         '''add a command to a character'''
         cmd_dict = char.cmd_dict
-        for cmd in self._commands:
+        
+        # first, determine the commands that collide with other
+        # entities commands
+        collided_cmds = set()
+        for entity in self.location.entities:
+            if entity is not self:
+                collided_cmds.update(type(self).intersect(type(entity), char))
+        print(collided_cmds)
+        print(self._commands)
+        for cmd in self._commands.values():
             cmd = cmd.specify(self, char)
             # only add the command if the filter permits the char
             if cmd.filter.permits(char):
-                # search through and confirm that there are not other
-                # entities with the same name
-                for entity in self.location.entities:
-                    if entity is not self:
-                        pass
+                # if the command could be ambigious, 
+                # supply the entity name to the command
+                if cmd.name in collided_cmds:
+                    char.cmd_dict.add_cmd(cmd, name=cmd.name + "-%s" % str(self))
                 else:
                     char.cmd_dict.add_cmd(cmd)
+    
+    def remove_cmds(self, char):
+        '''remove all commands from this char that
+        belong to this entity'''
+        for cmd in self._commands.values():
+            cmd = cmd.specify(self, char)
+            if char.cmd_dict.has_cmd(cmd):
+                print("removing command")
+                char.cmd_dict.remove_cmd(cmd)
+            
 
 class Wizard(character.Character):
     pass
@@ -154,3 +186,17 @@ class DroppedItem(Entity):
     def pickup(self, char):
         char.inv
         self.location
+
+test_location = location.Location("Test Location", "my loc")
+normal = Button("Normal", test_location)
+magic = MagicButton("Magic", test_location)
+
+def test_add(char):
+    normal.add_cmds(char)
+    magic.add_cmds(char)
+    print(char.cmd_dict.help())
+
+def test_remove(char):
+    normal.remove_cmds(char)
+    magic.remove_cmds(char)
+    print(char.cmd_dict.help())
