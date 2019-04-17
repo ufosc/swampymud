@@ -71,6 +71,10 @@ class ShadowDict:
         raises a ValueError if the value is not stored under the key'''
         lst = self._dict[key]
         lst.remove(value)
+        # remove lst if it is empty
+        if not lst:
+            del self._dict[key]
+
 
     def __len__(self):
         '''returns the number of keys in ShadowDict'''
