@@ -276,11 +276,22 @@ def _check_item_dict(items):
             int(quantity)
         except ValueError:
             raise Exception("Item quantity could not be converted to"
-                                 " int: %s" % quantity)
-    
+                            " int: %s" % quantity)
+
 
 class LocationImporter(Importer):
     '''Imports Locations from json'''
+
+    ENTITY_SCHEMA = {
+        "type": dict,
+        "properties": {
+            "name" : {"type":str},
+            "args" : {
+                "type" : list, 
+                "required": False
+            }
+        }
+    }
 
     EXIT_SCHEMA = {
         "type": dict,
@@ -313,6 +324,11 @@ class LocationImporter(Importer):
                 "type": dict,
                 "required" : False,
                 "check": _check_item_dict
+            },
+            "entities": {
+                "type": list,
+                "required": False,
+                "items": ENTITY_SCHEMA
             }
         }
     }
@@ -346,7 +362,7 @@ class LocationImporter(Importer):
             if "exits" in json_data:
                 for exit_data in json_data["exits"]:
                     self._build_exit(location, exit_data, chars)
-                    
+
     def _build_exit(self, loc, exit_data, chars):
         '''build and add a single exit to loc, with [exit_data]
         [exit_data] should confrom to EXIT_SCHEMA
@@ -401,7 +417,7 @@ class LocationImporter(Importer):
             if "items" in json_data:
                 for item_name, quantity in json_data["items"].items():
                     self._add_item(location, item_name, quantity, items)
-    
+
     def _add_item(self, loc, item_name, quantity, items):
         # our schema should guarantee that quantity can be
         # coerced into an int
@@ -503,4 +519,18 @@ class ItemImporter(Importer):
 
 
 class EntityImporter(Importer):
-    pass
+    '''Class for importing entities'''
+
+    SCHEMA = {
+        "properties" : {
+            "name": {"type" : str},
+            "path": {"type" : str}
+        }
+    }
+
+    def _do_import(self, json_data):
+        name = json_data["name"]
+        path = json_data["path"]
+        module = importlib.import_module(path.replace('.py', '').replace('/', '.'))
+        entity = getattr(module, name)
+        return str(entity), entity

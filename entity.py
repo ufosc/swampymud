@@ -3,7 +3,6 @@ import character
 from location import NULL_ISLAND
 from util import camel_to_space
 from command import Command
-import location
 
 class EntityMeta(type):
     def __init__(self, cls, bases, namespace):
@@ -48,9 +47,9 @@ class EntityMeta(type):
             return nameset
     
     def intersect(cls, other_entity, char=None):
-        '''returns the set of names that have corresponding commands 
-        in both classes
-        if a char is provided, only those commands that the 
+        '''returns the set of names that have corresponding
+        commands in both classes
+        if a char is provided, only those commands that the
         character can use are included'''
         if other_entity is cls:
             return cls.cmd_name_set(char)
@@ -95,14 +94,14 @@ def entity_command(func):
     return EntityCommand(func.__name__, func)
 
 class Entity(metaclass=EntityMeta):
-    def __init__(self, proper_name=None, location=None):
-        if location is None:
-            location = NULL_ISLAND
+    def __init__(self, proper_name=None, loc=None):
+        if loc is None:
+            loc = NULL_ISLAND
         self.proper_name = proper_name
         self._id = self._nextid
         self._nextid += 1
         self._instances[self._id] = self
-        self.set_location(location)
+        self.set_location(loc)
     
     def __repr__(self):
         return "%s[%i]" % (type(self).__name__, self._id)
@@ -197,7 +196,7 @@ class DroppedItem(Entity):
 test_location = location.Location("Test Location", "my loc")
 wiz.set_location(test_location)
 
-normal = Button("Normal", test_location)
+normal = Button("Normal")
 magic = MagicButton("Magic", test_location)
 
 brute.set_location(test_location)
