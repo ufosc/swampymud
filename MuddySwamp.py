@@ -56,15 +56,9 @@ class Greeter(control.Monoreceiver):
                 # create the character and give it to the player
                 new_char = self.player_cls(new_name)
                 self.controller.assume_control(new_char)
+                self.server.lib.chars[new_name] = new_char
                 self.server.send_message_to_all("Welcome, %s, to the server!" % new_char)
                 break
-    
-    def __del__(self):
-        print("deleting greeter")
-
-
-            
-            
 
 
 # Setup the logger
@@ -142,17 +136,11 @@ class MudServerWorker(threading.Thread):
                 id = event.id
                 if event.type is EventType.PLAYER_JOIN:
                     logging.info("Player %s joined." % event.id)
-                    # welcome the player
-                    self.mud.send_message(id, "Welcome to MuddySwamp!")
-                    # assign the player a greeter with a random class
-                    PlayerClass = self.mud.lib.random_class.get()
-                    self.mud.send_message(id, "You are a(n) %s" % PlayerClass)
-                    self.mud.send_message(id, "What is your name?")
                     # create a controller (a 'Player')
                     new_player = control.Player(event.id)
 
-                    # give that Player control of a new character
-                    new_player.assume_control(new_character)
+                    # give player a greeter
+                    new_player.assume_control(Greeter(self.mud))
 
                 elif event.type is EventType.MESSAGE_RECEIVED:
                     # log the message
