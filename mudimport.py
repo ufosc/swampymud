@@ -464,7 +464,8 @@ class LocationImporter(Importer):
                 self.warnings[loc.name] = []
             self.warnings[loc.name].append("Could not find entity" 
                                            " named '%s'." % entity_name)
-        loc.add_entity(*args)
+        entity = Entity(*args)
+        entity.set_location(loc)
 
     def __str__(self):
         output = []

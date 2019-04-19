@@ -106,6 +106,8 @@ class Character(control.Monoreceiver, metaclass=CharacterClass):
         if self.starting_location is None:
             from location import NULL_ISLAND
             self.set_location(NULL_ISLAND)
+        else:
+            self.set_location(self.starting_location)
         self.inv = inventory.Inventory()
         self.cmd_dict = CommandDict()
 
