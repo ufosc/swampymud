@@ -77,10 +77,10 @@ class CharacterClass(type):
         self.cmd_classes = {}
         for base in char_bases + [self]:
             if base._unique_cmds:
-                if base.name == "Default Character":
+                if base.classname == "Default Character":
                     self.cmd_classes["Default"] = base._unique_cmds
                 else:
-                    self.cmd_classes[base.name] = base._unique_cmds
+                    self.cmd_classes[base.classname] = base._unique_cmds
 
         # calling the super init
         super().__init__(cls, bases, namespace)
@@ -118,8 +118,7 @@ class Character(control.Monoreceiver, metaclass=CharacterClass):
                 self.cmd_dict.add_cmd(cmd)
 
         self.equip_dict = item.EquipTarget.make_dict(*self.equip_slots)
-        # TODO: move player_set_name into the server
-        self._parser = lambda line: Character.player_set_name(self, line)
+        self._parser = lambda line: self.parse_command(line)
         #TODO: make this a property
         self.is_alive = True
 
@@ -173,8 +172,8 @@ class Character(control.Monoreceiver, metaclass=CharacterClass):
     def __repr__(self):
         '''return a representation of the player'''
         if self._name is None:
-            return "%s()" % type(self)
-        return "%s(name=%s)" % (type(self), self._name)
+            return "%s()" % type(self).__name__
+        return "%s(name=%s)" % (type(self).__name__, self._name)
 
     def __str__(self):
         '''return the player's name'''
