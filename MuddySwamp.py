@@ -75,7 +75,8 @@ logging.basicConfig(format='%(asctime)s [%(threadName)s] [%(levelname)s] %(messa
 IMPORT_PATHS = {
     "locations" : glob("locations/*.json"),
     "chars" : glob("chars/*json"),
-    "items" : glob("items/*json")
+    "items" : glob("items/*json"),
+    "entities" : glob("entities/*json")
 }
 
 SHELL_MODE = False

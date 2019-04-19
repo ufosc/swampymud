@@ -7,8 +7,8 @@ from command import Command
 class EntityMeta(type):
     def __init__(self, cls, bases, namespace):
         super().__init__(cls, bases, namespace)
-        if "name" not in namespace:
-            self.name = camel_to_space(cls)
+        if "classname" not in namespace:
+            self.classname = camel_to_space(cls)
         self._instances = {}
         self._nextid = 0
         self._commands = {}
@@ -35,6 +35,9 @@ class EntityMeta(type):
     
     def __delitem__(self, key):
         del self._instances[key]
+    
+    def __str__(self):
+        return self.classname
     
     def cmd_name_set(cls, char=None):
         if char is None:
@@ -94,14 +97,12 @@ def entity_command(func):
     return EntityCommand(func.__name__, func)
 
 class Entity(metaclass=EntityMeta):
-    def __init__(self, proper_name=None, loc=None):
-        if loc is None:
-            loc = NULL_ISLAND
+    def __init__(self, proper_name=None):
+        self.location = None
         self.proper_name = proper_name
         self._id = self._nextid
         self._nextid += 1
         self._instances[self._id] = self
-        self.set_location(loc)
     
     def __repr__(self):
         return "%s[%i]" % (type(self).__name__, self._id)
@@ -158,16 +159,7 @@ class Entity(metaclass=EntityMeta):
             cmd = cmd.specify(self, char)
             if char.cmd_dict.has_cmd(cmd):
                 char.cmd_dict.remove_cmd(cmd)
-            
 
-class Wizard(character.Character):
-    pass
-
-class Brute(character.Character):
-    pass
-
-brute = Brute()
-wiz = Wizard()
 
 class Button(Entity):
     @entity_command
@@ -176,7 +168,6 @@ class Button(Entity):
         char.message("You pushed the button.")
 
 class MagicButton(Entity):
-    @filtered_command(character.CharFilter(True, [Wizard]))
     def push(self, char):
         '''Push the button'''
         char.message("You pushed the magic button.")
@@ -191,22 +182,3 @@ class DroppedItem(Entity):
     def pickup(self, char):
         char.inv
         self.location
-
-
-test_location = location.Location("Test Location", "my loc")
-wiz.set_location(test_location)
-
-normal = Button("Normal")
-magic = MagicButton("Magic", test_location)
-
-brute.set_location(test_location)
-
-def test_add(char):
-    normal.add_cmds(char)
-    magic.add_cmds(char)
-    print(char.cmd_dict.help())
-
-def test_remove(char):
-    normal.remove_cmds(char)
-    magic.remove_cmds(char)
-    print(char.cmd_dict.help())
