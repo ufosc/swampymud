@@ -53,8 +53,8 @@ class CharacterClass(type):
     '''
     def __init__(self, cls, bases, namespace):
         # creating the proper name, if one is not provided
-        if "name" not in namespace:
-            self.name = util.camel_to_space(cls)
+        if "classname" not in namespace:
+            self.classname = util.camel_to_space(cls)
         # adding a frequency field, if not already provided
         if "frequency" not in namespace:
             self.frequency = 1
@@ -87,18 +87,13 @@ class CharacterClass(type):
 
     def __str__(cls):
         '''overriding str'''
-        return cls.name
+        return cls.classname
 
 class Character(control.Monoreceiver, metaclass=CharacterClass):
     '''Base class for all other CharacterClasses'''
 
     # Name for this class
-    name = "Default Character"
-
-    # TODO: move this functionality into the server
-    # Dictionary of names for ALL PLAYERS
-    # DO NOT TOUCH
-    _names = {}
+    classname = "Default Character"
 
     # Starting location for this player
     starting_location = location.Location("NullLocation", "Default Location")
@@ -106,9 +101,9 @@ class Character(control.Monoreceiver, metaclass=CharacterClass):
     # Valid equip slots for characters of this class
     equip_slots = []
 
-    def __init__(self):
+    def __init__(self, name=None):
         super().__init__()
-        self.name = None
+        self._name = name
         self.location = None
         self.set_location(self.starting_location)
         self.inv = inventory.Inventory()
@@ -175,42 +170,24 @@ class Character(control.Monoreceiver, metaclass=CharacterClass):
         else:
             raise AmbiguityError(indices, phrase, options)
 
-    def set_name(self, new_name):
-        '''changes a characters's name, with all appropriate error checking'''
-        if new_name in Character._names:
-            raise CharException("Name already taken.")
-        # TODO: check that new_name is not a globally-registered 
-        # location, CharClass, etc.
-        if self.name is not None:
-            del(self._names[self.name])
-        self.name = new_name
-        self._names[self.name] = self
-
-    def player_set_name(self, new_name):
-        '''intended for first time players set their name'''
-        if not new_name.isalnum():
-            self.message("Names must be alphanumeric.")
-            return
-        self.set_name(new_name)
-        self._parser = lambda line: Character.parse_command(self, line)
-        try:
-            mudscript.message_all("Welcome, %s, to the server!" % self)
-        except mudscript.MuddyException:
-            pass
-        self.cmd_look(["look"])
-
     def __repr__(self):
-        '''return the player's name and class'''
-        if self.name is None:
-            return "A nameless %s" % self.__class__.name
-        return "%s the %s" % (self.name, self.__class__.name)
+        '''return a representation of the player'''
+        if self._name is None:
+            return "%s()" % type(self)
+        return "%s(name=%s)" % (type(self), self._name)
 
     def __str__(self):
         '''return the player's name'''
-        if self.name is None:
-            return repr(self)
+        if self._name is None:
+            return self.info()
         else:
-            return self.name
+            return self._name
+
+    def info(self):
+        '''return the player's name'''
+        if self._name is None:
+            return "A nameless %s" % type(self)
+        return "%s the %s" % (self._name, type(self))
 
     # these methods need heavy refinement 
     def die(self, msg="%s died."):
@@ -219,27 +196,11 @@ class Character(control.Monoreceiver, metaclass=CharacterClass):
             if "%s" in msg:
                 msg = msg % self
             self.location.message_chars(msg)
-        self._remove_references()
+        self.location.remove_char(self)
+        self.location = None
         self.detach()
         self.is_alive = False
 
-
-    def _remove_references(self):
-        '''method executed when a character is being removed
-        this takes care of any undesired references, and allows
-        the player to die'''
-        try:
-            self.location.remove_char(self)
-            self.location = None
-        except AttributeError:
-            # location is none
-            pass
-
-        # delete character from the name dictionary
-        try:
-            del self._names[self.name]
-        except KeyError:
-            pass
 
     #location manipulation methods        
     def set_location(self, new_location):
