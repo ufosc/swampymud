@@ -7,13 +7,14 @@ import queue
 import enum
 import traceback
 import errno
+from glob import glob
 # import the MUD server class
 from mudserver import MudServer, Event, EventType
 # import modules from the MuddySwamp engine
 import mudimport
-from glob import glob
 import mudscript
 import control
+import location
 
 # better names welcome
 class MainServer(MudServer):
@@ -57,7 +58,12 @@ class Greeter(control.Monoreceiver):
                 new_char = self.player_cls(new_name)
                 self.controller.assume_control(new_char)
                 self.server.lib.chars[new_name] = new_char
+                if self.player_cls.starting_location is not None:
+                    new_char.set_location(self.player_cls.starting_location)
+                else:
+                    new_char.set_location(location.NULL_ISLAND)
                 self.server.send_message_to_all("Welcome, %s, to the server!" % new_char)
+                    
                 break
 
 
