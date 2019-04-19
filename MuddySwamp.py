@@ -23,6 +23,44 @@ class MainServer(MudServer):
         super().__init__(port)
 
 
+class Greeter(control.Monoreceiver):
+    '''Class responsible for greeting the player
+    and handing them a Character to control'''
+
+    GREETING='''Welcome to MuddySwamp!'''
+
+    def __init__(self, server):
+        self.server = server
+        self.player_cls = server.lib.random_class.get()
+        super().__init__()
+
+    def attach(self, controller):
+        '''attach to [controller], greeting it as appropriate'''
+        super().attach(controller)
+        self.controller.write_msg(self.GREETING)
+        self.controller.write_msg("You are a(n) %s" % self.player_cls)
+        self.controller.write_msg("What is your name?")
+        
+
+    def update(self):
+        while self.controller.has_cmd():
+            new_name = self.controller.read_cmd().strip()
+            if new_name == "":
+                continue
+            if not new_name.isalnum():
+                self.controller.write_msg("Names must be alphanumeric.")
+                continue
+            if new_name in self.server.lib.chars:
+                self.controller.write_msg("Name is currently in use.")
+            else:
+                # create the character and give it to the player
+                new_char = self.player_cls(new_name)
+                self.controller.assume_control(new_char)
+                self.server.lib.chars[new_name] = new_char
+                self.server.send_message_to_all("Welcome, %s, to the server!" % new_char)
+                break
+
+
 # Setup the logger
 logging.basicConfig(format='%(asctime)s [%(threadName)s] [%(levelname)s] %(message)s',
                     level=logging.INFO,
@@ -98,17 +136,11 @@ class MudServerWorker(threading.Thread):
                 id = event.id
                 if event.type is EventType.PLAYER_JOIN:
                     logging.info("Player %s joined." % event.id)
-                    # welcome the player
-                    self.mud.send_message(id, "Welcome to MuddySwamp!")
-                    # assign the player a random class and inform them
-                    PlayerClass = self.mud.lib.random_class.get()
-                    self.mud.send_message(id, "You are a(n) %s" % PlayerClass)
-                    self.mud.send_message(id, "What is your name?")
-                    # create a controler (a 'Player')
+                    # create a controller (a 'Player')
                     new_player = control.Player(event.id)
-                    new_character = PlayerClass()
-                    # give that Player control of a new character
-                    new_player.assume_control(new_character)
+
+                    # give player a greeter
+                    new_player.assume_control(Greeter(self.mud))
 
                 elif event.type is EventType.MESSAGE_RECEIVED:
                     # log the message

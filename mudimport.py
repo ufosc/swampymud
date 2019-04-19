@@ -28,6 +28,7 @@ class Library:
         self.locations = {}
         self.char_classes = {}
         self.items = {}
+        self.chars = {}
         # random distribution based on class frequencies
         self.random_class = None
         self._loc_importer = LocationImporter(self.locations)

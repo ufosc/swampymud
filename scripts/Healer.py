@@ -4,8 +4,8 @@ class Healer(Humanoid):
     '''Students of the medical arts, healers seek to master
     knowledge of the biological and medical sciences to help others'''
 
-    def __init__(self):
-        super().__init__()
+    def __init__(self, name=None):
+        super().__init__(name)
         # The following creates a dictionary which maps spell names to the function
         self.spells = {}
         for func in dir(self):
@@ -31,7 +31,7 @@ class Healer(Humanoid):
         if len(args) < 1:
             return
         for char in self.location.characters:
-            if args[0] == char.name:
+            if args[0] == str(char):
                 break
         else:
             self.message("Could not find player with name %s." % args[0])
