@@ -31,7 +31,8 @@ class Command:
     
     def __hash__(self):
         # TODO: make these properties immutable somehow?
-        return hash((self.name, self._func, self.type_name, self.source))
+        # TODO: remove the str() around source (make all sources hashable)
+        return hash((self.name, self._func, self.type_name, str(self.source)))
 
     def __eq__(self, other):
         '''overriding  =='''
@@ -40,6 +41,32 @@ class Command:
 
     def __str__(self):
         return self.name
+
+
+class SpecificCommand(Command):
+    '''Command that can can be bound to a particular source
+    typically used for binding to a particular instance of a class'''
+    def __init__(self, name, func, type_name, filter, source=None, char=None):
+        super().__init__(name, func, type_name, source)
+        self.filter = filter
+        self.char = char
+    
+    def specify(self, new_source=None, new_char=None):
+        '''return a copy of this command with a new source/char'''
+        new_cmd = SpecificCommand(self.name, self._func, self.type_name, 
+                                 self.filter, new_source, new_char)
+        return new_cmd
+
+    def __call__(self, *args, **kwargs):
+        '''call specific command'''
+        # TODO: should we always assume that a char is specified?
+        return self._func(self.source, self.char, *args, **kwargs)
+    
+    def __repr__(self):
+        return "%s%r" % (type(self).__name__, (self.name, self._func, 
+                                               self.type_name, self.filter,
+                                               self.source, self.char),)
+    
 
 # TODO: improve the help menu to make it more efficient
 # options include adding indicies for CommandTypes

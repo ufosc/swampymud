@@ -1,6 +1,7 @@
-from character import Character
+from character import Character, CharFilter
 import item
 import mudscript
+from scripts.RareClass import RareClass
 
 class ExampleClass(Character):
     starting_location = mudscript.get_location("Marston Basement")
@@ -28,6 +29,17 @@ class Necklace(item.EquippableBase):
     def __init__(self):
         self.eqc = 0
         self.uqc = 0
+
+    @item.equip_command
+    def secret(self, character, args): 
+        '''this method is a secret'''
+        character.message("Hey this is secret Ow0")
+
+    @item.filtered_command(CharFilter("whitelist", [RareClass]))
+    def rare(self, character, args): 
+        '''this method is a secret'''
+        character.message("Hey this is rare Ow0")
+        
 
     def equip(self, character):
         print("%s equipped %s! %s" % (character, self.name, self.eqc))

@@ -251,6 +251,7 @@ class Character(control.Monoreceiver, metaclass=CharacterClass):
             if already_equip is not None:
                 self.unequip(already_equip)
             item.equip(self)
+            item.add_cmds(self)
             self.equip_dict[item.target] = item
             # check remove_inv, if true, remove item
             # this avoids duplication
@@ -264,6 +265,7 @@ class Character(control.Monoreceiver, metaclass=CharacterClass):
     def unequip(self, item):
         if self.equip_dict[item.target] == item:
             item.unequip(self)
+            item.remove_cmds(self)
             self.inv += item
             self.equip_dict[item.target] = None
             self.message("Unequipped %s." % item)
