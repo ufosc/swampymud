@@ -2,7 +2,7 @@
 import character
 from location import NULL_ISLAND
 from util import camel_to_space
-from command import Command
+from command import Command, SpecificCommand
 
 class EntityMeta(type):
     def __init__(self, cls, bases, namespace):
@@ -61,30 +61,15 @@ class EntityMeta(type):
         return names & other_names
         
 
-class EntityCommand(Command):
-    def __init__(self, name, func, type_name="Environmental", source=None, char=None, filter=None):
-        super().__init__(name, func, type_name, source)
-        self.filter = filter
+class EntityCommand(SpecificCommand):
+    def __init__(self, name, func, type_name="Environmental", filter=None, 
+                 source=None, char=None):
         if filter is None:
-            self.filter = character.CharFilter("blacklist")
-        self.char = char
-    
-    def specify(self, new_source=None, new_char=None):
-        '''return a copy of this command with a new source/char'''
-        new_cmd = Entityommand(self.name, self._func, self.type_name, 
-                                new_source, new_char, self.filter)
-        return new_cmd
+            # if no filter is provided, use an empty blacklist 
+            # to let everyone use it
+            filter = character.CharFilter("blacklist")
+        super().__init__(name, func, type_name, filter, source, char)
 
-    def __call__(self, *args, **kwargs):
-        '''call specific command'''
-        # should we always assume that a char is specified?
-        return self._func(self.source, self.char, *args, **kwargs)
-    
-    def __repr__(self):
-        return "%s%r" % (type(self).__name__, (self.name, self._func, self.type_name, 
-                                    self.source, self.char, self.filter),)
-    
-   
 
 def filtered_command(filt):
     '''decorator for methods with CharFilters'''
@@ -92,9 +77,11 @@ def filtered_command(filt):
         return EntityCommand(func.__name__, func, filter=filt)
     return inner
 
+
 def entity_command(func):
     '''decorator for methods without CharFilters'''
     return EntityCommand(func.__name__, func)
+
 
 class Entity(metaclass=EntityMeta):
     def __init__(self, proper_name=None):
