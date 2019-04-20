@@ -1,7 +1,7 @@
 '''
 Module that deserializes developer-made game-data, converting it into real objects
 '''
-import json
+import yaml
 import os
 import importlib
 import traceback
@@ -11,15 +11,14 @@ from util.distr import RandDist
 from character import CharFilter
 
 
-def process_json(filename):
-    '''load a json from [filename], return a pythonic representation'''
-    with open(filename) as location_file:
-        # read the file, processing any stocstring macros
-        json_data = StocString.process(location_file.read())
-    json_data = json.loads(json_data)
-    # ensure that json has a "name" attribute that can be used
-    assert "name" in json_data
-    return json_data
+def process_yaml(filename):
+    '''load a file in yaml format from [filename], return a pythonic representation'''
+    with open(filename) as yaml_file:
+        yaml_data = yaml_file.read()
+    yaml_data = yaml.load(yaml_data)
+    # ensure that yaml has a "name" attribute that can be used
+    assert "name" in yaml_data
+    return yaml_data
 
 
 class Library:
@@ -52,9 +51,9 @@ class Library:
     def import_files(self, locations=[], chars=[], items=[], entities=[]):
         '''import an arbitrary number of files
         arguments:
-            locations = list of location json filenames
-            chars = list of char json filenames
-            items = list of item json filenames
+            locations = list of location YAML files
+            chars = list of char YAML files
+            items = list of item YAML files
         this method will automatically build exits after
         files are imported
         '''
@@ -205,7 +204,7 @@ class Importer:
             if filename in self.file_fails:
                 del self.file_fails[filename]
             else:
-                # if json is fine, but data had errors
+                # if yaml file is fine, but data had errors
                 object_name = self.file_data[filename]["name"]
                 if object_name in self.failures:
                     del self.failures[object_name]
@@ -214,23 +213,23 @@ class Importer:
                 else:
                     return
         try:
-            json_data = process_json(filename)
-            self.file_data[filename] = json_data
+            yaml_data = process_yaml(filename)
+            self.file_data[filename] = yaml_data
         except Exception as ex:
             self.file_fails[filename] = traceback.format_exc()
             return
         try:
-            validate(self.SCHEMA, json_data)
-            name, game_object = self._do_import(json_data, **kwargs)
+            validate(self.SCHEMA, yaml_data)
+            name, game_object = self._do_import(yaml_data, **kwargs)
             self.objects[name] = game_object
             self.object_source[name] = filename
         except Exception as ex:
             err_name = filename
-            if "name" in json_data:
-                err_name = json_data["name"]
+            if "name" in yaml_data:
+                err_name = yaml_data["name"]
             self.failures[err_name] = traceback.format_exc()
 
-    def _do_import(self, json_data):
+    def _do_import(self, yaml_data):
         '''This method should be implemented in base classes
         _do_import should return a tuple:
             (name, object)
@@ -288,7 +287,7 @@ def _check_item_dict(items):
 
 
 class LocationImporter(Importer):
-    '''Imports Locations from json'''
+    '''Imports Locations from yaml formatted files'''
 
     ENTITY_SCHEMA = {
         "type": dict,
@@ -354,9 +353,9 @@ class LocationImporter(Importer):
         self.exit_fail_effects = {}
         super().__init__(lib)
 
-    def _do_import(self, json_data):
+    def _do_import(self, yaml_data):
         #TODO: if this location was responsible for an exit build error, fix it
-        return json_data["name"], Location(json_data["name"], json_data["description"])
+        return yaml_data["name"], Location(yaml_data["name"], yaml_data["description"])
 
     #TODO: delete all existing exits
     def build_exits(self, loc_names, chars):
@@ -366,9 +365,9 @@ class LocationImporter(Importer):
         '''
         for loc_name in loc_names:
             location = self.objects[loc_name]
-            json_data = self.file_data[self.object_source[loc_name]]
-            if "exits" in json_data:
-                for exit_data in json_data["exits"]:
+            yaml_data = self.file_data[self.object_source[loc_name]]
+            if "exits" in yaml_data:
+                for exit_data in yaml_data["exits"]:
                     self._build_exit(location, exit_data, chars)
 
     def _build_exit(self, loc, exit_data, chars):
@@ -416,14 +415,14 @@ class LocationImporter(Importer):
 
     def add_items(self, loc_names, items):
         '''for each loc_name in [loc_names], add items specified 
-        in the 'items' line of the location JSON
+        in the 'items' line of the location YAML file
         [items] must be dictionary mapping names to Item classes
         '''
         for loc_name in loc_names:
             location = self.objects[loc_name]
-            json_data = self.file_data[self.object_source[loc_name]]
-            if "items" in json_data:
-                for item_name, quantity in json_data["items"].items():
+            yaml_data = self.file_data[self.object_source[loc_name]]
+            if "items" in yaml_data:
+                for item_name, quantity in yaml_data["items"].items():
                     self._add_item(location, item_name, quantity, items)
 
     def _add_item(self, loc, item_name, quantity, items):
@@ -449,9 +448,9 @@ class LocationImporter(Importer):
         on fail, an entity is simply not added'''
         for loc_name in loc_names:
             location = self.objects[loc_name]
-            json_data = self.file_data[self.object_source[loc_name]]
-            if "entities" in json_data:
-                for ent in json_data["entities"]:
+            yaml_data = self.file_data[self.object_source[loc_name]]
+            if "entities" in yaml_data:
+                for ent in yaml_data["entities"]:
                     print(entities)
                     self._add_entity(location, ent["name"], ent["args"], entities)
     
@@ -512,17 +511,17 @@ class CharacterClassImporter(Importer):
         }
     }
 
-    def _do_import(self, json_data, locations={}):
-        name = json_data["name"]
-        path = json_data["path"]
+    def _do_import(self, yaml_data, locations={}):
+        name = yaml_data["name"]
+        path = yaml_data["path"]
         path = path.replace('.py','').replace('/', '.')
         module = importlib.import_module(path)
         character_class = getattr(module, name)
-        if "starting_location" in json_data:
-            starting_location = locations[json_data["starting_location"]]
+        if "starting_location" in yaml_data:
+            starting_location = locations[yaml_data["starting_location"]]
             character_class.starting_location = starting_location
-        if "frequency" in json_data:
-            character_class.frequency = json_data["frequency"]
+        if "frequency" in yaml_data:
+            character_class.frequency = yaml_data["frequency"]
         return str(character_class), character_class
 
 
@@ -536,9 +535,9 @@ class ItemImporter(Importer):
         }
     }
 
-    def _do_import(self, json_data):
-        name = json_data["name"]
-        path = json_data["path"]
+    def _do_import(self, yaml_data):
+        name = yaml_data["name"]
+        path = yaml_data["path"]
         module = importlib.import_module(path.replace('.py', '').replace('/', '.'))
         item = getattr(module, name)
         return str(item), item
@@ -554,9 +553,9 @@ class EntityImporter(Importer):
         }
     }
 
-    def _do_import(self, json_data):
-        name = json_data["name"]
-        path = json_data["path"]
+    def _do_import(self, yaml_data):
+        name = yaml_data["name"]
+        path = yaml_data["path"]
         module = importlib.import_module(path.replace('.py', '').replace('/', '.'))
         entity = getattr(module, name)
         return str(entity), entity
