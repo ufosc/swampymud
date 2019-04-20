@@ -8,6 +8,7 @@ MiscItemBase
     items with no methods requirements
 '''
 from util import camel_to_space
+from command import Command
 
 class Item(type):
     '''Metaclass establishing behavior for all items'''
@@ -21,7 +22,6 @@ class Item(type):
     def __str__(self):
         '''return str(self)'''
         return self._item_name
-
 
 class Equippable(Item):
     '''Metaclass for all items that can be equipped'''

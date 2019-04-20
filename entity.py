@@ -71,20 +71,20 @@ class EntityCommand(Command):
     
     def specify(self, new_source=None, new_char=None):
         '''return a copy of this command with a new source/char'''
-        new_cmd = EntityCommand(self.name, self._func, self.type_name, 
+        new_cmd = Entityommand(self.name, self._func, self.type_name, 
                                 new_source, new_char, self.filter)
         return new_cmd
 
     def __call__(self, *args, **kwargs):
-        '''call entity command'''
+        '''call specific command'''
         # should we always assume that a char is specified?
         return self._func(self.source, self.char, *args, **kwargs)
     
     def __repr__(self):
-        return "EntityCommand%r" % ((self.name, self._func, self.type_name, 
+        return "%s%r" % (type(self).__name__, (self.name, self._func, self.type_name, 
                                     self.source, self.char, self.filter),)
     
-    # TODO: implement __hash__ / __eq__ method, look at Command class
+   
 
 def filtered_command(filt):
     '''decorator for methods with CharFilters'''

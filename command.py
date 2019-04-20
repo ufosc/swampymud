@@ -41,6 +41,33 @@ class Command:
     def __str__(self):
         return self.name
 
+
+class SpecificCommand(Command):
+    '''Command that can can be bound to a particular source
+    typically used for binding to a particular instance of a class'''
+    def __init__(self, name, func, type_name, source=None, char=None, filter=None):
+        super().__init__(name, func, type_name, source)
+        self.filter = filter
+        if filter is None:
+            self.filter = character.CharFilter("blacklist")
+        self.char = char
+    
+    def specify(self, new_source=None, new_char=None):
+        '''return a copy of this command with a new source/char'''
+        new_cmd = SpecificCommand(self.name, self._func, self.type_name, 
+                                new_source, new_char, self.filter)
+        return new_cmd
+
+    def __call__(self, *args, **kwargs):
+        '''call specific command'''
+        # should we always assume that a char is specified?
+        return self._func(self.source, self.char, *args, **kwargs)
+    
+    def __repr__(self):
+        return "%s%r" % (type(self).__name__, (self.name, self._func, self.type_name, 
+                                    self.source, self.char, self.filter),)
+    
+
 # TODO: improve the help menu to make it more efficient
 # options include adding indicies for CommandTypes
 # or simply caching the help menu
