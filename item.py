@@ -178,7 +178,7 @@ class Usable(Item):
         self.item_type = "Usable"
         if cls != "UsableBase": 
             #TODO: assert that target is an EquipTarget
-            assert "use" in namespace or any([hasattr(base, "target") for base in bases])
+            assert "use" in namespace or any([hasattr(base, "use") for base in bases])
 
 
 class UsableBase(metaclass=Usable):
@@ -205,12 +205,6 @@ class UsableBase(metaclass=Usable):
                     self.item_type == other.item_type)
         except:
             return False
-
-class UsableEquippable(UsableBase):
-    ''' Base for classes which are usables, 
-    but can only be used while equipped.
-    You must define "equip" and "use" methods '''
-    
 
 
 class MiscItemBase(metaclass=Item):
