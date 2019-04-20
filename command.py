@@ -31,7 +31,8 @@ class Command:
     
     def __hash__(self):
         # TODO: make these properties immutable somehow?
-        return hash((self.name, self._func, self.type_name, self.source))
+        # TODO: remove the str() around source (make all sources hashable)
+        return hash((self.name, self._func, self.type_name, str(self.source)))
 
     def __eq__(self, other):
         '''overriding  =='''
