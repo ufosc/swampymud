@@ -7,13 +7,14 @@ import queue
 import enum
 import traceback
 import errno
+from glob import glob
 # import the MUD server class
 from mudserver import MudServer, Event, EventType
 # import modules from the MuddySwamp engine
 import mudimport
-from glob import glob
 import mudscript
 import control
+import location
 
 # better names welcome
 class MainServer(MudServer):
@@ -21,6 +22,49 @@ class MainServer(MudServer):
     def __init__(self, port=1234):
         self.lib = mudimport.Library()
         super().__init__(port)
+
+
+class Greeter(control.Monoreceiver):
+    '''Class responsible for greeting the player
+    and handing them a Character to control'''
+
+    GREETING='''Welcome to MuddySwamp!'''
+
+    def __init__(self, server):
+        self.server = server
+        self.player_cls = server.lib.random_class.get()
+        super().__init__()
+
+    def attach(self, controller):
+        '''attach to [controller], greeting it as appropriate'''
+        super().attach(controller)
+        self.controller.write_msg(self.GREETING)
+        self.controller.write_msg("You are a(n) %s" % self.player_cls)
+        self.controller.write_msg("What is your name?")
+        
+
+    def update(self):
+        while self.controller.has_cmd():
+            new_name = self.controller.read_cmd().strip()
+            if new_name == "":
+                continue
+            if not new_name.isalnum():
+                self.controller.write_msg("Names must be alphanumeric.")
+                continue
+            if new_name in self.server.lib.chars:
+                self.controller.write_msg("Name is currently in use.")
+            else:
+                # create the character and give it to the player
+                new_char = self.player_cls(new_name)
+                self.controller.assume_control(new_char)
+                self.server.lib.chars[new_name] = new_char
+                if self.player_cls.starting_location is not None:
+                    new_char.set_location(self.player_cls.starting_location)
+                else:
+                    new_char.set_location(location.NULL_ISLAND)
+                self.server.send_message_to_all("Welcome, %s, to the server!" % new_char)
+                    
+                break
 
 
 # Setup the logger
@@ -37,7 +81,8 @@ logging.basicConfig(format='%(asctime)s [%(threadName)s] [%(levelname)s] %(messa
 IMPORT_PATHS = {
     "locations" : glob("locations/*.json"),
     "chars" : glob("chars/*json"),
-    "items" : glob("items/*json")
+    "items" : glob("items/*json"),
+    "entities" : glob("entities/*json")
 }
 
 SHELL_MODE = False
@@ -98,17 +143,11 @@ class MudServerWorker(threading.Thread):
                 id = event.id
                 if event.type is EventType.PLAYER_JOIN:
                     logging.info("Player %s joined." % event.id)
-                    # welcome the player
-                    self.mud.send_message(id, "Welcome to MuddySwamp!")
-                    # assign the player a random class and inform them
-                    PlayerClass = self.mud.lib.random_class.get()
-                    self.mud.send_message(id, "You are a(n) %s" % PlayerClass)
-                    self.mud.send_message(id, "What is your name?")
-                    # create a controler (a 'Player')
+                    # create a controller (a 'Player')
                     new_player = control.Player(event.id)
-                    new_character = PlayerClass()
-                    # give that Player control of a new character
-                    new_player.assume_control(new_character)
+
+                    # give player a greeter
+                    new_player.assume_control(Greeter(self.mud))
 
                 elif event.type is EventType.MESSAGE_RECEIVED:
                     # log the message

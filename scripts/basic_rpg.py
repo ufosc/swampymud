@@ -20,14 +20,18 @@ class Humanoid(Character):
     #starting_location = server.lib.locations["Hoggetown Pub and Inn"]
     max_health = 100
     
-    def __init__(self):
+    def __init__(self, name=None):
+        super().__init__(name)
         self._health = self.max_health
-        super().__init__()
 
     def update(self):
-        super().update()
         if self.health < self.max_health:
             self._regen_health()
+        super().update()
+    
+    @timed(5)
+    def _regen_health(self):
+        self.health += 5
     
     @property
     def health(self):
@@ -48,7 +52,7 @@ class Humanoid(Character):
         if len(args) < 2:
             return
         for char in self.location.characters:
-            if args[1] == char.name:
+            if args[1] == str(char):
                 break
         else:
             self.message("Could not find player with name %s." % args[1])
@@ -56,7 +60,6 @@ class Humanoid(Character):
         # if we get to this point, then we slapped someone
         try:
             char.health -= 10
-            char.check_death()
         except:
             self.location.message_chars("%s tried to slap %s, to no avail." % (self, char))
         

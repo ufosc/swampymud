@@ -1,12 +1,10 @@
 '''Module defining the CharacterClass metaclass, and Character base class'''
 import enum
-from time import time
 import util
-import location
 import control
 import inventory
 import item
-import mudscript
+from command import Command, CommandDict
 
 class CharException(Exception):
     pass
@@ -47,71 +45,75 @@ class CharacterClass(type):
     '''The metaclass for all Character class
     key features:
         name: how the class appears to the players
-        commands: a dictionary of all user commands
-        unique_commands: a list of commands not found in base classes
-        help_menu: a preformatted help menu, printed when 'help' is called
+        _unique_cmds: a list of commands not found in base classes
+        command_class: a list of commands not found in base classes
     '''
-    def __init__(self, cls, bases, dict):
+    def __init__(self, cls, bases, namespace):
         # creating the proper name, if one is not provided
-        if "name" not in dict:
-            self.name = util.camel_to_space(cls)
+        if "classname" not in namespace:
+            self.classname = util.camel_to_space(cls)
         # adding a frequency field, if not already provided
-        if "frequency" not in dict:
+        if "frequency" not in namespace:
             self.frequency = 1
         # creating a dictionary of commands
-        # all functions starting with cmd_ are commands
-        self.commands = {}
-        for func in dir(self):
-            if func.startswith("cmd_"):
-                self.commands[func[4::]] =  getattr(self, func)
-        # building the unique_commands
-        # a unique command is not found in any of the base classes
-        self.unique_commands = []
-        character_bases = [base for base in bases if hasattr(base, "commands")]
-        for command in self.commands:
-            # if the command does not appear in any of the base classes
-            if not any(command in base.commands for base in character_bases):
-                self.unique_commands.append(command)
-        # building the help menu
-        self.help_menu = self._build_help_menu(bases)
-        # calling the super init
-        super().__init__(cls, bases, dict)
-    
-    def _build_help_menu(self, bases):
-        '''building a help menu, with the commands from each base on coming
-        before the commands unique to this class'''
-        output = ""
-        for base in bases:
-            if isinstance(base, CharacterClass):
-                output += base.help_menu
-        output += "[%s Commands]\n" % self
-        output += util.TAB.join(self.unique_commands) + "\n"
-        return output
+        # all functions starting with cmd_ are command
 
-    def __str__(self):
-        return self.name
+        # get a list of all character base classes
+        char_bases = list(filter(lambda x: isinstance(x, CharacterClass),
+                              self.__mro__))
+        self._unique_cmds = []
+        # build list of unique commands
+        for cmd_name in namespace:
+            # check that the commands start wtih cmd_ and that it is callable
+            # TODO: use a decorator instead
+            # also check that the command is not defined in an ancestor class
+            if (cmd_name.startswith("cmd_") and callable(namespace[cmd_name])
+                and not (any(cmd_name in base._unique_cmds for base in char_bases))):
+                self._unique_cmds.append(cmd_name)
+
+        self.cmd_classes = {}
+        for base in char_bases + [self]:
+            if base._unique_cmds:
+                if base.classname == "Default Character":
+                    self.cmd_classes["Default"] = base._unique_cmds
+                else:
+                    self.cmd_classes[base.classname] = base._unique_cmds
+
+        # calling the super init
+        super().__init__(cls, bases, namespace)
+
+    def __str__(cls):
+        '''overriding str'''
+        return cls.classname
 
 class Character(control.Monoreceiver, metaclass=CharacterClass):
     '''Base class for all other CharacterClasses'''
 
     # Name for this class
-    name = "Default Character"
-    # Dictionary of names for ALL PLAYERS
-    # DO NOT TOUCH
-    _names = {}
+    classname = "Default Character"
+
     # Starting location for this player
-    starting_location = location.Location("NullLocation", "Default Location")
+    starting_location = None
     # Valid equip slots for characters of this class
     equip_slots = []
 
-    def __init__(self):
+    def __init__(self, name=None):
         super().__init__()
-        self.name = None
+        self._name = name
         self.location = None
-        self.set_location(self.starting_location)
         self.inv = inventory.Inventory()
+        self.cmd_dict = CommandDict()
+
+        # add all the commands from this class
+        for cmd_class, cmd_names in self.cmd_classes.items():
+            for cmd_name in cmd_names:
+                # create the command
+                cmd = Command(cmd_name[4:], getattr(self, cmd_name), cmd_class)
+                # add the command to the command dict
+                self.cmd_dict.add_cmd(cmd)
+
         self.equip_dict = item.EquipTarget.make_dict(*self.equip_slots)
-        self._parser = lambda line: Character.player_set_name(self, line)
+        self._parser = lambda line: self.parse_command(line)
         #TODO: make this a property
         self.is_alive = True
 
@@ -119,7 +121,7 @@ class Character(control.Monoreceiver, metaclass=CharacterClass):
         '''send a message to the controller of this character'''
         if self.controller:
             self.controller.write_msg(msg)
-    
+
     def update(self):
         while self.is_alive and self.controller.has_cmd():
             line = self.controller.read_cmd().strip()
@@ -136,18 +138,20 @@ class Character(control.Monoreceiver, metaclass=CharacterClass):
             return
         if args is None:
             args = line.split(" ")
-        command = args[0]
-        if command not in self.commands:
-            self.message("Command \'%s\' not recognized." % command)
+        # TODO: match the beginning of the line with one of the cmds
+        # to allow for multi-word commands
+        cmd_name = args[0]
+        if not self.cmd_dict.has_name(cmd_name):
+            self.message("Command \'%s\' not recognized." % cmd_name)
             return
-        method = self.commands[command]
+        cmd = self.cmd_dict.get_cmd(cmd_name)
         try:
-            method(self, args)
+            cmd(args)
         except AmbiguityError as amb:
             self._parser = AmbiguityResolver(self, args, amb)
         except CharException as ex:
             self.message(str(ex))
-    
+
     def _check_ambiguity(self, indices, phrase, options):
         '''wraps function outputs to handle ambiguity
         if no option is returned, then raise an error
@@ -160,42 +164,24 @@ class Character(control.Monoreceiver, metaclass=CharacterClass):
         else:
             raise AmbiguityError(indices, phrase, options)
 
-    def set_name(self, new_name):
-        '''changes a characters's name, with all appropriate error checking'''
-        if new_name in Character._names:
-            raise CharException("Name already taken.")
-        # TODO: check that new_name is not a globally-registered 
-        # location, CharClass, etc.
-        if self.name is not None:
-            del(self._names[self.name])
-        self.name = new_name
-        self._names[self.name] = self
-
-    def player_set_name(self, new_name):
-        '''intended for first time players set their name'''
-        if not new_name.isalnum():
-            self.message("Names must be alphanumeric.")
-            return
-        self.set_name(new_name)
-        self._parser = lambda line: Character.parse_command(self, line)
-        try:
-            mudscript.message_all("Welcome, %s, to the server!" % self)
-        except mudscript.MuddyException:
-            pass
-        self.cmd_look(["look"])
-
     def __repr__(self):
-        '''return the player's name and class'''
-        if self.name is None:
-            return "A nameless %s" % self.__class__.name
-        return "%s the %s" % (self.name, self.__class__.name)
+        '''return a representation of the player'''
+        if self._name is None:
+            return "%s()" % type(self).__name__
+        return "%s(name=%s)" % (type(self).__name__, self._name)
 
     def __str__(self):
         '''return the player's name'''
-        if self.name is None:
-            return repr(self)
+        if self._name is None:
+            return self.info()
         else:
-            return self.name
+            return self._name
+
+    def info(self):
+        '''return the player's name'''
+        if self._name is None:
+            return "A nameless %s" % type(self)
+        return "%s the %s" % (self._name, type(self))
 
     # these methods need heavy refinement 
     def die(self, msg="%s died."):
@@ -204,27 +190,11 @@ class Character(control.Monoreceiver, metaclass=CharacterClass):
             if "%s" in msg:
                 msg = msg % self
             self.location.message_chars(msg)
-        self._remove_references()
+        self.location.remove_char(self)
+        self.location = None
         self.detach()
         self.is_alive = False
 
-
-    def _remove_references(self):
-        '''method executed when a character is being removed
-        this takes care of any undesired references, and allows
-        the player to die'''
-        try:
-            self.location.remove_char(self)
-            self.location = None
-        except AttributeError:
-            # location is none
-            pass
-
-        # delete character from the name dictionary
-        try:
-            del self._names[self.name]
-        except KeyError:
-            pass
 
     #location manipulation methods        
     def set_location(self, new_location):
@@ -234,12 +204,20 @@ class Character(control.Monoreceiver, metaclass=CharacterClass):
         '''
         try:
             self.location.remove_char(self)
+            # remove commands from all the entities
+            # in the current location
+            for entity in self.location.entities:
+                entity.remove_cmds(self)
         except AttributeError:
             # location was none
             pass
         self.location = new_location
         self.location.add_char(self)
-    
+        # add commands from all the entities
+        # in the current locations
+        for entity in new_location.entities:
+            entity.add_cmds(self)
+
     def take_exit(self, exit, show_leave=True, leave_via=None, 
                   show_enter=True, enter_via=None):
         if show_enter:
@@ -282,7 +260,7 @@ class Character(control.Monoreceiver, metaclass=CharacterClass):
         else:
             raise CharException("You cannot equip item \'%s\' as %s."
                                 % (item, self.__class__))
- 
+
     def unequip(self, item):
         if self.equip_dict[item.target] == item:
             item.unequip(self)
@@ -300,13 +278,13 @@ class Character(control.Monoreceiver, metaclass=CharacterClass):
         If no command is supplied, a list of all commands is shown.
         '''
         if len(args) < 2:
-            self.message(self.__class__.help_menu)
+            self.message(self.cmd_dict.help())
             return
-        command = args[1]
-        if command in self.commands:
-            self.message(str(self.commands[command].__doc__))
+        name = args[1]
+        if self.cmd_dict.has_name(name):
+            self.message(str(self.cmd_dict.get_cmd(name).help()))
         else:
-            self.message("Command \'%s\' not recognized." % command)
+            self.message("Command \'%s\' not recognized." % name)
 
     def cmd_look(self, args, verbose=True):
         '''Gives description of current location
@@ -354,8 +332,8 @@ class Character(control.Monoreceiver, metaclass=CharacterClass):
         usage: say [msg]
         '''
         self.location.message_chars("%s : %s" % (self, " ".join(args[1:])))
-    
-    def cmd_walk(self, args):
+
+    def cmd_go(self, args):
         '''Walk to an accessible location.
         usage: walk [exit name]
         '''
@@ -373,7 +351,7 @@ class Character(control.Monoreceiver, metaclass=CharacterClass):
                 self.message("The path to %s" % exit_name + " is unaccessible to you")
         else:
             self.message("No exit with name %s" % exit_name)
-    
+
     def cmd_equip(self, args):
         '''Equip an equippable item from your inventory.'''
         if len(args) < 2:
@@ -401,13 +379,13 @@ class Character(control.Monoreceiver, metaclass=CharacterClass):
                 options.append(item)
         item = self._check_ambiguity(1, item_name, options)
         self.unequip(item) 
-    
+
     def cmd_pickup(self, args):
         ''' Pick up item from the environment'''        
         if len(args) < 2:
             self.message("Provide an item to pick up.")
             return
-        
+
         item_name = " ".join(args[1::])
         item = self.location.find(item_name)
         if item:
@@ -415,13 +393,13 @@ class Character(control.Monoreceiver, metaclass=CharacterClass):
             self.location.remove_item(item)
         else:
             self.message("Could not find item with name '%s'" % item_name)
-    
+
     def cmd_drop(self, args):
         '''Drop an item into the environment'''
         if len(args) < 2:
             self.message("Provide an item to drop.")
             return
-        
+
         item_name = " ".join(args[1::])
         found_item = self.inv.find(item_name)
         if found_item:
@@ -446,7 +424,7 @@ class AmbiguityResolver:
         self._amb = amb
         # send the char the ambiguity message
         self._char.message(str(self))
-    
+
     def __call__(self, inp):
         try:
             inp = int(inp)
@@ -520,7 +498,7 @@ class CharFilter:
                 self._mode = FilterMode.BLACKLIST
             else:
                 raise ValueError("Unrecognized mode %s" % repr(mode))
-        
+
     
     def permits(self, other):
         '''returns True if Character/CharacterClass is allowed in
@@ -547,7 +525,7 @@ class CharFilter:
             return False
         # the character / ancestors cannot be found in the list
         return not self._mode.value
-    
+
     def include(self, other):
         '''Set the filter to return 'True' if [other] is supplied
         to permit()'''
@@ -565,7 +543,7 @@ class CharFilter:
         else:
             raise ValueError("Expected Character/CharacterClass,"
                              " received %s" % type(other))
-    
+
     def exclude(self, other):
         '''Set the filter to return 'False' if [other] is supplied
         to permit()'''
@@ -583,7 +561,7 @@ class CharFilter:
         else:
             raise ValueError("Expected Character/CharacterClass,"
                              " received %s" % type(other))
-    
+
     def __repr__(self):
         '''overriding repr()'''
         return ("CharFilter(%r, %r, %r, %r)" 

@@ -28,11 +28,14 @@ class Library:
         self.locations = {}
         self.char_classes = {}
         self.items = {}
+        self.chars = {}
+        self.entities = {}
         # random distribution based on class frequencies
         self.random_class = None
         self._loc_importer = LocationImporter(self.locations)
         self._char_importer = CharacterClassImporter(self.char_classes)
         self._item_importer = ItemImporter(self.items)
+        self._entity_importer = EntityImporter(self.entities)
 
     def build_class_distr(self):
         '''takes the current set of CharacterClasses
@@ -46,7 +49,7 @@ class Library:
             raise Exception("No valid classes with frequency greater than 0")
         self.random_class = RandDist(to_include, list(map(lambda x: x.frequency, to_include)))
 
-    def import_files(self, locations=[], chars=[], items=[]):
+    def import_files(self, locations=[], chars=[], items=[], entities=[]):
         '''import an arbitrary number of files
         arguments:
             locations = list of location json filenames
@@ -64,11 +67,14 @@ class Library:
         if items:
             for filename in items:
                 self._item_importer.import_file(filename)
+        if entities:
+            for filename in entities:
+                self._entity_importer.import_file(filename)
         if locations:
             # TODO: make these operations idempotent
             self._loc_importer.build_exits(self.locations.keys(), self.char_classes)
             self._loc_importer.add_items(self.locations.keys(), self.items)
-            #self._loc_importer.add_entities()
+            self._loc_importer.add_entities(self.locations.keys(), self.entities)
 
     def import_results(self):
         return '''
@@ -77,7 +83,9 @@ LOCATIONS
 ITEMS
 %s
 CHARACTER CLASSES
-%s''' % (self._loc_importer, self._item_importer, self._char_importer)
+%s
+ENTITIES
+%s''' % (self._loc_importer, self._item_importer, self._char_importer, self._entity_importer)
 
     def __repr__(self):
         output = []
@@ -100,7 +108,7 @@ class ValidateError(Exception):
     def __str__(self):
         return str(self.component) + "\n" + self.msg
 
-#TODO: warn on unused fields?https://www.youtube.com/watch?v=wuQNxwOhGmAdal
+#TODO: warn on unused fields?
 def validate(schema, data):
     '''validate that [data] fits a provided [schema]'''
     if "check" in schema:
@@ -276,11 +284,22 @@ def _check_item_dict(items):
             int(quantity)
         except ValueError:
             raise Exception("Item quantity could not be converted to"
-                                 " int: %s" % quantity)
-    
+                            " int: %s" % quantity)
+
 
 class LocationImporter(Importer):
     '''Imports Locations from json'''
+
+    ENTITY_SCHEMA = {
+        "type": dict,
+        "properties": {
+            "name" : {"type":str},
+            "args" : {
+                "type" : list, 
+                "required": False
+            }
+        }
+    }
 
     EXIT_SCHEMA = {
         "type": dict,
@@ -313,6 +332,11 @@ class LocationImporter(Importer):
                 "type": dict,
                 "required" : False,
                 "check": _check_item_dict
+            },
+            "entities": {
+                "type": list,
+                "required": False,
+                "items": ENTITY_SCHEMA
             }
         }
     }
@@ -346,7 +370,7 @@ class LocationImporter(Importer):
             if "exits" in json_data:
                 for exit_data in json_data["exits"]:
                     self._build_exit(location, exit_data, chars)
-                    
+
     def _build_exit(self, loc, exit_data, chars):
         '''build and add a single exit to loc, with [exit_data]
         [exit_data] should confrom to EXIT_SCHEMA
@@ -401,7 +425,7 @@ class LocationImporter(Importer):
             if "items" in json_data:
                 for item_name, quantity in json_data["items"].items():
                     self._add_item(location, item_name, quantity, items)
-    
+
     def _add_item(self, loc, item_name, quantity, items):
         # our schema should guarantee that quantity can be
         # coerced into an int
@@ -420,11 +444,28 @@ class LocationImporter(Importer):
             loc.add_item(Item())
 
 
-    def add_entities(self):
+    def add_entities(self, loc_names, entities):
         '''looks at , adds entity for each
         on fail, an entity is simply not added'''
-        # entities have not been added yet
-        pass
+        for loc_name in loc_names:
+            location = self.objects[loc_name]
+            json_data = self.file_data[self.object_source[loc_name]]
+            if "entities" in json_data:
+                for ent in json_data["entities"]:
+                    print(entities)
+                    self._add_entity(location, ent["name"], ent["args"], entities)
+    
+    def _add_entity(self, loc, entity_name, args, entities):
+        try:
+            Entity = entities[entity_name]
+        except KeyError:
+            if loc.name not in self.warnings:
+                #TODO: replace with default dict?
+                self.warnings[loc.name] = []
+            self.warnings[loc.name].append("Could not find entity" 
+                                           " named '%s'." % entity_name)
+        entity = Entity(*args)
+        entity.set_location(loc)
 
     def __str__(self):
         output = []
@@ -503,4 +544,18 @@ class ItemImporter(Importer):
 
 
 class EntityImporter(Importer):
-    pass
+    '''Class for importing entities'''
+
+    SCHEMA = {
+        "properties" : {
+            "name": {"type" : str},
+            "path": {"type" : str}
+        }
+    }
+
+    def _do_import(self, json_data):
+        name = json_data["name"]
+        path = json_data["path"]
+        module = importlib.import_module(path.replace('.py', '').replace('/', '.'))
+        entity = getattr(module, name)
+        return str(entity), entity
