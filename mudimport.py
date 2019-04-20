@@ -393,6 +393,8 @@ class LocationImporter(Importer):
             self.exit_fail_causes[dest_name].append((loc, exit_data, reason))
             return
         kwargs = {"name": exit_data["name"], "destination": dest}
+        if "other_names" in exit_data:
+            kwargs["other_names"] = exit_data["other_names"]
         if "hide_des" in exit_data:
             kwargs["hide_des"] = exit_data["hide_des"]
         try:
