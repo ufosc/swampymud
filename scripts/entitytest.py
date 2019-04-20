@@ -1,4 +1,6 @@
 import entity
+import character
+from scripts.RareClass import RareClass
 import random
 
 class FortuneTeller(entity.Entity):
@@ -13,3 +15,7 @@ class FortuneTeller(entity.Entity):
     def tellme(self, character, args):
         '''tell me a fortune'''
         character.message(random.choice(self.FORTUNES))
+    
+    @entity.filtered_command(character.CharFilter("whitelist", [RareClass]))
+    def secret(self, character, args):
+        character.message("This is our little secret.")
