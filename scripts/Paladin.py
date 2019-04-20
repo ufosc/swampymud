@@ -59,10 +59,9 @@ class Paladin(Humanoid):
                 self.message("You didn't supply the necessary items.")
         else:
             self.message("You don't know a recipe with that name.")
-
-
-
-
     
-
-        
+    def learn_recipe(self, recipe, item_name):
+        if recipe in self.recipes_dict.values():
+            self.message("You already know that recipe!")
+        else:
+            self.recipes_dict[item_name] = recipe

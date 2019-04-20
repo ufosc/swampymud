@@ -351,6 +351,15 @@ class Recall(BaseEffect, reverse=Teleport):
         except AttributeError:
             pass
 
+# To be rewritten
+class Damage(BaseEffect):
+    param_schema = [str]
+    def apply(self, target):
+        try:
+            target.ignite()
+        except AttributeError:
+            pass
+
 Ignite, Extinguish  = StatusEffect.create_pair("Ignite", "Extinguish", "Fire")
 Freeze, Melt  = StatusEffect.create_pair("Freeze", "Melt", "Frozen")
 curse = CompoundEffect(Ignite(10), Melt(5), Teleport('Hell'))

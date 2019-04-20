@@ -158,12 +158,6 @@ class UsableBase(metaclass=Usable):
         except:
             return False
 
-class UsableEquippable(UsableBase):
-    ''' Base for classes which are usables, 
-    but can only be used while equipped.
-    You must define "equip" and "use" methods '''
-    
-
 
 class MiscItemBase(metaclass=Item):
     '''Base class for all MiscItems

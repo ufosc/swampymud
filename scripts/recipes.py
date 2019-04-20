@@ -66,7 +66,9 @@ class Recipe:
             return None
 
     def __str__(self):
-        return str(self.key_item_class.material()) + (self.item_class)
+        ''' Gives the name of the produced item with its materials
+        Ex: iron sword '''
+        return str(self.key_item_class.material()) + (str(self.item_class))
 
 ''' 
     Below are the recipe objects to be used throughout the game. When creating a recipe, use
