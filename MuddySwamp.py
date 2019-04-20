@@ -77,12 +77,12 @@ logging.basicConfig(format='%(asctime)s [%(threadName)s] [%(levelname)s] %(messa
 
 
 # defining a set of paths
-# by default, we import every json in chars and locations
+# by default, we import every yaml file in chars and locations
 IMPORT_PATHS = {
-    "locations" : glob("locations/*.json"),
-    "chars" : glob("chars/*json"),
-    "items" : glob("items/*json"),
-    "entities" : glob("entities/*json")
+    "locations" : glob("locations/*.yml"),
+    "chars" : glob("chars/*yml"),
+    "items" : glob("items/*yml"),
+    "entities" : glob("entities/*yml")
 }
 
 SHELL_MODE = False
