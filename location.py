@@ -1,5 +1,6 @@
 import inventory as inv
 import item
+import character
 
 class Exit:
     '''Class representing an Exit
@@ -90,6 +91,7 @@ class Location:
 
     def __init__(self, name, description):
         self._character_list = []
+        self._entity_list = []
         self._exit_list = []
         self._items = inv.Inventory()
         self.name = name
@@ -103,7 +105,19 @@ class Location:
     
     @property
     def characters(self):
+        # TODO: make this an iterator?
         return self._character_list.copy()
+    
+    def add_entity(self, entity):
+        self._entity_list.append(entity)
+    
+    def remove_entity(self, entity):
+        self._entity_list.remove(entity)
+
+    @property
+    def entities(self):
+        # TODO: make this an iterator?
+        return self._entity_list.copy()
 
     def message_chars(self, msg):
         '''send message to all characters currently in location'''
@@ -112,6 +126,7 @@ class Location:
     
     @property
     def exits(self):
+        # TODO: make this an iterator?
         return self._exit_list.copy()
 
     def add_exit(self, exit_to_add):
@@ -192,7 +207,4 @@ class Location:
         '''
         return self.name
 
-# explanation for this import statement being at the bottom
-# location uses the Character class
-# Character references Location class in body of Character class
-import character
+NULL_ISLAND = Location("Null Island", "You see nothing.")

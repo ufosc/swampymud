@@ -12,5 +12,11 @@
             "name" : "stall",
             "other_names": ["stall", "0w0 what's this", "this dependency should work"]
         }
+    ],
+    "entities": [
+        {
+            "name": "Fortune Teller",
+            "args": ["Bill"]
+        }
     ]
 }
