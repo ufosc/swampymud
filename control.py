@@ -33,12 +33,12 @@ class Controller(metaclass=ABCMeta):
         if not isinstance(other, Controller):
             raise TypeError("Cannot add non-Controller to Controller")
         # return MultiController(self, other)
- 
+
     @abstractmethod
     def read_cmd(self):
         '''reads a comand, removes it from the queue'''
         pass
-    
+
     @abstractmethod
     def write_msg(self, msg):
         '''writes a message to the message queue'''
@@ -48,7 +48,7 @@ class Controller(metaclass=ABCMeta):
     def has_msg(self):
         '''returns true if there are messages to read'''
         pass
-    
+
     @abstractmethod
     def has_cmd(self):
         '''returns true if there are commands to read'''
@@ -59,7 +59,7 @@ class MultiController(Controller):
     '''A wrapper for multiple controllers
     Note that this is itself a controller, meaning that
     MultiControllers can be built from other controllers
-    
+
     The potential usecase for this would be if you had
     multiple players controlling a character, or a player
     and an AI fighting for control.
@@ -84,7 +84,7 @@ class MultiController(Controller):
             # otherwise, it must be a regular Controller
             else:
                 self._ctrl_list.append(ctrl)
-    
+
     def assume_control(self, receiver):
         '''call the default Controller assume_control
         also make sure that all ctrls have a reference
@@ -93,7 +93,7 @@ class MultiController(Controller):
         super().assume_control(receiver)
         for ctrl in self:
             ctrl.receiver = receiver
-    
+
     def __iter__(self):
         '''this method makes MultiController iterable
         this makes it possible to unpack the MultiController,
@@ -101,14 +101,14 @@ class MultiController(Controller):
         '''
         for ctrl in self._ctrl_list:
             yield ctrl
-    
+
     def read_cmd(self):
         '''reads the first available message to be found'''
         for ctrl in self:
             if ctrl.has_cmd():
                 return ctrl.read_cmd()
         #throw an error? 
-    
+
     def write_msg(self, msg):
         '''sends a feedback message to all controllers'''
         for ctrl in self:
@@ -117,7 +117,7 @@ class MultiController(Controller):
     def has_msg(self):
         '''returns true if any controller has unanswered message'''
         return any(ctrl.has_msg() for ctrl in self)
-    
+
     def has_cmd(self):
         '''returns true if any controller has a new command'''
         return any(ctrl.has_cmd() for ctrl in self)
@@ -137,7 +137,7 @@ class Player(Controller):
         self.receiver = None
         self._command_queue = queue.Queue()
         self._message_queue = queue.Queue()
-    
+
     def poke(self):
         '''temporary method, used if running in 1 thread
          if only one thread is used, and the main loop
@@ -155,13 +155,13 @@ class Player(Controller):
         intended to be called from self.characte    
         '''
         return self._command_queue.get()
-    
+
     def write_msg(self, msg):
         self._message_queue.put(msg)
 
     def has_cmd(self):
         return not self._command_queue.empty()
-    
+
     def has_msg(self):
         return not self._message_queue.empty()
 
@@ -172,7 +172,7 @@ class Player(Controller):
     def send_command(self, id, command):
         '''provides a means to rapidly multiplex commands
         in the main Server Event loop
-        
+
         will send the command to the appropriate's player's queue
         ''' 
         player = Player.player_ids[id]
@@ -204,7 +204,7 @@ class Player(Controller):
             pass
         del Player.player_ids[id]
 
-            
+
 #TODO: implement a system for creating nonplayers based on file
 class Nonplayer:
     '''Nonplayer acts as a stream of incoming data
@@ -215,7 +215,7 @@ class Receiver(metaclass=ABCMeta):
     '''Abstract base class for implementing a Receiver
     self.controller refers to the object under control
     this is most frequently a Player
-    
+
     a Receiver has three features.
     a detach method, used to remove completely from a controller
         (the controller should updated as well)
@@ -226,12 +226,12 @@ class Receiver(metaclass=ABCMeta):
     '''
     def __init__(self):
         self.controller = None
-    
+
     @abstractmethod
     def attach(self, controller):
         '''attach to [controller]'''
         pass
-    
+
     @abstractmethod
     def detach(self):
         '''detach from controller'''
@@ -258,7 +258,7 @@ class Monoreceiver:
 
     def __init__(self):
         self.controller = None
-   
+
     def attach(self, controller):
         '''attach to [controller] to begin listening for input'''
         if controller == self.controller:
@@ -269,13 +269,13 @@ class Monoreceiver:
         # updating this receiver and the controller
         self.controller = controller
         self.controller.receiver = self
-    
+
     def detach(self):
         '''sets controller to none, and removes any unnecessary functions'''
         if self.controller is not None:
             self.controller.receiver = None
         self.controller = None
-    
+
     def update():
         '''must be implemented by subclasses'''
         pass
@@ -284,7 +284,7 @@ class Monoreceiver:
 # this prevents a lot of resizing, and makes the structure more threadsafe 
 class Multireceiver(Monoreceiver):
     '''A conglomerate of multiple receivers, listening to one controller
-    
+
     The Multireceiver acts as a giant Monoreceiver, working like so:
         attaching the Multireceiver to a controller attaches all 
     subreceivers to that controller
@@ -314,10 +314,10 @@ class Multireceiver(Monoreceiver):
             self.multireceiver = multireceiver
             self.receiver = receiver
             self._command_queue = queue.Queue()
-        
+
         def has_cmd(self):
             return not self._command_queue.empty()
-        
+
         def has_msg(self):
             try: 
                 self.multireceiver.controller.has_msg()
@@ -327,10 +327,10 @@ class Multireceiver(Monoreceiver):
 
         def read_cmd(self):
             return self._command_queue.get()
-        
+
         def add_cmd(self, cmd):
             self._command_queue.put(cmd)
-        
+
         def write_msg(self, msg):
             self.multireceiver._message(self.receiver, msg)
 
@@ -353,7 +353,7 @@ class Multireceiver(Monoreceiver):
         '''
         for sub in self._sub_dict.keys():
             yield sub
-    
+
     def attach(self, controller):
         '''attaches the Multireceiver, including all subreceivers'''
         # attach the controller to the multireceiver
@@ -395,7 +395,7 @@ class Multireceiver(Monoreceiver):
                     return
             else:
                 self.msg_history.append((receiver, message))
-        
+
         if self.controller is not None:
             if (len(self.msg_history) == 0 or self.msg_history[-1][0] != receiver) \
                 and self.filter:

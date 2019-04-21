@@ -1,6 +1,5 @@
-'''
-Module that deserializes developer-made game-data, converting it into real objects
-'''
+'''Module that deserializes developer-made game-data, 
+converting it into real objects'''
 import yaml
 import os
 import importlib
@@ -455,7 +454,7 @@ class LocationImporter(Importer):
                 for ent in yaml_data["entities"]:
                     print(entities)
                     self._add_entity(location, ent["name"], ent["args"], entities)
-    
+
     def _add_entity(self, loc, entity_name, args, entities):
         try:
             Entity = entities[entity_name]

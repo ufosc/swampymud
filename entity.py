@@ -6,7 +6,7 @@ from command import SpecificCommand
 class EntityMeta(type):
     '''metaclass controlling entity types'''
 
-    # TODO: move dict of individual entities
+    # TODO: move dict of individual entities into the server
     def __init__(self, cls, bases, namespace):
         '''initialize an Entity class'''
         super().__init__(cls, bases, namespace)

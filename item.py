@@ -74,7 +74,7 @@ class EquippableBase(metaclass=Equippable):
     def name(self):
         '''Creating a readonly "name" property'''
         return self._item_name
-        
+
     def __str__(self):
         '''Return a string representing the object
         this will be how the item appears to the player'''
@@ -89,7 +89,7 @@ class EquippableBase(metaclass=Equippable):
                     self.item_type == other.item_type)
         except:
             return False
-    
+
     def add_cmds(self, char):
         '''add all the commands from this item to the char
         any conflicting commands are simply shadowed'''
@@ -151,11 +151,11 @@ class EquipTarget:
         except AttributeError:
             # other item is not an EquipTarget
             return False
-    
+
     def __hash__(self):
         '''Return hash based on name and id'''
         return hash((self.name, self.target_id))
-    
+
     def __repr__(self):
         '''Return repr(self)'''
         return "EffectTarget(%s)" % (self.name)
@@ -190,7 +190,7 @@ class UsableBase(metaclass=Usable):
     def name(self):
         '''Creating a readonly "name" property'''
         return self._item_name
-        
+
     def __str__(self):
         '''Return a string representing the object
         this will be how the item appears to the player'''
@@ -217,7 +217,7 @@ class MiscItemBase(metaclass=Item):
     def name(self):
         '''Creating a readonly "name" property'''
         return self._item_name
-        
+
     def __str__(self):
         '''Return a string representing the object
         this will be how the item appears to the player'''

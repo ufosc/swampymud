@@ -60,7 +60,7 @@ class CharacterClass(type):
 
         # get a list of all character base classes
         char_bases = list(filter(lambda x: isinstance(x, CharacterClass),
-                              self.__mro__))
+                                 self.__mro__))
         self._unique_cmds = []
         # build list of unique commands
         for cmd_name in namespace:
@@ -501,7 +501,7 @@ class CharFilter:
             else:
                 raise ValueError("Unrecognized mode %s" % repr(mode))
 
-    
+
     def permits(self, other):
         '''returns True if Character/CharacterClass is allowed in
         the individual Character is evaluated first,

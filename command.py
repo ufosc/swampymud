@@ -22,13 +22,13 @@ class Command:
             return self._func(self.source, *args, **kwargs)
         else:
             return self._func(*args, **kwargs)
-    
+
     def help(self):
         return self._func.__doc__
 
     def __repr__(self):
         return "Command%r" % ((self.name, self._func, self.type_name, self.source),)
-    
+
     def __hash__(self):
         # TODO: make these properties immutable somehow?
         # TODO: remove the str() around source (make all sources hashable)
@@ -50,7 +50,7 @@ class SpecificCommand(Command):
         super().__init__(name, func, type_name, source)
         self.filter = filter
         self.char = char
-    
+
     def specify(self, new_source=None, new_char=None):
         '''return a copy of this command with a new source/char'''
         new_cmd = SpecificCommand(self.name, self._func, self.type_name, 
@@ -61,12 +61,12 @@ class SpecificCommand(Command):
         '''call specific command'''
         # TODO: should we always assume that a char is specified?
         return self._func(self.source, self.char, *args, **kwargs)
-    
+
     def __repr__(self):
         return "%s%r" % (type(self).__name__, (self.name, self._func, 
                                                self.type_name, self.filter,
                                                self.source, self.char),)
-    
+
 
 # TODO: improve the help menu to make it more efficient
 # options include adding indicies for CommandTypes
