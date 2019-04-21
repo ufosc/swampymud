@@ -1,11 +1,14 @@
 '''Method defining an entity'''
 import character
-from location import NULL_ISLAND
 from util import camel_to_space
-from command import Command, SpecificCommand
+from command import SpecificCommand
 
 class EntityMeta(type):
+    '''metaclass controlling entity types'''
+
+    # TODO: move dict of individual entities
     def __init__(self, cls, bases, namespace):
+        '''initialize an Entity class'''
         super().__init__(cls, bases, namespace)
         if "classname" not in namespace:
             self.classname = camel_to_space(cls)
@@ -15,9 +18,9 @@ class EntityMeta(type):
         for item in namespace.values():
             if isinstance(item, EntityCommand):
                 self._commands[item.name] = item
-        
+
         entity_bases = list(filter(lambda x: isinstance(x, EntityMeta),
-                            self.__mro__))
+                                   self.__mro__))
         # build the set of command names / commands by looking through
         # the mro
         # there is probably a better way to do this
@@ -26,20 +29,25 @@ class EntityMeta(type):
                 if cmd.name not in self._commands:
                     self._commands[cmd.name] = cmd
 
-    
+
     def __getitem__(self, key):
+        '''overriding cls[k]'''
         return self._instances[key]
-    
+
     def __setitem__(self, key, item):
+        ''' overriding cls[k] = item'''
         self._instances[key] = item
-    
+
     def __delitem__(self, key):
+        '''overriding del cls[k]'''
         del self._instances[key]
-    
+
     def __str__(self):
+        '''overriding str()'''
         return self.classname
-    
+
     def cmd_name_set(cls, char=None):
+        '''returns a set of the names for each command'''
         if char is None:
             return set(cls._commands)
         else:
@@ -48,7 +56,7 @@ class EntityMeta(type):
                 if cmd.filter.permits(char):
                     nameset.add(cmd.name)
             return nameset
-    
+
     def intersect(cls, other_entity, char=None):
         '''returns the set of names that have corresponding
         commands in both classes
@@ -59,7 +67,7 @@ class EntityMeta(type):
         names = cls.cmd_name_set(char)
         other_names = other_entity.cmd_name_set(char)
         return names & other_names
-        
+
 
 class EntityCommand(SpecificCommand):
     def __init__(self, name, func, type_name="Environmental", filter=None, 
@@ -90,16 +98,16 @@ class Entity(metaclass=EntityMeta):
         self._id = self._nextid
         self._nextid += 1
         self._instances[self._id] = self
-    
+
     def __repr__(self):
         return "%s[%i]" % (type(self).__name__, self._id)
-    
+
     def __str__(self):
         if self.proper_name is not None:
             return self.proper_name
         else:
             return repr(self)
-    
+
     def set_location(self, new_location):
         '''sets location, updating previous location as appropriate'''
         try:
@@ -117,11 +125,9 @@ class Entity(metaclass=EntityMeta):
         # characters in the current location
         for char in new_location.characters:
             self.add_cmds(char)
-    
+
     def add_cmds(self, char):
         '''add a command to a character'''
-        cmd_dict = char.cmd_dict
-        
         # first, determine the commands that collide with other
         # entities commands
         collided_cmds = set()
@@ -138,7 +144,7 @@ class Entity(metaclass=EntityMeta):
                     char.cmd_dict.add_cmd(cmd, name=cmd.name + "-%s" % str(self))
                 else:
                     char.cmd_dict.add_cmd(cmd)
-    
+
     def remove_cmds(self, char):
         '''remove all commands from this char that
         belong to this entity'''
@@ -146,26 +152,3 @@ class Entity(metaclass=EntityMeta):
             cmd = cmd.specify(self, char)
             if char.cmd_dict.has_cmd(cmd):
                 char.cmd_dict.remove_cmd(cmd)
-
-
-class Button(Entity):
-    @entity_command
-    def push(self, char):
-        '''Push the button'''
-        char.message("You pushed the button.")
-
-class MagicButton(Entity):
-    def push(self, char):
-        '''Push the button'''
-        char.message("You pushed the magic button.")
-
-
-class DroppedItem(Entity):
-    def __init__(self, item):
-        super().__init__("Dropped " + str(item))
-        self._item = item
-
-    @entity_command
-    def pickup(self, char):
-        char.inv
-        self.location
