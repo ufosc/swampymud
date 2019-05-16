@@ -1,20 +1,17 @@
 from scripts.basic_rpg import Humanoid
 from scripts.recipes import iron_sword_recipe, steel_sword_recipe, gator_bone_sword_recipe
 from scripts.materialItems import IronIngot, WoodPlank, SteelIngot, GatorBoneShard
+from item import UsableBase
+import util.english as english
 
 class Paladin(Humanoid):
     ''' Master craftsman, paladins use their knowledge of mechanical
     engineering and materials to craft, and use, the finest weapons
     and armor '''
 
-    def __init__(self):
-        super().__init__()
-        # This default dict needs to be changed later, but is fine now for testing
-        self.recipes_dict = {
-            "iron sword" : iron_sword_recipe,
-            "steel sword" : steel_sword_recipe,
-            "gator sword" : gator_bone_sword_recipe
-        }
+    def __init__(self, name=None):
+        super().__init__(name)
+        self._recipes_dict = {}
 
     def cmd_craft(self, args):
         ''' Craft an item 
@@ -22,7 +19,7 @@ class Paladin(Humanoid):
         '''
         if len(args) < 3:
             self.message("Invalid syntax; try using 'help craft' to see how to use this command")
-        # The item_name corresponds to the name in the recipes_dict
+        # The item_name corresponds to the name in the _recipes_dict
         item_name = " ".join(args[1:3])
         # The following two lines parse the comma delimited ingredients into a list of form ["ingredient1", "ingredient2". . .]
         ingredient_args = " ".join(args[4::])
@@ -39,7 +36,7 @@ class Paladin(Humanoid):
                 ingredients_dict[element[0]] = int(element[1])
             except:
                 pass
-        if item_name in self.recipes_dict:
+        if item_name in self._recipes_dict:
             ingredients_list = []
             # This loop adds all necessary items from the inventory to ingredients_list; if irrelevant, no item is added
             for key in ingredients_dict:
@@ -49,7 +46,7 @@ class Paladin(Humanoid):
                         ingredients_list.append(self.inv.find(key))
                         i -= 1
             # If the necessary ingredients aren't provided item = None
-            item = self.recipes_dict[item_name].make(ingredients_list)
+            item = self._recipes_dict[item_name].make(ingredients_list)
             if item:
                 self.inv += item
                 for ing in ingredients_list:
@@ -61,7 +58,21 @@ class Paladin(Humanoid):
             self.message("You don't know a recipe with that name.")
     
     def learn_recipe(self, recipe, item_name):
-        if recipe in self.recipes_dict.values():
+        if recipe in self._recipes_dict.values():
             self.message("You already know that recipe!")
+            return False
         else:
-            self.recipes_dict[item_name] = recipe
+            self._recipes_dict[item_name] = recipe
+            self.message("You have learned the recipe for " + 
+                        english.indefinite_article(str(item_name)) + 
+                        " " + str(item_name))
+            return True 
+
+    def cmd_recipes(self, args):
+        if(self._recipes_dict):
+            msg = ["Known Recipes:"]
+            for key in self._recipes_dict:
+                msg.append(key)
+            self.message("\n".join(msg))
+        else:
+            self.message("You don't know any recipes yet")

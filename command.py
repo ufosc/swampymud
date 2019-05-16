@@ -5,7 +5,7 @@ class Command:
     '''class representing a Command
     a Command has 3 important values:
         - a name that will represent the command
-        - a function that the comman will call
+        - a function that the command will call
         - a type_name that is used for sorting the help menu
     Optionally, a Command may also have a source
     (this source is used if the function is an unbound method)

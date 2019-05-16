@@ -415,6 +415,63 @@ class Character(control.Monoreceiver, metaclass=CharacterClass):
             output += str(target).upper() + "\n\t" + str(equipped) + "\n"
         self.message(output + self.inv.readable())
 
+    def cmd_use(self,args):
+        ''' Use an item
+        Using an item on someone else:
+        use [item_name] on [target's name]
+        Using an item on yourself:
+        use [item_name]
+        '''
+        if len(args) < 2:
+            self.message("Provide an item to be used.")
+        elif args[-1] == "on":
+            if len(args) == 2:
+                self.message("Provide an item to be used and a target to use it on.")
+            else:
+                self.message("Provide a target to use this item on.")
+        elif "on" in args:
+            i = args.index("on")
+            item_name = " ".join(args[1:i])
+            target_name = " ".join(args[i+1:])
+            used_item = self.inv.find(item_name)
+            target = self.location.find(target_name)
+            if target and used_item:
+                # This needs to be done more elegantly; perhaps there is a way to extract
+                # information from the attribute error itself?
+                if not isinstance(used_item, item.UsableBase):
+                    self.message("This item is not of type usable.")
+                try:
+                    used_item.use(target,self)
+                    self.inv.remove_item(used_item)
+                except AttributeError:
+                    # if item caused attribute error:
+                    #      tell user that item is not of type usable
+                    # if target caused attribute error:
+                    self.message("You are unable to use that item on that target.")
+                except:
+                    self.message("You are unable to use that item on that target.")
+            else:
+                if not target:
+                    self.message("An entity or character with that name could not be found.")
+                if not used_item:
+                    self.message("You do not have an item with that name.")
+        else:
+            item_name = " ".join(args[1:])
+            used_item = self.inv.find(item_name)
+            if used_item:
+                if not isinstance(used_item, item.UsableBase):
+                    self.message("This item is not of type usable.")
+                try:
+                    used_item.use(self,self)
+                    self.inv.remove_item(used_item)
+                except AttributeError as e:
+                    # This needs to be changed later
+                    print(e)
+                except:
+                    self.message("You are unable to use that item on yourself.")
+            else:
+                self.message("You do not have an item with that name.")
+
 
 #TODO: clean this up, provide documentation
 class AmbiguityResolver:

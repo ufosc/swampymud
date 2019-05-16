@@ -169,7 +169,6 @@ class MudServerWorker(threading.Thread):
             # temporary: move this to a better place later
             for id, msg in control.Player.receive_messages():
                 self.mud.send_message(id, msg)
-
         # Shut down the mud instance after the while loop finishes
         self.mud.shutdown()
 
