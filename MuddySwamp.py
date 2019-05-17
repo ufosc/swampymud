@@ -41,7 +41,7 @@ class Greeter(control.Monoreceiver):
         self.controller.write_msg(self.GREETING)
         self.controller.write_msg("You are a(n) %s" % self.player_cls)
         self.controller.write_msg("What is your name?")
-        
+
 
     def update(self):
         while self.controller.has_cmd():
@@ -63,7 +63,7 @@ class Greeter(control.Monoreceiver):
                 else:
                     new_char.set_location(location.NULL_ISLAND)
                 self.server.send_message_to_all("Welcome, %s, to the server!" % new_char)
-                    
+
                 break
 
 
@@ -77,12 +77,12 @@ logging.basicConfig(format='%(asctime)s [%(threadName)s] [%(levelname)s] %(messa
 
 
 # defining a set of paths
-# by default, we import every json in chars and locations
+# by default, we import every yaml file in chars and locations
 IMPORT_PATHS = {
-    "locations" : glob("locations/*.json"),
-    "chars" : glob("chars/*json"),
-    "items" : glob("items/*json"),
-    "entities" : glob("entities/*json")
+    "locations" : glob("locations/*.yml"),
+    "chars" : glob("chars/*yml"),
+    "items" : glob("items/*yml"),
+    "entities" : glob("entities/*yml")
 }
 
 SHELL_MODE = False
@@ -108,7 +108,7 @@ class MudServerWorker(threading.Thread):
         logging.info(self.mud.lib.import_results())
         self.mud.lib.build_class_distr()
         super().__init__(*args, **kwargs)
-        
+
 
     # Cannot call mud.shutdown() here because it will try to call the sockets in run on the final go through
     def shutdown(self):

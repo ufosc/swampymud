@@ -102,15 +102,15 @@ class Location:
 
     def remove_char(self, char):
         self._character_list.remove(char)
-    
+
     @property
     def characters(self):
         # TODO: make this an iterator?
         return self._character_list.copy()
-    
+
     def add_entity(self, entity):
         self._entity_list.append(entity)
-    
+
     def remove_entity(self, entity):
         self._entity_list.remove(entity)
 
@@ -123,7 +123,7 @@ class Location:
         '''send message to all characters currently in location'''
         for char in self._character_list:
             char.message(msg)
-    
+
     @property
     def exits(self):
         # TODO: make this an iterator?

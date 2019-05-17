@@ -12,7 +12,7 @@ class Inventory:
         self._items = {}
         for item in items:
             self.add_item(item)
-        
+
     def add_item(self, item, quantity=1):
         '''adds an [item] of [quantity] to this inventory
         default quantity = 1
@@ -66,7 +66,7 @@ class Inventory:
         '''overloading += with add_item'''
         self.add_item(item)
         return self
-    
+
     def __isub__(self, item):
         '''overloading -= with remove_item'''
         self.remove_item(item)

@@ -60,7 +60,7 @@ class CharacterClass(type):
 
         # get a list of all character base classes
         char_bases = list(filter(lambda x: isinstance(x, CharacterClass),
-                              self.__mro__))
+                                 self.__mro__))
         self._unique_cmds = []
         # build list of unique commands
         for cmd_name in namespace:
@@ -251,6 +251,7 @@ class Character(control.Monoreceiver, metaclass=CharacterClass):
             if already_equip is not None:
                 self.unequip(already_equip)
             item.equip(self)
+            item.add_cmds(self)
             self.equip_dict[item.target] = item
             # check remove_inv, if true, remove item
             # this avoids duplication
@@ -264,6 +265,7 @@ class Character(control.Monoreceiver, metaclass=CharacterClass):
     def unequip(self, item):
         if self.equip_dict[item.target] == item:
             item.unequip(self)
+            item.remove_cmds(self)
             self.inv += item
             self.equip_dict[item.target] = None
             self.message("Unequipped %s." % item)
@@ -556,7 +558,7 @@ class CharFilter:
             else:
                 raise ValueError("Unrecognized mode %s" % repr(mode))
 
-    
+
     def permits(self, other):
         '''returns True if Character/CharacterClass is allowed in
         the individual Character is evaluated first,

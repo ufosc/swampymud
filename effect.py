@@ -7,18 +7,20 @@ from util.biject import Biject
 class Effect(type):
     '''metaclass for all effect classes
     all Effects must include an 'apply' method'''
+
     # bijection that stores forward / reverse effect pairs
     reverse = Biject()
     def __init__(self, cls, bases, namespace, **kwargs):
         if "name" not in namespace:
             self.name = util.camel_to_space(cls)
         if not (cls == "BaseEffect" or cls == "StatusEffect"):
-            assert "apply" in namespace or any([hasattr(base, "apply") and callable(base.apply) for base in bases])
-    
-    def __str__(self):
+            assert ("apply" in namespace or any([hasattr(base, "apply") 
+                                                 and callable(base.apply) for base in bases]))
+
+    def __str__(cls):
         '''overriding str()'''
-        return self.name
-    
+        return cls.name
+
     @staticmethod
     def reverse_effect(eff):
         '''return the inverse of eff, if the effect is reversible
@@ -27,14 +29,14 @@ class Effect(type):
             raise ValueError("Effect %s has no defined reverse" % (type(eff)))
         return Effect.reverse[type(eff)](*eff.params)
 
-        
+
 class BaseEffect(metaclass=Effect):
-    '''base class for standard effects
-    '''
+    '''base class for standard effects'''
 
     # list of classes to match the input parameters
     param_schema = []
 
+    # TODO: consider removing the param schemas
     def __init__(self, *params):
         '''initialize the effect with a list of params'''
         # check the class of each provided parameter
@@ -49,13 +51,13 @@ class BaseEffect(metaclass=Effect):
         '''overriding this method to allow the 'reverse' keyword to work'''
         if reverse:
             # if reverse exists, check that it is an effect
-            assert(isinstance(reverse, Effect))
+            assert isinstance(reverse, Effect)
             # check that the param schemas of the two effects match
-            assert(self.param_schema == reverse.param_schema)
+            assert self.param_schema == reverse.param_schema
             # register the forward-reverse pair
             Effect.reverse[self] = reverse
         super().__init_subclass__(**kwargs)
-    
+
     def __add__(self, other):
         '''overriding +
         returns a compound effect with both effects'''
@@ -69,7 +71,12 @@ class BaseEffect(metaclass=Effect):
 
 
 class StatusEffect(Effect):
-    '''metaclass for all status effects'''
+    '''metaclass for all status effects
+    a StatusEffect simply has a magnitude, and may or may not have 
+    have a reverse effect
+    StatusEffects adds an effect to the entities / players, and also
+    call a corresponding trigger'''
+
     def __init__(self, cls, bases, namespace, **kwargs):
         super().__init__(cls, bases, namespace)
         if "name" not in namespace:
@@ -84,8 +91,8 @@ class StatusEffect(Effect):
         if "reverse" in namespace:
             rev = namespace["reverse"]
             # check that rev is an effect and has a matching state
-            assert(isinstance(rev, Effect))
-            assert(rev.state_name == self.state_name)
+            assert isinstance(rev, Effect)
+            assert rev.state_name == self.state_name
             # register the reverse pair
             Effect.reverse[rev] = self
             # mark that this is the reversed effect
@@ -142,7 +149,7 @@ class _StatusEffectBase(metaclass=StatusEffect):
         else:
             return NotImplemented
         return self.create_new(new_amount)
-    
+
     def __sub__(self, other):
         '''overriding -
         this is analgous to vector addition'''
@@ -153,18 +160,18 @@ class _StatusEffectBase(metaclass=StatusEffect):
         else:
             return NotImplemented
         return self.create_new(new_amount)
-       
+
     def __mul__(self, other):
         '''overriding * 
         this is analogous to scalar multiplication'''
         new_amount = self.amount * other
         return self.create_new(new_amount)
-    
+
     def __rmul__(self, other):
         '''overriding right multiplication
         this is analogous to scalar multiplication'''
         return self * other
-    
+
     def __floordiv__(self, other):
         '''overriding //
         this is analogous to scalar division'''
@@ -174,7 +181,7 @@ class _StatusEffectBase(metaclass=StatusEffect):
     def __repr__(self):
         '''overriding repr()'''
         return "%s(%s)" % (type(self).name, self.amount)
-    
+
     @classmethod
     def create_new(cls, amt):
         '''create a new effect in this class's dimension, based on new_amount
@@ -200,6 +207,7 @@ class CompoundEffect(metaclass=Effect):
     each effect in the list of subeffects are applied in order'''
 
     def __init__(self, *subs):
+        '''create a CompoundEffect with subeffect *subs'''
         self._subeffects = []
         for subeff in subs:
             # if the subeffect is a compound effect, 
@@ -229,7 +237,7 @@ class CompoundEffect(metaclass=Effect):
             else:
                 raise TypeError("%r is not an Effect" % subeff)
         self._subeffects = tuple(self._subeffects)
-  
+
     def __add__(self, other):
         '''overriding +
         this returns a union between this and other'''
@@ -241,7 +249,7 @@ class CompoundEffect(metaclass=Effect):
     def __radd__(self, other):
         '''overriding +'''
         return self + other
-    
+
     def __sub__(self, other):
         '''overriding -
         if other is a StatusEffect, return a new
@@ -275,7 +283,7 @@ class CompoundEffect(metaclass=Effect):
             return CompoundEffect(self, subeff)
         else:
             return NotImplemented
-    
+
     def __mul__(self, amount):
         '''overriding *
         returns a new CompoundEffect with all effects multiplied by
@@ -315,7 +323,7 @@ class CompoundEffect(metaclass=Effect):
                 # if the effect cannot be divided, don't add it
                 pass
         return CompoundEffect(*new_eff)
-    
+
     def apply(self, target):
         '''apply each subeffect's effect'''
         for subeff in self:
@@ -325,7 +333,7 @@ class CompoundEffect(metaclass=Effect):
         '''iterate over each subeffect'''
         for subeff in self._subeffects:
             yield subeff
-    
+
     def __repr__(self):
         '''overriding repr()'''
         return "CompoundEffect%r" % (self._subeffects,)
