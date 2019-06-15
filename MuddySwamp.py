@@ -22,7 +22,22 @@ class MainServer(MudServer):
     '''Bundles a server and a library together'''
     def __init__(self, port=1234):
         self.lib = mudimport.Library()
+        self.spawn_as_default = False
+        self.default_class = None
         super().__init__(port)
+    
+    def set_default_class(self, default_name):
+        '''set default class to class with name [default_name]
+        throws an error if default_name is not found in server's lib'''
+        self.default_class = server.lib.char_classes[default_name]
+        self.spawn_as_default = True
+
+    def get_player_class(self):
+        '''get a player class from the server'''
+        if self.spawn_as_default:
+            return self.default_class
+        else:
+            self.lib.random_class.get()
 
 
 class Greeter(control.Monoreceiver):
@@ -33,7 +48,8 @@ class Greeter(control.Monoreceiver):
 
     def __init__(self, server):
         self.server = server
-        self.player_cls = server.lib.random_class.get()
+        self.player_cls = server.get_player_class()
+        print(self.player_cls)
         super().__init__()
 
     def attach(self, controller):
@@ -104,10 +120,6 @@ class MudServerWorker(threading.Thread):
         self.keep_running = True
         self.q = q
         self.mud = server
-        mudscript.export_server(self.mud)
-        self.mud.lib.import_files(**IMPORT_PATHS)
-        logging.info(self.mud.lib.import_results())
-        self.mud.lib.build_class_distr()
         super().__init__(*args, **kwargs)
 
 
@@ -175,6 +187,7 @@ class MudServerWorker(threading.Thread):
 
 parser = argparse.ArgumentParser(description="Launch a MuddySwamp server.")
 parser.add_argument("-p", "--port", type=int, help="Specify a port. [Default: 1234]")
+parser.add_argument("--default-class", metavar="CLASS", help="Force all characters to spawn as [CLASS]")
 
 if __name__ == "__main__":
     args = parser.parse_args()
@@ -190,7 +203,24 @@ if __name__ == "__main__":
         else:
             print(ex, file=sys.stderr)
         exit(-1)
+    
 
+    # export the server in case imported files use mudscript
+    mudscript.export_server(server)
+    # import files
+    server.lib.import_files(**IMPORT_PATHS)
+    # log the results
+    logging.info(server.lib.import_results())
+    # build the random class distribution
+    server.lib.build_class_distr()
+
+    # set the default class if one was provided
+    if args.default_class:
+        try:
+            server.set_default_class(args.default_class)
+        except KeyError:
+            print("Error setting default class.\nCannot find class with name '%s'" % args.default_class, file=sys.stderr)
+            exit(-1)
 
     # Create a threadsafe queue for commands entered on the server side
     command_queue = queue.Queue()
