@@ -17,6 +17,10 @@
         {
             "name": "Fortune Teller",
             "args": ["Bill"]
+        },
+        {
+            "name": "Chest",
+            "args": ["Old Chest"]
         }
     ]
 }
