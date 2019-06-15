@@ -7,6 +7,7 @@ import queue
 import enum
 import traceback
 import errno
+import argparse
 from glob import glob
 # import the MUD server class
 from mudserver import MudServer, Event, EventType
@@ -172,16 +173,12 @@ class MudServerWorker(threading.Thread):
         # Shut down the mud instance after the while loop finishes
         self.mud.shutdown()
 
+parser = argparse.ArgumentParser(description="Launch a MuddySwamp server.")
+parser.add_argument("-p", "--port", type=int, help="Specify a port. [Default: 1234]")
+
 if __name__ == "__main__":
-    # parse arguments for port number
-    # if we get more complex, we will need an argparser
-    port = 1234
-    if len(sys.argv) > 1:
-        try:
-            port = int(sys.argv[1])
-        except ValueError:
-            print("Error. Port must be an integer.", file=sys.stderr)
-            exit(-1)
+    args = parser.parse_args()
+    port = args.port if args.port else 1234
     try:
         server = MainServer(port)
     except PermissionError:
