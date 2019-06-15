@@ -53,6 +53,7 @@ class Library:
             locations = list of location YAML files
             chars = list of char YAML files
             items = list of item YAML files
+            entities = list of entity YAML files
         this method will automatically build exits after
         files are imported
         '''
