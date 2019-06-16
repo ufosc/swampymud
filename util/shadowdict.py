@@ -1,7 +1,28 @@
 '''module containing the ShadowDict class
 a ShadowDict functions like a normal dictionary, 
 except each key actually points to a stack, with the most
-recent value being used/deleted when __getitem__ is called'''
+recent value being used when __getitem__ is called
+and deleted when __delitem__ is called
+
+Thus, a key,value pair will be "shadowed" if you set the same key 
+to have two different values.
+
+For example:
+
+sd = ShadowDict()
+sd["wizard"] = "gandalf"
+sd["wizard"] # returns "gandalf"
+sd["wizard"] = "dumbledore"
+sd["wizard"] # returns "dumbledore"
+del sd["wizard"]
+sd["wizard"] # returns "gandalf"
+
+This data structure was create for command.CommandDict,
+a structure that allows class-based commands to temporarily
+be shadowed by item-based commands
+'''
+
+#TODO: consider using a defaultdict
 
 class ShadowDict:
     '''class representing a ShadowDict,
@@ -14,7 +35,8 @@ class ShadowDict:
         otherwise, an empty ShadowDict is created'''
         self._dict = {}
         if start_dict:
-            self._dict = start_dict.copy()
+            for key, value in start_dict.items():
+                self._dict[key] = [value]
 
     def __getitem__(self, key):
         '''get the object corresponding to 'key'
@@ -47,7 +69,7 @@ class ShadowDict:
     def __repr__(self):
         '''return a representation of the bijection'''
         if self._dict:
-            return "ShadowDict(%r)" % self._dict
+            return "ShadowDict(%r)" % dict(self.items())
         else:
             return "ShadowDict()"
 
@@ -58,7 +80,7 @@ class ShadowDict:
     
     def copy(self):
         '''return a shallow copy of this ShadowDict'''
-        return ShadowDict(start_dict=self._dict)
+        return ShadowDict(start_dict=self)
     
     def items(self):
         '''iterate over the current key, value pairs'''
@@ -74,7 +96,6 @@ class ShadowDict:
         # remove lst if it is empty
         if not lst:
             del self._dict[key]
-
 
     def __len__(self):
         '''returns the number of keys in ShadowDict'''
