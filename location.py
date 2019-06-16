@@ -28,9 +28,11 @@ class Exit:
             other_names = list of other names
             access  = set the access CharFilter(default: all permitted)
             visible = set the visibility CharFilter(default: all permitted)
+            hide_des = make the destination invisible to players
         '''
+        self._name = name
         self._destination = destination
-        self._names = [name] + list(other_names)
+        self._nameset = set((name, *other_names))
         self.access = access
         if access is None:
             self.access = character.CharFilter(False)
@@ -58,18 +60,20 @@ class Exit:
 
     def __repr__(self):
         '''Return an a representation of the exit'''
+        other_names = list(set(self._nameset - set((self._name,))))
         return ("Exit(%r, %r, other_names=%r, access=%r, visibility=%r)" 
-               % (self._destination, self._names[0], self._names[1:],
-                   self.access, self.visibility))
+               % (self._destination, self._name, 
+                  other_names,
+                  self.access, self.visibility))
 
     def __contains__(self, other):
         '''Overriding in operator
         Returns True if other is in list of names
         '''
-        return other in self._names
+        return other in self._nameset
 
     def __iter__(self):
-        for name in self._names:
+        for name in self._nameset:
             yield name
 
     #TODO replace this with a .info method
@@ -77,9 +81,9 @@ class Exit:
     def __str__(self):
         '''overriding str() function'''
         if not self.hide_des:
-            return "%s -> %s" % (self._names[0], self._destination.name)
+            return "%s -> %s" % (self._name, self._destination.name)
         else:
-            return self._names[0]
+            return self._name
 
 
 class Location:
@@ -132,10 +136,12 @@ class Location:
     def add_exit(self, exit_to_add):
         '''adds an exit, while performing a check for any ambigious names'''
         for exit_name in exit_to_add:
-            assert exit_name not in self._exit_list, \
-            "\nLocation:\t%s\nExit:\t\t%s" % (self.name, exit_to_add)
+            for already_added in self.exits:
+                assert exit_name not in already_added, \
+                "Location '%s' already has exit with name '%s'" % (self.name, exit_name)
         self._exit_list.append(exit_to_add)
 
+    # TODO: scrap this method
     def exit_list(self):
         '''returns a copy of private exit list'''
         return list(self._exit_list)
@@ -149,6 +155,7 @@ class Location:
     def all_items(self):
         return list(self._items)
 
+    # TODO: scrap this method
     def __contains__(self, other):
         '''Overriding in operator
         Returns True where
@@ -206,5 +213,6 @@ class Location:
         if verbose is selected, description also supplied
         '''
         return self.name
+
 
 NULL_ISLAND = Location("Null Island", "You see nothing.")
