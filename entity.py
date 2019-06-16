@@ -46,6 +46,10 @@ class EntityMeta(type):
         '''overriding str()'''
         return self.classname
 
+    def describe(self):
+        ''' Describes the entity '''
+        return str(self)
+
     def cmd_name_set(cls, char=None):
         '''returns a set of the names for each command'''
         if char is None:
@@ -98,6 +102,7 @@ class Entity(metaclass=EntityMeta):
         self._id = self._nextid
         self._nextid += 1
         self._instances[self._id] = self
+        self._isNPC = False
 
     def __repr__(self):
         return "%s[%i]" % (type(self).__name__, self._id)
@@ -152,3 +157,7 @@ class Entity(metaclass=EntityMeta):
             cmd = cmd.specify(self, char)
             if char.cmd_dict.has_cmd(cmd):
                 char.cmd_dict.remove_cmd(cmd)
+
+    @property
+    def isNPC(self):
+        return self._isNPC

@@ -24,11 +24,6 @@ class RecipeItem(UsableBase):
     def recipe(cls):
         return cls._recipe
 
-    def describe(self):
-        return self._description
-        
-
-
     def use(self, target, user):
         try:
             target.learn_recipe(self._recipe, str(self._recipe))

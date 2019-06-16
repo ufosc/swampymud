@@ -5,6 +5,7 @@ import control
 import inventory
 import item
 from command import Command, CommandDict
+import util.english as eng
 
 class CharException(Exception):
     pass
@@ -176,6 +177,10 @@ class Character(control.Monoreceiver, metaclass=CharacterClass):
             return self.info()
         else:
             return self._name
+    
+    def describe(self):
+        ''' Describes the character '''
+        return self.info()
 
     def info(self):
         '''return the player's name'''
@@ -289,45 +294,85 @@ class Character(control.Monoreceiver, metaclass=CharacterClass):
             self.message("Command \'%s\' not recognized." % name)
 
     def cmd_look(self, args, verbose=True):
-        '''Gives description of current location
+        '''Gives description of current location, or looks at a certain object/character
+        in your location and/or inventory when called with arguments 
         usage: look
+        OR
+        usage: look [item/character/entity name]
         '''
         #TODO: move much of this functionality into the Location.info method
         # (replace the ugly formatting in that function)
         # add an optional char_class parameter so we can filter it
-        if verbose:
-            self.message(self.location.name + "\n" + self.location.description)
-        char_list = self.location.characters
-        try:
-            char_list.remove(self)
-        except ValueError:
-            pass
-        char_msg = "\nYou see "
-        if len(char_list) == 0:
-            pass
-        elif len(char_list) == 1:
-            char_msg += str(char_list[0]) + "."
-            self.message(char_msg)
-        elif len(char_list) == 2:
-            char_msg += " and ".join(map(str, char_list)) + "."
-            self.message(char_msg)
+        print(args)
+        print(str(args))
+        if len(args) == 1:
+            msg =  []
+            msg.append(self.location.describe())
+            exit_msg = []
+            for exit_name in self.location.exits:
+                exit_msg.append(str(exit_name))
+            msg.append("\n".join(exit_msg))
+            char_list = self.location.characters
+            try:
+                    char_list.remove(self)
+            except ValueError:
+                pass
+            # Convert all chars in list to their strings
+            char_list = list(map(str,char_list))
+            entity_list = self.location.entities
+            # The following moves all NPC entities from the entity list to the character list
+            for entity in entity_list:
+                if entity.isNPC:
+                    char_list.append(str(entity))
+                    entity_list.remove(entity)
+            if char_list:
+                char_msg = ["You see"]
+                # The function call from eng (util/english.py) formats the list to a gramatically correct english list
+                char_msg.append(eng.english_list_no_article(char_list))  
+                msg.append(" ".join(char_msg))
+            # Convert all entities in list to their strings
+            entity_list = list(map(str,entity_list))
+            if entity_list:
+                entity_msg = ["You also see"]
+                # The function call from eng formats the list to a gramatically correct english list
+                entity_msg.append(eng.english_list_indefinite_article(entity_list))
+                msg.append(" ".join(entity_msg))
+            # Creates list of items in location as strings
+            item_list = list(map(str,self.location.all_items()))
+            if item_list:
+                item_msg = ["Items available:"]
+                # Creates dict of the item names (from the above list) and the number of times they occur
+                item_freq_dict = {i:item_list.count(i) for i in set(item_list)}
+                for name, number in item_freq_dict.items():
+                    # Append the following:
+                    # "item1 (number of item1)"
+                    # "item2 (number of item2)"
+                    # etc.
+                    item_msg.append(name + " (" + str(number) + ")")
+                msg.append("\n".join(item_msg))
+            self.message("\n".join(msg))
         else:
-            char_msg += ", ".join(map(str, char_list[:-1])) + ", and " + str(char_list[-1]) + "."
-            self.message(char_msg)
-        exit_list = self.location.exits
-        exit_msg = "\nExits Available:\n"
-        if exit_list:
-            for exit in exit_list:
-                if exit.visibility.permits(self):
-                    exit_msg += str(exit) + "\n"
-        else:
-            exit_msg += "None"
-        self.message(exit_msg)
-        items = map(str, self.location.all_items())
-        items = util.group_and_count(list(items), format="%s(%i)", sep=", ")
-        if items:
-            item_msg = "\nItems Available:\n" + items
-            self.message(item_msg)
+            query =  " ".join(args[1:])
+            print(query)
+            location_result = self.location.find(query)
+            if(location_result):
+                try:
+                    self.message(location_result.describe())
+                    return
+                except:
+                    # Change this message later
+                    self.message("You weren't able to look at that!")
+                    return
+            inv_result = self.inv.find(query)
+            if(inv_result):
+                try:
+                    self.message(inv_result.describe())
+                    return
+                except:
+                    # Change this message later
+                    self.message("You weren't able to look at that!") 
+                    return
+            self.message("You couldn't find anything by that name.")
 
     def cmd_say(self, args):
         '''Say a message aloud, sent to all players in your current locaton.

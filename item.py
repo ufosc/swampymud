@@ -68,12 +68,14 @@ class EquippableBase(metaclass=Equippable):
     '''Base class for all Equippable items
     You must define your own "target", "equip", and "unequip" methods
     '''
-
-
+    _description = "An equippable item"
     @property
     def name(self):
         '''Creating a readonly "name" property'''
         return self._item_name
+
+    def describe(self):
+        return self._description
 
     def __str__(self):
         '''Return a string representing the object
@@ -185,6 +187,7 @@ class UsableBase(metaclass=Usable):
     '''Base class for all Usable items
     You must define your own "use" methods
     '''
+    _description = "A usable item"
 
     @property
     def name(self):
@@ -195,6 +198,10 @@ class UsableBase(metaclass=Usable):
         '''Return a string representing the object
         this will be how the item appears to the player'''
         return self._item_name
+    
+    def describe(self):
+        ''' Describes the object '''
+        return self._description
 
     def __eq__(self, other):
         '''Test if the other item is equivalent, based on
@@ -212,6 +219,7 @@ class MiscItemBase(metaclass=Item):
     These items cannot be used, and will be typically
     used to store value (e.g. money, gold, building materials)
     '''
+    _description = "A miscellaneous item"
 
     @property
     def name(self):
@@ -232,6 +240,10 @@ class MiscItemBase(metaclass=Item):
                     self.item_type == other.item_type)
         except:
             return False
+
+    def describe(self):
+        '''Describes the item '''
+        return self._description
 
 #TODO: add a class wrapper that allows the item to function as a 
 # singleton (even if this may not be pythonic)

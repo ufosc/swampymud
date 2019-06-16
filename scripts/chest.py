@@ -21,11 +21,6 @@ class Chest(entity.Entity):
     def describe(self):
         return self._description 
 
-    def __str__(self):
-        # TODO: How can we make the chest name unique without breaking immersion?
-        return self.proper_name
-
-
     @entity.entity_command
     def open(self, character, args):
         ''' Open the chest and look inside at the contents'''

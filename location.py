@@ -180,6 +180,9 @@ class Location:
         item_result = self._items.find(query)
         if item_result:
             return item_result
+        for entity in self._entity_list:
+            if str(entity) == query:
+                return entity
 
     def find_exit(self, exit_name):
         '''returns an exit corresponding to exit name
@@ -207,4 +210,7 @@ class Location:
         '''
         return self.name
 
-NULL_ISLAND = Location("Null Island", "You see nothing.")
+    def describe(self, character=None):
+        ''' Describes the location '''
+        return self.description
+
