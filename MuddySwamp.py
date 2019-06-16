@@ -7,6 +7,7 @@ import queue
 import enum
 import traceback
 import errno
+import argparse
 from glob import glob
 # import the MUD server class
 from mudserver import MudServer, Event, EventType
@@ -21,7 +22,34 @@ class MainServer(MudServer):
     '''Bundles a server and a library together'''
     def __init__(self, port=1234):
         self.lib = mudimport.Library()
+        self.default_class = None
+        self.default_location = None
         super().__init__(port)
+    
+    def set_default_class(self, cls_name):
+        '''set default class to class with name [default_name]
+        throws an error if default_name is not found in server's lib'''
+        self.default_class = server.lib.char_classes[cls_name]
+
+    def set_default_location(self, loc_name):
+        '''set default class to class with name [default_name]
+        throws an error if default_name is not found in server's lib'''
+        self.default_location = server.lib.locations[loc_name]
+
+    def clear_default_class(self):
+        '''clear the provided default class'''
+        self.default_class = None
+    
+    def clear_default_location(self):
+        '''clear the provided default location'''
+        self.default_location = None
+
+    def get_player_class(self):
+        '''get a player class from the server'''
+        if self.default_class is not None:
+            return self.default_class
+        else:
+            return self.lib.random_class.get()
 
 
 class Greeter(control.Monoreceiver):
@@ -32,7 +60,7 @@ class Greeter(control.Monoreceiver):
 
     def __init__(self, server):
         self.server = server
-        self.player_cls = server.lib.random_class.get()
+        self.player_cls = server.get_player_class()
         super().__init__()
 
     def attach(self, controller):
@@ -58,12 +86,13 @@ class Greeter(control.Monoreceiver):
                 new_char = self.player_cls(new_name)
                 self.controller.assume_control(new_char)
                 self.server.lib.chars[new_name] = new_char
-                if self.player_cls.starting_location is not None:
+                if self.server.default_location is not None:
+                    new_char.set_location(self.server.default_location)
+                elif self.player_cls.starting_location is not None:
                     new_char.set_location(self.player_cls.starting_location)
                 else:
                     new_char.set_location(location.NULL_ISLAND)
                 self.server.send_message_to_all("Welcome, %s, to the server!" % new_char)
-
                 break
 
 
@@ -103,10 +132,6 @@ class MudServerWorker(threading.Thread):
         self.keep_running = True
         self.q = q
         self.mud = server
-        mudscript.export_server(self.mud)
-        self.mud.lib.import_files(**IMPORT_PATHS)
-        logging.info(self.mud.lib.import_results())
-        self.mud.lib.build_class_distr()
         super().__init__(*args, **kwargs)
 
 
@@ -172,16 +197,17 @@ class MudServerWorker(threading.Thread):
         # Shut down the mud instance after the while loop finishes
         self.mud.shutdown()
 
+parser = argparse.ArgumentParser(description="Launch a MuddySwamp server.")
+parser.add_argument("-p", "--port", type=int, help="Specify a port. [Default: 1234]")
+parser.add_argument("--default-class", metavar="CLASS",
+                    help="Force all characters to spawn as [CLASS]")
+parser.add_argument("--default-location", metavar="LOCATION",
+                    help="Force all new characters to spawn at [LOCATION].\
+                          Overrides any default class spawn locations.")
+
 if __name__ == "__main__":
-    # parse arguments for port number
-    # if we get more complex, we will need an argparser
-    port = 1234
-    if len(sys.argv) > 1:
-        try:
-            port = int(sys.argv[1])
-        except ValueError:
-            print("Error. Port must be an integer.", file=sys.stderr)
-            exit(-1)
+    args = parser.parse_args()
+    port = args.port if args.port else 1234
     try:
         server = MainServer(port)
     except PermissionError:
@@ -193,6 +219,31 @@ if __name__ == "__main__":
         else:
             print(ex, file=sys.stderr)
         exit(-1)
+    
+
+    # export the server in case imported files use mudscript
+    mudscript.export_server(server)
+    # import files
+    server.lib.import_files(**IMPORT_PATHS)
+    # log the results
+    logging.info(server.lib.import_results())
+    # build the random class distribution
+    server.lib.build_class_distr()
+
+    # set the default class if one was provided
+    if args.default_class:
+        try:
+            server.set_default_class(args.default_class)
+        except KeyError:
+            print("Error setting default class.\nCannot find class with name '%s'" % args.default_class, file=sys.stderr)
+            exit(-1)
+    
+    if args.default_location:
+        try:
+            server.set_default_location(args.default_location)
+        except KeyError:
+            print("Error setting default location.\nCannot find location with name '%s'" % args.default_location, file=sys.stderr)
+            exit(-1)
 
 
     # Create a threadsafe queue for commands entered on the server side

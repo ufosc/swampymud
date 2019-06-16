@@ -100,7 +100,7 @@ class Entity(metaclass=EntityMeta):
         self.location = None
         self.proper_name = proper_name
         self._id = self._nextid
-        self._nextid += 1
+        self.__class__._nextid += 1
         self._instances[self._id] = self
         self._isNPC = False
 
