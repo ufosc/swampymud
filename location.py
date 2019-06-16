@@ -217,12 +217,7 @@ class Location:
         '''
         return self.name
 
-<<<<<<< HEAD
     def describe(self, character=None):
         ''' Describes the location '''
         return self.description
 
-=======
-
-NULL_ISLAND = Location("Null Island", "You see nothing.")
->>>>>>> develop
