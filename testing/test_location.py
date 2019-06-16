@@ -16,6 +16,15 @@ class TestExit(unittest.TestCase):
         self.assertTrue("portal" in self.magic_portal)
         self.assertFalse("meme" in self.magic_portal)
     
+    def test_repr(self):
+        # sorting of the other_names is not guaranteed,
+        # so we use a regex that can detect either pattern
+        regex=r"Exit\(Location\('Wizard World', 'You see magic people.'\), "\
+              r"'portal', other_names=\[(('magic portal', 'magic')|('magic', 'magic portal'))\], "\
+              r"access=CharFilter\(False, set\(\), set\(\), set\(\)\), "\
+              r"visibility=CharFilter\(False, set\(\), set\(\), set\(\)\)\)"
+        self.assertRegex(repr(self.magic_portal), regex)
+    
     def test_exit_str(self):
         self.assertEqual(str(self.magic_portal), "portal -> Wizard World")
         self.assertEqual(str(self.magic_door), "door")
