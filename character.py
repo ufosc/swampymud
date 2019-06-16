@@ -6,6 +6,7 @@ import inventory
 import item
 from command import Command, CommandDict
 import util.english as eng
+import util.misc as misc
 
 class CharException(Exception):
     pass
@@ -303,8 +304,6 @@ class Character(control.Monoreceiver, metaclass=CharacterClass):
         #TODO: move much of this functionality into the Location.info method
         # (replace the ugly formatting in that function)
         # add an optional char_class parameter so we can filter it
-        print(args)
-        print(str(args))
         if len(args) == 1:
             msg =  []
             msg.append(self.location.describe())
@@ -312,48 +311,41 @@ class Character(control.Monoreceiver, metaclass=CharacterClass):
             for exit_name in self.location.exits:
                 exit_msg.append(str(exit_name))
             msg.append("\n".join(exit_msg))
-            char_list = self.location.characters
-            try:
-                    char_list.remove(self)
-            except ValueError:
-                pass
-            # Convert all chars in list to their strings
-            char_list = list(map(str,char_list))
-            entity_list = self.location.entities
-            # The following moves all NPC entities from the entity list to the character list
-            for entity in entity_list:
-                if entity.isNPC:
-                    char_list.append(str(entity))
-                    entity_list.remove(entity)
-            if char_list:
-                char_msg = ["You see"]
-                # The function call from eng (util/english.py) formats the list to a gramatically correct english list
-                char_msg.append(eng.english_list_no_article(char_list))  
-                msg.append(" ".join(char_msg))
-            # Convert all entities in list to their strings
-            entity_list = list(map(str,entity_list))
-            if entity_list:
-                entity_msg = ["You also see"]
-                # The function call from eng formats the list to a gramatically correct english list
-                entity_msg.append(eng.english_list_indefinite_article(entity_list))
-                msg.append(" ".join(entity_msg))
-            # Creates list of items in location as strings
-            item_list = list(map(str,self.location.all_items()))
-            if item_list:
-                item_msg = ["Items available:"]
-                # Creates dict of the item names (from the above list) and the number of times they occur
-                item_freq_dict = {i:item_list.count(i) for i in set(item_list)}
-                for name, number in item_freq_dict.items():
-                    # Append the following:
-                    # "item1 (number of item1)"
-                    # "item2 (number of item2)"
-                    # etc.
-                    item_msg.append(name + " (" + str(number) + ")")
-                msg.append("\n".join(item_msg))
+            if verbose:
+                char_list = self.location.characters
+                try:
+                        char_list.remove(self)
+                except ValueError:
+                    pass
+                # Convert all chars in list to their strings
+                char_list = list(map(str,char_list))
+                entity_list = self.location.entities
+                # The following moves all NPC entities from the entity list to the character list
+                for entity in entity_list:
+                    if entity.isNPC:
+                        char_list.append(str(entity))
+                        entity_list.remove(entity)
+                if char_list:
+                    char_msg = ["You see"]
+                    # The function call from eng (util/english.py) formats the list to a gramatically correct english list
+                    char_msg.append(eng.english_list_no_article(char_list))  
+                    msg.append(" ".join(char_msg))
+                # Convert all entities in list to their strings
+                entity_list = list(map(str,entity_list))
+                if entity_list:
+                    entity_msg = ["You also see"]
+                    # The function call from eng formats the list to a gramatically correct english list
+                    entity_msg.append(eng.english_list_indefinite_article(entity_list))
+                    msg.append(" ".join(entity_msg))
+                # Creates list of items in location as strings
+                item_list = list(map(str,self.location.all_items()))
+                if item_list:
+                    item_msg = ["Items available:"]
+                    item_msg.append(misc.group_and_count(item_list))
+                    msg.append("\n".join(item_msg))
             self.message("\n".join(msg))
         else:
             query =  " ".join(args[1:])
-            print(query)
             location_result = self.location.find(query)
             if(location_result):
                 try:
