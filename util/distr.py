@@ -58,6 +58,8 @@ class RandDist:
         '''randomly return an item, based on weight'''
         return choices(self.items, self.weights)[0]
 
+# TODO: consider removing
+# might be useful for the StocString class
 class ChoiceDist:
     '''A random distribution where all items are equally weighted'''
     def __init__(self, items):
