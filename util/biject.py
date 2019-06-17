@@ -26,13 +26,13 @@ class Biject:
         try:
             current_value = self[key]
             if current_value is not value:
-                raise TypeError("Key already assigned to different value")
+                raise ValueError("Key already assigned to different value")
         except KeyError:
             pass
         try:
             current_key = self[value]
             if current_key is not key:
-                raise TypeError("Value already assigned to different key")
+                raise ValueError("Value already assigned to different key")
         except KeyError:
             pass
         self._left[key] = value
@@ -66,3 +66,7 @@ class Biject:
         '''iterate over (key, value) in bijection'''
         for left, right in self._left.items():
             yield (left, right)
+
+    def __len__(self):
+        '''overriding len() to return number of pairs'''
+        return len(self._left)

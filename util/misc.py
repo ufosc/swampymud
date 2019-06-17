@@ -3,12 +3,12 @@
 def camel_to_space(name):
     '''adds spaces before capital letters
     ex: "CamelCaseClass" => "Camel Case Class"'''
-    output = ""
+    output = []
     for letter in name:
         if letter.upper() == letter:
-            output += " "
-        output += letter
-    return output.strip()
+            output.append(" ")
+        output.append(letter)
+    return "".join(output).strip()
 
 def group_and_count(items, format="%s\t[%i]", single_format="%s", sep="\n"):
     '''takes a list of items and a formatter,
