@@ -1,15 +1,17 @@
 import unittest
-from util.validate import validate, META_SCHEMA, check_schema
+from util.validate import validate, META_SCHEMA, check_schema, format_error
 
 class TestValidate(unittest.TestCase):
     '''test case for the validator function'''
 
     def test_empty_schema(self):
+        '''empty schema should validate anything'''
         schema = {}
         data = {"foo": "bar", 42: "meaning of life"}
         self.assertEqual(validate(data, schema), None)
-    
+
     def test_str_schema(self):
+        '''simple schema for an item with type'''
         schema = {"type": str}
         data1 = "foo"
         err1 = ["foo"]
@@ -20,7 +22,8 @@ class TestValidate(unittest.TestCase):
         self.assertEqual(validate(err2, schema),
                          "Invalid type <class 'dict'>, expected <class 'str'>")
 
-    def test_check_schema(self):
+    def test_schema_with_check(self):
+        '''test a schema with a check function'''
         def checker(data):
             if data > 42:
                 return "Data should not be greater than 42"
@@ -37,8 +40,9 @@ class TestValidate(unittest.TestCase):
                          "'>' not supported between instances of 'str' and 'int'")
         self.assertEqual(validate(err3, schema),
                          "Data should not be greater than 42")
-    
+
     def test_list_schema(self):
+        '''a list schema should apply its subschema to all of its items''' 
         def checker(data):
             if data > 42:
                 raise Exception("Data should not be greater than 42")
@@ -57,6 +61,7 @@ class TestValidate(unittest.TestCase):
         })
 
     def test_dict_schema(self):
+        '''a dict schema should apply itself to underlying values as necessary'''
         def checker(amt):
             if amt < 100:
                 raise Exception("Must be greater than 100")
@@ -109,8 +114,8 @@ class TestValidate(unittest.TestCase):
             "name": "Invalid type <class 'list'>, expected <class 'str'>"
         })
 
-
     def test_recursive(self):
+        '''test if schemas can apply themselves recursively'''
         father = {
             "required": False,
             "properties": {
@@ -178,7 +183,8 @@ class TestValidate(unittest.TestCase):
                 }
             ]
         }
-        self.assertEqual(validate(bad_grandpa, father), {
+        error = validate(bad_grandpa, father)
+        self.assertEqual(error, {
             "sons": {
                 0: {
                     "sons": {
@@ -195,8 +201,21 @@ class TestValidate(unittest.TestCase):
                 }
             }
         })
-    
+        formatted ='''At key 'sons':
+  At index '0':
+    At key 'sons':
+      At index '0':
+        At key 'name':
+          With '2': Invalid type <class 'int'>, expected <class 'str'>
+      At index '1':
+        At key 'last name':
+          With 'Juniorivich': Unused field
+  At index '1':
+    At key 'name':
+      Missing required field'''
+        self.assertEqual(format_error(bad_grandpa, error), formatted)
     def test_matcher(self):
+        '''schemas should match using the 'match' and 'choices' fields'''
         def check_int(value):
             if int(value) != 3:
                 raise Exception("Value should be 3")
@@ -238,6 +257,7 @@ class TestValidate(unittest.TestCase):
         })
 
     def test_recursive_matcher(self):
+        '''test that matcher can work recursively'''
         def check_int(value):
             if int(value) != 3:
                 raise Exception("Value should be 3")
@@ -256,12 +276,12 @@ class TestValidate(unittest.TestCase):
         self.assertEqual(validate(3, schema), None)
         self.assertEqual(validate([3, "3", 3.0], schema), None)
         self.assertEqual(validate([3, "3", 3.0, [3, 3, [3, 3]]], schema), None)
-        
         self.assertEqual(validate([3, "3", 3.0, [3, 7]], schema), {
             3: {1: "Value should be 3"}
         })
-    
+
     def test_check_schema(self):
+        '''testing the 'check schema' function'''
         # test no schema provided
         self.assertEqual(check_schema(3), "argument of type 'int' is not iterable")
         # empty schema is valid
@@ -287,5 +307,3 @@ class TestValidate(unittest.TestCase):
         self.assertEqual(check_schema({"properties": {"name": {"required": 3}}}), {
             "properties": {"name" : {"required": "Invalid type <class 'int'>, expected <class 'bool'>"}}
         })
-
-        #TODO: add more tests for this function
