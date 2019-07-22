@@ -96,6 +96,8 @@ def entity_command(func):
 
 
 class Entity(metaclass=EntityClass):
+
+    #TODO: consider changing this "proper_name" thing?
     def __init__(self, proper_name=None):
         self.location = None
         self.proper_name = proper_name
@@ -161,3 +163,13 @@ class Entity(metaclass=EntityClass):
     @property
     def isNPC(self):
         return self._isNPC
+    
+    @classmethod
+    def load(cls, data):
+        proper_name = None
+        if "proper_name" in data:
+            proper_name = data["proper_name"]
+        return cls(proper_name)
+    
+    def postload(self, data, obj_symbols, cls_symbols):
+        pass
