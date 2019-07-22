@@ -1,6 +1,6 @@
 import inventory as inv
 import item
-import character
+from character import Character, CharFilter
 
 class Exit:
     '''Class representing an Exit
@@ -35,10 +35,10 @@ class Exit:
         self._nameset = set((name, *other_names))
         self.access = access
         if access is None:
-            self.access = character.CharFilter(False)
+            self.access = CharFilter(False)
         self.visibility = visibility
         if visibility is None:
-            self.visibility = character.CharFilter(False)
+            self.visibility = CharFilter(False)
         self.hide_des = hide_des
 
     @property
@@ -84,6 +84,18 @@ class Exit:
             return "%s -> %s" % (self._name, self._destination.name)
         else:
             return self._name
+    
+    @staticmethod
+    def from_dict(ex_dict, objects, classes):
+        # convert access filter data into a CharFilter
+        if "access" in ex_dict:
+            ex_dict["access"] = CharFilter.from_dict(ex_dict["access"],
+                                                     classes, objects)
+        # convert visibility filter data into a CharFilter
+        if "visibility" in ex_dict:
+            ex_dict["visibility"] = CharFilter.from_dict(ex_dict["visibility"],
+                                                         classes, objects)
+        return Exit(**ex_dict)
 
 
 class Location:
@@ -168,7 +180,7 @@ class Location:
         '''
         if isinstance(other, Exit):
             return other in self._exit_list
-        elif isinstance(other, character.Character):
+        elif isinstance(other, Character):
             return other in self._character_list
         elif isinstance(other, item.Item):
             return other in self._items
@@ -221,3 +233,7 @@ class Location:
         ''' Describes the location '''
         return self.description
 
+    def postload(self, data, objects, classes):
+        if "exits" in data:
+            for exit_data in data["exits"]:
+                self.add_exit(Exit.from_dict(exit_data, objects, classes))

@@ -454,6 +454,7 @@ class Character(control.Monoreceiver, metaclass=CharacterClass):
             output += str(target).upper() + "\n\t" + str(equipped) + "\n"
         self.message(output + self.inv.readable())
 
+    #TODO: streamline this method
     def cmd_use(self,args):
         ''' Use an item
         Using an item on someone else:
@@ -511,6 +512,13 @@ class Character(control.Monoreceiver, metaclass=CharacterClass):
             else:
                 self.message("You do not have an item with that name.")
 
+    @classmethod
+    def load(cls, data):
+        return cls(data["name"])
+
+    def postload(self, data, symbol_table):
+        pass
+
 
 #TODO: clean this up, provide documentation
 class AmbiguityResolver:
@@ -545,6 +553,7 @@ class AmbiguityResolver:
         string += "\n".join(["\t%s) %s" % (index, repr(option)) for index, option in enumerate(self._amb.options)])
         string += "\nEnter a number to resolve it:" 
         return string
+
 
 class FilterMode(enum.Enum):
     WHITELIST = True
@@ -663,3 +672,20 @@ class CharFilter:
         return ("CharFilter(%r, %r, %r, %r)" 
                 % (self._mode.value, self._classes, self._include_chars,
                   self._exclude_chars))
+
+    @staticmethod
+    def from_dict(filter_dict, obj_symbols, cls_symbols):
+        '''Convert the dictionary to CharFilter
+        filter_dict = dict following the FILTER_SCHEMA dict
+        chars = dict of character classes
+        this method raises a KeyError if a class is not found
+        '''
+        mode = filter_dict["type"]
+        filter_set = []
+        if "classes" in filter_dict:
+            for name in filter_dict["classes"]:
+                filter_set.append(cls_symbols[name])
+        if "chars" in filter_dict:
+            for name in filter_dict["chars"]:
+                filter_set.append(obj_symbols[name])
+        return CharFilter(mode, filter_set)
