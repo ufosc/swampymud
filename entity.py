@@ -3,7 +3,7 @@ import character
 from util import camel_to_space
 from command import SpecificCommand
 
-class EntityMeta(type):
+class EntityClass(type):
     '''metaclass controlling entity types'''
 
     # TODO: move dict of individual entities into the server
@@ -19,7 +19,7 @@ class EntityMeta(type):
             if isinstance(item, EntityCommand):
                 self._commands[item.name] = item
 
-        entity_bases = list(filter(lambda x: isinstance(x, EntityMeta),
+        entity_bases = list(filter(lambda x: isinstance(x, EntityClass),
                                    self.__mro__))
         # build the set of command names / commands by looking through
         # the mro
@@ -95,7 +95,7 @@ def entity_command(func):
     return EntityCommand(func.__name__, func)
 
 
-class Entity(metaclass=EntityMeta):
+class Entity(metaclass=EntityClass):
     def __init__(self, proper_name=None):
         self.location = None
         self.proper_name = proper_name
