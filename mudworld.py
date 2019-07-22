@@ -96,22 +96,24 @@ def _load_child_node(node, symbol_table):
             # load in the object
             child_obj = symbol_table[child_name]
             # recursively load in its children and add it
-            for grandc in _load_child_node(grandchildren, symbol_table):
+            for grandchild in _load_child_node(grandchildren, symbol_table):
                 # child could be None if the dictionary was empty
-                if child is None:
+                if grandchild is None:
                     continue
-                if isinstance(grandc, Character):
-                    parent_obj.add_char(grandc)
-                elif isinstance(grandc, Entity):
-                    parent_obj.add_entity(Entity)
-                elif isinstance(grandc, Item):
-                    parent_obj.add_item(grandc)
-                #TODO: raise error otherwise
-            yield parent_obj
+                if isinstance(grandchild, Character):
+                    child_obj.add_char(grandchild)
+                elif isinstance(grandchild, Entity):
+                    child_obj.add_entity(grandchild)
+                elif isinstance(grandchild, Item):
+                    child_obj.add_item(grandchild)
+                else:
+                    raise TypeError("%r has wrong type" % grandchild)
+            yield child_obj
     # edge case--dictionary may point to nothing
     elif node is None:
         return
-    #TODO: raise errors if node is not string
+    else:
+        raise TypeError("node %r has wrong type" % node)
 
 def load_tree(tree, symbol_table):
     '''load in each of the locations of the tree,
@@ -121,14 +123,12 @@ def load_tree(tree, symbol_table):
         location = symbol_table[loc_name]
         # TODO: make this fit into the case above
         for child in _load_child_node(loc_data, symbol_table):
-            if isinstance(grandc, Character):
-                parent_obj.add_char(grandc)
-            elif isinstance(grandc, Entity):
-                parent_obj.add_entity(Entity)
-            elif isinstance(grandc, Item):
-                parent_obj.add_item(grandc)
-            elif isinstance(child, Exit):
-                location.add_exit(Exit)
+            if isinstance(child, Character):
+                location.add_char(child)
+            elif isinstance(child, Entity):
+                location.add_entity(Entity)
+            elif isinstance(child, Item):
+                location.add_item(child)
 
 
 class World:
@@ -144,9 +144,9 @@ class World:
             = load_prelude(prelude)
         # prepare a dictionary of type names
         type_names = {}
-        type_names.update(char_classes)
-        type_names.update(item_classes)
-        type_names.update(entity_classes)
+        type_names.update(self.char_classes)
+        type_names.update(self.item_classes)
+        type_names.update(self.entity_classes)
         type_names["Exit"] = Exit
         # prepare the symbol table
         # TODO turn this into a custom class
@@ -158,5 +158,5 @@ class World:
     @staticmethod
     def from_savefile(self, save_name):
         '''returns a World loaded from a save_file'''
-        save_data = read_save(save_name)
+        save_data = read_savefile(save_name)
         return World(**save_data)
