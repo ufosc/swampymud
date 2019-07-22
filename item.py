@@ -11,7 +11,7 @@ from util import camel_to_space
 from command import SpecificCommand
 import character
 
-class Item(type):
+class ItemClass(type):
     '''Metaclass establishing behavior for all items'''
     def __init__(self, cls, bases, namespace):
         if "_item_name" not in namespace:
@@ -37,23 +37,23 @@ class EquipCommand(SpecificCommand):
 
 
 def filtered_command(filt):
-    '''decorator for methods with CharFilters'''
+    '''decorator to convert a method into an EquipCommand with a CharFilter'''
     def inner(func):
         return EquipCommand(func.__name__, func, filter=filt)
     return inner
 
 
 def equip_command(func):
-    '''decorator for methods without CharFilters'''
+    '''decorator to convert a method into an EquipCommand'''
     return EquipCommand(func.__name__, func)
 
 
-class Equippable(Item):
+class EquippableClass(ItemClass):
     '''Metaclass for all items that can be equipped'''
     def __init__(self, cls, bases, namespace):
         super().__init__(cls, bases, namespace)
         self.item_type = "Equippable"
-        if cls != "EquippableBase": 
+        if cls != "Equippable": 
             #TODO: assert that target is an EquipTarget
             assert "target" in namespace or any([hasattr(base, "target") for base in bases])
             assert "equip" in namespace or any([hasattr(base, "equip") for base in bases])
@@ -64,7 +64,7 @@ class Equippable(Item):
                 self._commands[obj.name] = obj
 
 
-class EquippableBase(metaclass=Equippable):
+class Equippable(metaclass=EquippableClass):
     '''Base class for all Equippable items
     You must define your own "target", "equip", and "unequip" methods
     '''
@@ -174,16 +174,16 @@ class EquipTarget:
         return equip_dict
 
 
-class Usable(Item):
+class UsableClass(ItemClass):
     def __init__(self, cls, bases, namespace):
         super().__init__(cls, bases, namespace)
         self.item_type = "Usable"
-        if cls != "UsableBase": 
+        if cls != "Usable": 
             #TODO: assert that target is an EquipTarget
             assert "use" in namespace or any([hasattr(base, "use") for base in bases])
 
 
-class UsableBase(metaclass=Usable):
+class Usable(metaclass=UsableClass):
     '''Base class for all Usable items
     You must define your own "use" methods
     '''
@@ -214,7 +214,7 @@ class UsableBase(metaclass=Usable):
             return False
 
 
-class MiscItemBase(metaclass=Item):
+class MiscItem(metaclass=ItemClass):
     '''Base class for all MiscItems
     These items cannot be used, and will be typically
     used to store value (e.g. money, gold, building materials)

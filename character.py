@@ -477,7 +477,7 @@ class Character(control.Monoreceiver, metaclass=CharacterClass):
             if target and used_item:
                 # This needs to be done more elegantly; perhaps there is a way to extract
                 # information from the attribute error itself?
-                if not isinstance(used_item, item.UsableBase):
+                if not isinstance(used_item, item.Usable):
                     self.message("This item is not of type usable.")
                 try:
                     used_item.use(target,self)
@@ -498,7 +498,7 @@ class Character(control.Monoreceiver, metaclass=CharacterClass):
             item_name = " ".join(args[1:])
             used_item = self.inv.find(item_name)
             if used_item:
-                if not isinstance(used_item, item.UsableBase):
+                if not isinstance(used_item, item.Usable):
                     self.message("This item is not of type usable.")
                 try:
                     used_item.use(self,self)
