@@ -1,0 +1,18 @@
+
+prelude:
+  testing/script/basic_rpg.py: [HealthPotion, DarkWizard, Golem]
+  testing/script/weapons.py: ["CursedRing", "WoodenBow"]
+personae:
+
+tree:
+    :
+      characters:
+      entities:
+        CHEST_53:
+          items:
+
+      items:
+        [item]:
+          characters:
+          entities:
+          items:
