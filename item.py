@@ -10,6 +10,7 @@ MiscItemBase
 from util import camel_to_space
 from command import SpecificCommand
 import character
+from abc import ABC
 
 class ItemClass(type):
     '''Metaclass establishing behavior for all items'''
@@ -23,6 +24,23 @@ class ItemClass(type):
     def __str__(self):
         '''return str(self)'''
         return self._item_name
+
+class Item(ABC):
+    '''This class is made purely so that we may check items in a pythonic way
+    that is:
+    isinstance(item_obj, Item) 
+    is shorthand for:
+    isinstance(type(item_obj), ItemClass)
+    Do not attempt to derive a new item type from this class!
+    Refer to MiscItem, Usable, and Equippable
+    '''
+
+    @classmethod
+    def __subclasshook__(cls, subclass):
+        if cls is Item:
+            return isinstance(subclass, ItemClass)
+        else:
+            return NotImplemented
 
 
 class EquipCommand(SpecificCommand):
@@ -244,6 +262,3 @@ class MiscItem(metaclass=ItemClass):
     def describe(self):
         '''Describes the item '''
         return self._description
-
-#TODO: add a class wrapper that allows the item to function as a 
-# singleton (even if this may not be pythonic)
