@@ -1,36 +1,43 @@
-from item import Equippable
+from item import Equippable, EquipTarget, MiscItem
 from .basic_rpg import HealthPotion
-class Bar:
-    '''this class should not be imported'''
-    pass
-
-class DerivedBar(Bar):
-    '''this class should not be imported'''
-    pass
 
 class IronSword(Equippable):
-    target = "foo"
+    target = EquipTarget("Right Hand")
     def equip(self):
         pass
     
     def unequip(self):
         pass
 
-class WoodenBow(Equippable):
-    target = "foo"
+class WoodenStaff(Equippable):
+    target = EquipTarget("Right Hand")
     def equip(self):
         pass
     
     def unequip(self):
         pass
 
+# a ring that lowers the max health of someone wearing it
 class CursedRing(Equippable):
-    target = "foo"
-    def equip(self):
-        pass
-    
-    def unequip(self):
-        pass
+    target = EquipTarget("Left Hand")
 
-class Foo(str):
+    def equip(self, char):
+        try:
+            char.max_health -= 10
+            if char.health > char.max_health:
+                char.health = char.max_health
+            char.message("You feel yourself becoming weaker...")
+        except AttributeError:
+            pass
+    
+    def unequip(self, char):
+        try:
+            char.max_health += 10
+            if char.health > char.max_health:
+                char.health = char.max_health
+            char.message("You breathe a sigh of relief.")
+        except AttributeError:
+            pass
+
+class GoldNugget(MiscItem):
     pass
