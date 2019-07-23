@@ -1,0 +1,29 @@
+prelude:
+  testing/script/basic_rpg.py:
+    - Wizard
+    - Warrior
+  testing/script/weapons.py:
+    - GoldenNugget
+personae:
+  Boring House:
+    _type: Location
+    description:
+      A house with four walls and a roof.
+    exits:
+      - name: inside
+        destination: Boring House Interior
+  Boring House Interior:
+    _type: Location
+    description: There is a chair. The walls are brown.
+    exits:
+      - name: outside
+        destination: Boring House
+  Abra:
+    _type: Wizard
+  Grug:
+    _type: Warrior
+tree:
+  Boring House Interior:
+    Grug:
+    Abra:
+    

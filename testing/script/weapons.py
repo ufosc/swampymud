@@ -1,12 +1,13 @@
 from item import Equippable, EquipTarget, MiscItem
 from .basic_rpg import HealthPotion
 
-class IronSword(Equippable):
+#TODO: add CharFilters and make this only accesible to Warriors
+class TalkingSword(Equippable):
     target = EquipTarget("Right Hand")
-    def equip(self):
+    def equip(self, char):
         pass
     
-    def unequip(self):
+    def unequip(self, char):
         pass
 
 class WoodenStaff(Equippable):
