@@ -51,34 +51,32 @@ def skim_for_locations(personae):
     '''return a dict mapping names to locations based on the provided tree'''
     return {
         name : Location(name, data["description"])
-            for name, data in personae.items() if data["type"] == "Location"
+            for name, data in personae.items() if data["_type"] == "Location" 
     }
 
 
-def load_personae(personae_data, type_names, to_add=None):
+def load_personae(personae_data, type_names, starter=None):
     '''return a SymbolTable containing locations, chars, items, and entities
     loaded from [personae_data]
     by default, a fresh SymbolTable is created, but to load data into an existing
-    SymbolTable, use the [to_add] argument'''
-    table = {}
-    if to_add:
-        table.update(to_add)
-    for obj_name, obj_data in personae_data.items():
+    SymbolTable, use the [starter] argument'''
+    table = starter.copy() if starter else {}
+    for obj_id, obj_data in personae_data.items():
         # check if 'name' is already in the symbol table
         # e.g. skimmed locations need not be loaded in again
-        if obj_name in table:
+        if obj_id in table:
             continue
-        obj_data["name"] = obj_name
+        obj_data["_id"] = obj_id
         # find the type of the object
+        ObjType = type_names[obj_data["_type"]]
         # and load the obj in using the special .load method
-        ObjType = type_names(obj_data["type"])
-        table["name"] = ObjType.load(obj_name, data)
+        table[obj_id] = ObjType.load(obj_data)
     # now call all the 'post_load' methods
-    for obj_name, obj in table.items():
+    for obj_id, obj in table.items():
         # look up the object's data
-        obj_data = personae[obj_name]
+        obj_data = personae_data[obj_id]
         # call the post load method
-        obj.post_load(data)
+        obj.post_load(obj_data, table, type_names)
     return table
 
 def _load_child_node(node, symbol_table):
@@ -142,11 +140,9 @@ class World:
         type_names = load_prelude(prelude)
         # prepare a dictionary of type names
         type_names["Exit"] = Exit
-        # prepare the symbol table
-        # TODO turn this into a custom class
-        symbols = self.locations.copy()
         # load the dramatis personae
-        symbols = load_personae(personae, type_names, to_add=symbols)
+        symbols = load_personae(personae, type_names,
+                                starter=self.locations)
         # load the tree
 
     @staticmethod

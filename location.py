@@ -90,11 +90,15 @@ class Exit:
         # convert access filter data into a CharFilter
         if "access" in ex_dict:
             ex_dict["access"] = CharFilter.from_dict(ex_dict["access"],
-                                                     classes, objects)
+                                                     objects, classes)
         # convert visibility filter data into a CharFilter
         if "visibility" in ex_dict:
             ex_dict["visibility"] = CharFilter.from_dict(ex_dict["visibility"],
-                                                         classes, objects)
+                                                         objects, classes)
+        # we assume destination is in ex_dict
+        # convert the string destination into its actual location
+        dest_name = ex_dict["destination"]
+        ex_dict["destination"] = objects[dest_name]
         return Exit(**ex_dict)
 
 
@@ -230,10 +234,16 @@ class Location:
         return self.name
 
     def describe(self, character=None):
-        ''' Describes the location '''
+        '''Describes the location '''
         return self.description
 
-    def postload(self, data, objects, classes):
+    @classmethod
+    def load(self, data):
+        '''load in a location with data in the following form:
+        { '_id' : [name of location], 'description': [description]'''
+        return Location(data["_id"], data["description"])
+
+    def post_load(self, data, objects, classes):
         if "exits" in data:
             for exit_data in data["exits"]:
                 self.add_exit(Exit.from_dict(exit_data, objects, classes))

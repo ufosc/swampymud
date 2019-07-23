@@ -515,9 +515,9 @@ class Character(control.Monoreceiver, metaclass=CharacterClass):
 
     @classmethod
     def load(cls, data):
-        return cls(data["name"])
+        return cls(data["_id"])
 
-    def postload(self, data, symbol_table):
+    def post_load(self, data, obj_names, type_names):
         pass
 
 
@@ -681,12 +681,17 @@ class CharFilter:
         chars = dict of character classes
         this method raises a KeyError if a class is not found
         '''
-        mode = filter_dict["type"]
-        filter_set = []
+        mode = filter_dict["mode"]
+        classes = []
         if "classes" in filter_dict:
             for name in filter_dict["classes"]:
-                filter_set.append(cls_symbols[name])
-        if "chars" in filter_dict:
-            for name in filter_dict["chars"]:
-                filter_set.append(obj_symbols[name])
-        return CharFilter(mode, filter_set)
+                classes.append(cls_symbols[name])
+        include_chars = []
+        if "include_chars" in filter_dict:
+            for name in filter_dict["include_chars"]:
+                include_chars.append(obj_symbols[name])
+        exclude_chars = []
+        if "exclude_chars" in filter_dict:
+            for name in filter_dict["exclude_chars"]:
+                exclude_chars.append(obj_symbols[name])
+        return CharFilter(mode, classes, include_chars, exclude_chars)
