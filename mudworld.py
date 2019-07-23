@@ -24,10 +24,11 @@ def read_savefile(save_name):
                             % (section, save_name))
     return save_data
 
+VALID_CLASSES = [CharacterClass, ItemClass, EntityClass]
 
 def load_prelude(prelude_data):
     # TODO use context manager for locations
-    char_classes, item_classes, entity_classes = {}, {}, {}
+    cls_dict = {}
     for fname, classes in prelude_data.items():
         # convert the pathname to a module name
         mod_name = fname.replace('.py', '').replace('/', '.')
@@ -36,19 +37,17 @@ def load_prelude(prelude_data):
         # try to get each class in the module
         for cls_name in classes:
             cls = getattr(mod, cls_name)
-            if isinstance(cls, CharacterClass):
-                char_classes[cls_name] = cls
-            elif isinstance(cls, ItemClass):
-                item_classes[cls_name] = cls
-            elif isinstance(cls, EntityClass):
-                entity_classes[cls_name] = cls
+            # check that class is a valid class to import
+            if any(map(lambda x: isinstance(cls, x), VALID_CLASSES)):
+                cls_dict[cls_name] = cls
+            # if not, raise an exception
             else:
                 #TODO: use a more specific exception
                 raise Exception("Class is wrong type")
-    return char_classes, item_classes, entity_classes
+    return cls_dict
+    
 
-
-def skim_personae(personae):
+def skim_for_locations(personae):
     '''return a dict mapping names to locations based on the provided tree'''
     return {
         name : Location(name, data["description"])
@@ -140,13 +139,8 @@ class World:
         # the prelude won't change, so simply save it
         self.prelude = prelude
         # load in classes from the prelude
-        self.char_classes, self.item_classes, self.entity_classes \
-            = load_prelude(prelude)
+        type_names = load_prelude(prelude)
         # prepare a dictionary of type names
-        type_names = {}
-        type_names.update(self.char_classes)
-        type_names.update(self.item_classes)
-        type_names.update(self.entity_classes)
         type_names["Exit"] = Exit
         # prepare the symbol table
         # TODO turn this into a custom class
