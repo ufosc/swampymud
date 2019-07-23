@@ -65,7 +65,7 @@ def equip_command(func):
     '''decorator to convert a method into an EquipCommand'''
     return EquipCommand(func.__name__, func)
 
-
+#TODO: add pickup and equip CharFilters??
 class EquippableClass(ItemClass):
     '''Metaclass for all items that can be equipped'''
     def __init__(self, cls, bases, namespace):

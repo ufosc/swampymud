@@ -99,6 +99,7 @@ class Character(control.Monoreceiver, metaclass=CharacterClass):
     # Valid equip slots for characters of this class
     equip_slots = []
 
+    #TODO: remove the name argument?
     def __init__(self, name=None):
         super().__init__()
         self._name = name
