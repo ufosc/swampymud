@@ -115,14 +115,13 @@ class TestPersonae(unittest.TestCase):
             },
             "Abra": {"_type": "Wizard"},
             "Grug": {"_type": "Warrior"},
+            "ring": {"_type": "CursedRing"}
         }
         self.simple_classes = {
             "Location": Location,
             "Wizard": import_class("testing.script.basic_rpg", "Wizard"),
-            "Warrior": import_class("testing.script.basic_rpg", "Warrior")
-        }
-        self.complex = {
-
+            "Warrior": import_class("testing.script.basic_rpg", "Warrior"),
+            "CursedRing": import_class("testing.script.weapons", "CursedRing")
         }
 
     def test_skim_empty(self):
@@ -151,8 +150,12 @@ class TestPersonae(unittest.TestCase):
     def test_load_simple(self):
         '''test loading in the 'simple' personae example'''
         symbols = mudimport.load_personae(self.simple, self.simple_classes)
-        # we expect 4 items from this personae
-        self.assertEqual(len(symbols), 4)
+        # we expect 5 items from this personae
+        self.assertEqual(len(symbols), 5)
+        # check the ring
+        ring = symbols["ring"]
+        self.assertEqual(str(ring.target), "Left hand")
+        self.assertTrue(isinstance(ring, self.simple_classes["CursedRing"]))
         # check the characters
         grug = symbols["Grug"]
         self.assertTrue(isinstance(grug, self.simple_classes["Warrior"]))
@@ -195,9 +198,13 @@ class TestPersonae(unittest.TestCase):
                                 starter=locations)
         
         # this should yield the same results, so the results below are copied
-
-        # we expect 4 items from this personae
-        self.assertEqual(len(symbols), 4)
+        
+        # we expect 5 items from this personae
+        self.assertEqual(len(symbols), 5)
+        # check the ring
+        ring = symbols["ring"]
+        self.assertEqual(str(ring.target), "Left hand")
+        self.assertTrue(isinstance(ring, self.simple_classes["CursedRing"]))
         # check the characters
         grug = symbols["Grug"]
         self.assertTrue(isinstance(grug, self.simple_classes["Warrior"]))
@@ -266,7 +273,6 @@ class TestPersonae(unittest.TestCase):
         if secret_exit is None:
             raise Exception("Secret Exit not added properly")
         self.assertTrue(secret_exit.destination is symbols["Secret Room"])
-        print(secret_exit.visibility)
         grug = symbols["Grug"]
         mrcool = symbols["MrCool"]
         abra = symbols["Abra"]

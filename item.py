@@ -74,6 +74,7 @@ class EquippableClass(ItemClass):
         if cls != "Equippable": 
             #TODO: assert that target is an EquipTarget
             assert "target" in namespace or any([hasattr(base, "target") for base in bases])
+            #TODO: consider making these optional, since equippable methods also exist
             assert "equip" in namespace or any([hasattr(base, "equip") for base in bases])
             assert "unequip" in namespace or any([hasattr(base, "unequip") for base in bases])
         self._commands = {}
@@ -100,6 +101,7 @@ class Equippable(metaclass=EquippableClass):
         this will be how the item appears to the player'''
         return self._item_name
 
+    #TODO: remove this naive equality mechanism
     def __eq__(self, other):
         '''Test if the other item is equivalent, based on
         the item_name and the item_type being the same
@@ -125,8 +127,13 @@ class Equippable(metaclass=EquippableClass):
             if char.cmd_dict.has_cmd(cmd):
                 char.cmd_dict.remove_cmd(cmd)
 
+    @classmethod
+    def load(cls, data):
+        '''default implementation of load that calls init with no arguments'''
+        return cls()
 
-
+    def post_load(self, data, obj_names, cls_names):
+        '''no post-load actions required by default implementation'''
 
 class EquipTarget:
     '''Class for identifying specific slots that an equippable item
@@ -178,7 +185,7 @@ class EquipTarget:
 
     def __repr__(self):
         '''Return repr(self)'''
-        return "EffectTarget(%s)" % (self.name)
+        return "EquipTarget(%r)" % (self.name)
 
     @staticmethod
     def make_dict(*names):
@@ -221,6 +228,7 @@ class Usable(metaclass=UsableClass):
         ''' Describes the object '''
         return self._description
 
+    #TODO: remove this naive equality mechanism
     def __eq__(self, other):
         '''Test if the other item is equivalent, based on
         the item_name and the item_type being the same
@@ -231,6 +239,13 @@ class Usable(metaclass=UsableClass):
         except:
             return False
 
+    @classmethod
+    def load(cls, data):
+        '''default implementation of load that calls init with no arguments'''
+        return cls()
+
+    def post_load(self, data, obj_names, cls_names):
+        '''no post-load actions required by default implementation'''
 
 class MiscItem(metaclass=ItemClass):
     '''Base class for all MiscItems
@@ -249,6 +264,7 @@ class MiscItem(metaclass=ItemClass):
         this will be how the item appears to the player'''
         return self._item_name
 
+    #TODO: remove this naive equality mechanism
     def __eq__(self, other):
         '''Test if the other item is equivalent, based on
         the item_name and the item_type being the same
@@ -262,3 +278,11 @@ class MiscItem(metaclass=ItemClass):
     def describe(self):
         '''Describes the item '''
         return self._description
+
+    @classmethod
+    def load(cls, data):
+        '''default implementation of load that calls init with no arguments'''
+        return cls()
+
+    def post_load(self, data, obj_names, cls_names):
+        '''no post-load actions required by default implementation'''
