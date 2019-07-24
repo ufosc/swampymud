@@ -20,6 +20,16 @@ personae:
       - name: cliff
         other_names: ["edge", "ahead", "up ahead"]
         destination: Cliff's Edge
+      - name: hole
+        destination: Thieves' Den
+        hide_des: true
+        visibility:
+          mode: whitelist
+          classes: [Thief]
+        access:
+          mode: blacklist
+          classes: [Warrior]
+          exclude_chars: [Sneck]
   Cliff's Edge:
     _type: Location
     description:
@@ -41,6 +51,13 @@ personae:
     exits:
       - name: south
         destination: Southern Grasslands
+  Thieves' Den:
+    _type: Location
+    description: Roots dangle from the low-hanging ceiling above. Far from comfortable, this spot is nonetheless safe.
+    exits:
+      - name: out
+        other_names: [outside]
+        destination: Northern Grasslands
   # some characters
   Grug:
     _type: Warrior
@@ -48,16 +65,18 @@ personae:
     _type: Warrior
   Elythicus:
     _type: Wizard
+  Sneck:
+    _type: Wizard
   Shin:
     _type: Thief
-  #TODO: add items
 tree:
-  Southern Grasslands:
-    Grug:
-  The Pit:
-    Boduk:
-  Northern Grasslands:
-    Shin:
-    Elythicus:
+  $Southern Grasslands:
+    $Grug:
+  $The Pit:
+    $Boduk:
+  $Northern Grasslands:
+    $Shin:
+    $Elythicus:
+  $Thieves' Den:
 
 

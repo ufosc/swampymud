@@ -6,8 +6,6 @@ from location import Location, Exit
 from character import CharacterClass, Character
 from item import ItemClass, Item
 from entity import EntityClass, Entity
-from collections import namedtuple
-
 
 def read_savefile(save_name):
     '''return a parsed save file'''
@@ -158,7 +156,6 @@ class World:
                 self.item_classes[cls.__name__] = cls
             elif isinstance(cls, EntityClass):
                 self.entity_classes[cls.__name__] = cls
-
 
     @staticmethod
     def from_savefile(save_name):

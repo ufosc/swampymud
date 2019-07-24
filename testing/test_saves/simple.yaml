@@ -25,9 +25,9 @@ personae:
   ring:
     _type: CursedRing
 tree:
-  Boring House:
-    Grug:
-  Boring House Interior:
-    Abra:
-      ring:
+  $Boring House:
+    $Grug:
+  $Boring House Interior:
+    $Abra:
+      $ring:
     
