@@ -22,8 +22,12 @@ personae:
     _type: Wizard
   Grug:
     _type: Warrior
+  ring:
+    _type: CursedRing
 tree:
-  Boring House Interior:
+  Boring House:
     Grug:
+  Boring House Interior:
     Abra:
+      ring:
     

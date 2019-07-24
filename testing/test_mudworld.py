@@ -44,11 +44,16 @@ class TestLoad(unittest.TestCase):
                 },
                 "Abra": {"_type": "Wizard"},
                 "Grug": {"_type": "Warrior"},
+                "ring": {"_type": "CursedRing"}
             },
             "tree": {
+                "Boring House": {
+                    "Grug": None
+                },
                 "Boring House Interior": {
-                    "Grug": None,
-                    "Abra": None,
+                    "Abra": {
+                        "ring": None
+                    }
                 }
             }
         }
@@ -283,4 +288,61 @@ class TestPersonae(unittest.TestCase):
         self.assertFalse(secret_exit.visibility.permits(mrcool))
         self.assertTrue(secret_exit.visibility.permits(abra))
         self.assertFalse(secret_exit.visibility.permits(grug))
+
+
+class TestTree(unittest.TestCase):
+    '''test case for all tree-loading functions'''
+
+    def setUp(self):
+        self.simple_classes = {
+            "Wizard": import_class("testing.script.basic_rpg", "Wizard"),
+            "Warrior": import_class("testing.script.basic_rpg", "Warrior"),
+            "CursedRing": import_class("testing.script.weapons", "CursedRing")
+        }
+        self.simple_objs = {
+            "Boring House":
+                Location("Boring House", "A house with four walls and a roof."),
+            "Boring House Interior":
+                Location("Boring House Interior",
+                         "There is a chair. The walls are brown."),
+            "Abra": self.simple_classes["Wizard"]("Abra"),
+            "Grug": self.simple_classes["Warrior"]("Grug"),
+            "ring": self.simple_classes["CursedRing"]()
+        }
+        self.simple_tree = {
+            "Boring House": {
+                "Grug": None
+            },
+            "Boring House Interior": {
+                "Abra": {
+                    "ring": None
+                }
+            }
+        }
+    
+    def test_empty(self):
+        '''should load in an empty tree without issue'''
+        mudimport.load_tree({}, {})
+
+    def test_simple_tree(self):
+        '''test that load_tree can load in a simple tree'''
+        mudimport.load_tree(self.simple_tree, self.simple_objs)
+
+        abra = self.simple_objs["Abra"]
+        grug = self.simple_objs["Grug"]
+        ring = self.simple_objs["ring"]
+        house = self.simple_objs["Boring House"]
+        interior = self.simple_objs["Boring House Interior"]
         
+        # check that abra and grug are in the proper places
+        self.assertEqual([abra], list(interior.characters))
+        self.assertEqual([grug], list(house.characters))
+        
+        # no entities should have been added to the houses
+        self.assertEqual([], list(house.entities))
+        self.assertEqual([], list(interior.entities))
+
+        # grug should have nothing in his inventory
+        self.assertEqual([], list(grug.inv))
+        # abra should have one thing (the cursed ring)
+        self.assertEqual([ring], list(abra.inv))

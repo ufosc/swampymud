@@ -513,6 +513,10 @@ class Character(control.Monoreceiver, metaclass=CharacterClass):
             else:
                 self.message("You do not have an item with that name.")
 
+    def add_item(self, item):
+        '''add [item] to player's inventory'''
+        self.inv.add_item(item)
+
     @classmethod
     def load(cls, data):
         return cls(data["_id"])
