@@ -382,7 +382,7 @@ class TestWorld(unittest.TestCase):
         # test that the exits are working
         # interior should only have 1 exit, to the outside
         outside, = tuple(interior.exits)
-        outside.destination is house
+        self.assertTrue(outside.destination is house)
         # house should only have 1 exit, to the inside
         inside, = tuple(house.exits)
-        inside.destination is interior
+        self.assertTrue(inside.destination is interior)
