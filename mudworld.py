@@ -144,9 +144,24 @@ class World:
         symbols = load_personae(personae, type_names,
                                 starter=self.locations)
         # load the tree
+        load_tree(tree, symbols)
+
+        # sort out the remaining classes
+        self.char_classes = {}
+        self.item_classes = {}
+        self.entity_classes = {}
+
+        for cls in type_names.values():
+            if isinstance(cls, CharacterClass):
+                self.char_classes[cls.__name__] = cls
+            elif isinstance(cls, ItemClass):
+                self.item_classes[cls.__name__] = cls
+            elif isinstance(cls, EntityClass):
+                self.entity_classes[cls.__name__] = cls
+
 
     @staticmethod
-    def from_savefile(self, save_name):
+    def from_savefile(save_name):
         '''returns a World loaded from a save_file'''
         save_data = read_savefile(save_name)
         return World(**save_data)

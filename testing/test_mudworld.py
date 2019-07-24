@@ -29,7 +29,7 @@ class TestLoad(unittest.TestCase):
         expected = {
             "prelude": {
                 "testing/script/basic_rpg.py": ["Wizard", "Warrior"],
-                "testing/script/weapons.py": ["GoldenNugget"]
+                "testing/script/weapons.py": ["CursedRing"]
             },
             "personae": {
                 "Boring House" : {
@@ -346,3 +346,43 @@ class TestTree(unittest.TestCase):
         self.assertEqual([], list(grug.inv))
         # abra should have one thing (the cursed ring)
         self.assertEqual([ring], list(abra.inv))
+
+
+class TestWorld(unittest.TestCase):
+    '''testcase for the 'World' class, which integrates all the functionality
+    above'''
+
+    def setUp(self):
+        self.Warrior = import_class("testing.script.basic_rpg", "Warrior")
+        self.Wizard = import_class("testing.script.basic_rpg", "Wizard")
+        self.CursedRing = import_class("testing.script.weapons", "CursedRing")
+
+    def test_simple(self):
+        '''should successfully load in a simple world'''
+        world = mudimport.World.from_savefile("testing/test_saves/simple.yaml")
+
+        self.assertEqual(set(world.locations),
+                         set(("Boring House", "Boring House Interior")))
+        house = world.locations["Boring House"]
+        interior = world.locations["Boring House Interior"]
+
+        # should be only 1 character in house.characters, Grug
+        grug, = tuple(house.characters)
+        self.assertTrue(isinstance(grug, self.Warrior))
+        # grug's inventory should be empty
+        self.assertEqual(list(grug.inv), [])
+
+        # should be only 1 character in interior.characters, Abra
+        abra, = tuple(interior.characters)
+        self.assertTrue(isinstance(abra, self.Wizard))
+        # should be only 1 item in abra's inventory, the ring
+        ring, = tuple(abra.inv)
+        self.assertTrue(isinstance(ring, self.CursedRing))
+
+        # test that the exits are working
+        # interior should only have 1 exit, to the outside
+        outside, = tuple(interior.exits)
+        outside.destination is house
+        # house should only have 1 exit, to the inside
+        inside, = tuple(house.exits)
+        inside.destination is interior

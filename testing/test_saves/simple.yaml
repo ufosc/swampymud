@@ -3,7 +3,7 @@ prelude:
     - Wizard
     - Warrior
   testing/script/weapons.py:
-    - GoldenNugget
+    - CursedRing
 personae:
   Boring House:
     _type: Location
