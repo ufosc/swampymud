@@ -53,6 +53,12 @@ def skim_for_locations(personae):
     }
 
 
+def load_object(obj_data, type_names):
+    # get object's type
+    ObjType = type_names[obj_data["_type"]]
+    return ObjType.load(obj_data)
+
+
 def load_personae(personae_data, type_names, starter=None):
     '''return a SymbolTable containing locations, chars, items, and entities
     loaded from [personae_data]
@@ -64,11 +70,10 @@ def load_personae(personae_data, type_names, starter=None):
         # e.g. skimmed locations need not be loaded in again
         if obj_id in table:
             continue
+        #TODO: remove this line
         obj_data["_id"] = obj_id
-        # find the type of the object
-        ObjType = type_names[obj_data["_type"]]
-        # and load the obj in using the special .load method
-        table[obj_id] = ObjType.load(obj_data)
+        # load the object and add it to the table
+        table[obj_id] = load_object(obj_data, type_names)
     # now call all the 'post_load' methods
     for obj_id, obj in table.items():
         # look up the object's data
@@ -77,54 +82,52 @@ def load_personae(personae_data, type_names, starter=None):
         obj.post_load(obj_data, table, type_names)
     return table
 
-def _load_child_node(node, symbol_table):
-    '''recurse function for evaluating branches
-    of the tree'''
-    # branch is either a string (leaf node) or a dictionary (branch node)
-    # base case--child is a solitary leaf
-    if isinstance(node, str):
-        yield symbol_table[node]
-    # recursive case--child has more children
-    elif isinstance(node, dict):
-        # check dictionary
-        for child_name, grandchildren in node.items():
+def walk_tree(tree, obj_names, cls_names):
+    '''recursive function for evaluating the World Tree'''
+    # base case 1--tree is a symbol
+    if isinstance(tree, str):
+        # return the object with that symbol
+        yield obj_names[tree]
+    elif isinstance(tree, dict):
+        # base case 2--tree is anonymous object data
+        # this is why '_type' cannot be used as a symbol
+        if "_type" in tree:
             # load in the object
-            child_obj = symbol_table[child_name]
-            # recursively load in its children and add it
-            for grandchild in _load_child_node(grandchildren, symbol_table):
-                # child could be None if the dictionary was empty
-                if grandchild is None:
-                    continue
-                if isinstance(grandchild, Character):
-                    child_obj.add_char(grandchild)
-                elif isinstance(grandchild, Entity):
-                    child_obj.add_entity(grandchild)
-                elif isinstance(grandchild, Item):
-                    child_obj.add_item(grandchild)
-                else:
-                    raise TypeError("%r has wrong type" % grandchild)
-            yield child_obj
-    # edge case--dictionary may point to nothing
-    elif node is None:
-        return
+            obj = load_object(tree, cls_names)
+            # call object's postload method
+            obj.postload(tree, obj_names, cls_names)
+            yield obj
+        # recursive case 1--tree is a dict mapping object to other, owned objects
+        else:
+            for symbol, subtree in tree.items():
+                # get the owner from the sybmol
+                owner = obj_names[symbol]
+                # load in each child in this subtree
+                for child_obj in load_tree(subtree, obj_names, cls_names):
+                    if isinstance(child_obj, Character):
+                        owner.add_char(child_obj)
+                    elif isinstance(child_obj, Item):
+                        owner.add_item(child_obj)
+                    elif isinstance(child_obj, Entity):
+                        owner.add_entity(child_obj)
+                    else:
+                        raise TypeError("%r has wrong type" % child_obj)
+                yield owner
+    # recursive case 2--tree is a list of subtrees
+    elif isinstance(tree, list):
+        for subtree in tree:
+            yield load_tree(subtree, obj_names, cls_names)
+    elif tree is None:
+        pass
     else:
-        raise TypeError("node %r has wrong type" % node)
+        raise TypeError("Expected symbol, list, or mapping, received '%r' of type '%s'" % (tree, type(tree)))
 
-def load_tree(tree, symbol_table):
-    '''load in each of the locations of the tree,
-    using [symbol_table] as reference
-    this function calls "load_object" for each element of the tree'''
-    for loc_name, loc_data in tree.items():
-        location = symbol_table[loc_name]
-        # TODO: make this fit into the case above
-        for child in _load_child_node(loc_data, symbol_table):
-            if isinstance(child, Character):
-                location.add_char(child)
-            elif isinstance(child, Entity):
-                location.add_entity(Entity)
-            elif isinstance(child, Item):
-                location.add_item(child)
 
+def load_tree(tree, obj_names, cls_names):
+    '''wrapper function for walk_tree
+    returns a list of objects at the top of the hierarchy
+    '''
+    return [obj for obj in walk_tree(tree, obj_names, cls_names)]
 
 class World:
     '''class representing an in-game world'''
@@ -142,7 +145,7 @@ class World:
         symbols = load_personae(personae, type_names,
                                 starter=self.locations)
         # load the tree
-        load_tree(tree, symbols)
+        load_tree(tree, symbols, type_names)
 
         # sort out the remaining classes
         self.char_classes = {}

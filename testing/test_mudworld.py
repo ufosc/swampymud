@@ -293,6 +293,7 @@ class TestPersonae(unittest.TestCase):
 class TestTree(unittest.TestCase):
     '''test case for all tree-loading functions'''
 
+    maxDiff = 10000
     def setUp(self):
         self.simple_classes = {
             "Wizard": import_class("testing.script.basic_rpg", "Wizard"),
@@ -322,11 +323,11 @@ class TestTree(unittest.TestCase):
     
     def test_empty(self):
         '''should load in an empty tree without issue'''
-        mudimport.load_tree({}, {})
+        mudimport.load_tree({}, {}, {})
 
     def test_simple_tree(self):
         '''test that load_tree can load in a simple tree'''
-        mudimport.load_tree(self.simple_tree, self.simple_objs)
+        mudimport.load_tree(self.simple_tree, self.simple_objs, {})
 
         abra = self.simple_objs["Abra"]
         grug = self.simple_objs["Grug"]
@@ -351,7 +352,7 @@ class TestTree(unittest.TestCase):
 class TestWorld(unittest.TestCase):
     '''testcase for the 'World' class, which integrates all the functionality
     above'''
-
+    maxDiff = 10000
     def setUp(self):
         self.Warrior = import_class("testing.script.basic_rpg", "Warrior")
         self.Wizard = import_class("testing.script.basic_rpg", "Wizard")
