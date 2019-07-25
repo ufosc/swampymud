@@ -70,13 +70,13 @@ personae:
   Shin:
     _type: Thief
 tree:
-  $Southern Grasslands:
-    $Grug:
-  $The Pit:
-    $Boduk:
-  $Northern Grasslands:
-    $Shin:
-    $Elythicus:
-  $Thieves' Den:
+  Southern Grasslands:
+    Grug:
+  The Pit:
+    Boduk:
+  Northern Grasslands:
+    Shin:
+    Elythicus:
+  Thieves' Den:
 
 
