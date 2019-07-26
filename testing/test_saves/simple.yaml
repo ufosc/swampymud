@@ -6,6 +6,7 @@ prelude:
     - CursedRing
 personae:
   Boring House:
+    name: Boring House
     _type: Location
     description:
       A house with four walls and a roof.
@@ -13,14 +14,17 @@ personae:
       - name: inside
         destination: Boring House Interior
   Boring House Interior:
+    name: Boring House Interior
     _type: Location
     description: There is a chair. The walls are brown.
     exits:
       - name: outside
         destination: Boring House
   Abra:
+    name: Abra
     _type: Wizard
   Grug:
+    name: Grug
     _type: Warrior
   ring:
     _type: CursedRing

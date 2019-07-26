@@ -16,16 +16,16 @@ class TestLoad(unittest.TestCase):
     def test_blank(self):
         '''completely blank save should fail'''
         with self.assertRaises(Exception):
-            mudimport.read_savefile('testing/test_saves/blank.yaml')
+            mudimport.read_worldfile('testing/test_saves/blank.yaml')
     
     def test_empty(self):
         '''test a save file with 3 blank sections'''
-        result = mudimport.read_savefile('testing/test_saves/empty.yaml')
+        result = mudimport.read_worldfile('testing/test_saves/empty.yaml')
         self.assertEqual(result, {"prelude" : None, "tree": None, "personae": None})
 
     def test_simple(self):
         '''test loading a simple save'''
-        result = mudimport.read_savefile('testing/test_saves/simple.yaml')
+        result = mudimport.read_worldfile('testing/test_saves/simple.yaml')
         expected = {
             "prelude": {
                 "testing/script/basic_rpg.py": ["Wizard", "Warrior"],
@@ -34,16 +34,18 @@ class TestLoad(unittest.TestCase):
             "personae": {
                 "Boring House" : {
                     "_type": "Location",
+                    "name": "Boring House",
                     "description": "A house with four walls and a roof.",
                     "exits": [{"name": "inside", "destination": "Boring House Interior"}]
                 },
                 "Boring House Interior" : {
                     "_type": "Location",
+                    "name": "Boring House Interior",
                     "description": "There is a chair. The walls are brown.",
                     "exits": [{"name": "outside", "destination": "Boring House"}]
                 },
-                "Abra": {"_type": "Wizard"},
-                "Grug": {"_type": "Warrior"},
+                "Abra": {"_type": "Wizard", "name": "Abra"},
+                "Grug": {"_type": "Warrior", "name": "Grug"},
                 "ring": {"_type": "CursedRing"}
             },
             "tree": {
@@ -110,16 +112,18 @@ class TestPersonae(unittest.TestCase):
         self.simple = {
             "Boring House" : {
                 "_type": "Location",
+                "name": "Boring House",
                 "description": "A house with four walls and a roof.",
                 "exits": [{"name": "inside", "destination": "Boring House Interior"}]
             },
             "Boring House Interior" : {
                 "_type": "Location",
+                "name": "Boring House Interior",
                 "description": "There is a chair. The walls are brown.",
                 "exits": [{"name": "outside", "other_names": ["out"], "destination": "Boring House"}]
             },
-            "Abra": {"_type": "Wizard"},
-            "Grug": {"_type": "Warrior"},
+            "Abra": {"_type": "Wizard", "name": "Abra"},
+            "Grug": {"_type": "Warrior", "name": "Grug"},
             "ring": {"_type": "CursedRing"}
         }
         self.simple_classes = {
@@ -246,6 +250,7 @@ class TestPersonae(unittest.TestCase):
         # adding a secret room
         self.simple["Secret Room"] = {
             "_type": "Location",
+            "name": "Secret Room",
             "description": "Maybe this house isn't boring after all!"
         }
         # adding an exit to the secret room
@@ -360,7 +365,7 @@ class TestWorld(unittest.TestCase):
 
     def test_simple(self):
         '''should successfully load in a simple world'''
-        world = mudimport.World.from_savefile("testing/test_saves/simple.yaml")
+        world = mudimport.World.from_file("testing/test_saves/simple.yaml")
 
         self.assertEqual(set(world.locations),
                          set(("Boring House", "Boring House Interior")))

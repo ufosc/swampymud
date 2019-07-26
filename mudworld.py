@@ -1,5 +1,5 @@
-'''Module that developer-made game-data,
-converting it into real objects'''
+'''This module provides methods for serializing / deserializing game data,
+and also defines the World class'''
 import importlib
 import yaml
 from location import Location, Exit
@@ -7,7 +7,7 @@ from character import CharacterClass, Character
 from item import ItemClass, Item
 from entity import EntityClass, Entity
 
-def read_savefile(save_name):
+def read_worldfile(save_name):
     '''return a parsed save file'''
     #TODO: add a 'gzip' layer to this
     with open(save_name) as save_file:
@@ -70,8 +70,6 @@ def load_personae(personae_data, type_names, starter=None):
         # e.g. skimmed locations need not be loaded in again
         if obj_id in table:
             continue
-        #TODO: remove this line
-        obj_data["_id"] = obj_id
         # load the object and add it to the table
         table[obj_id] = load_object(obj_data, type_names)
     # now call all the 'post_load' methods
@@ -81,6 +79,7 @@ def load_personae(personae_data, type_names, starter=None):
         # call the post load method
         obj.post_load(obj_data, table, type_names)
     return table
+
 
 def walk_tree(tree, obj_names, cls_names):
     '''recursive function for evaluating the World Tree'''
@@ -129,6 +128,7 @@ def load_tree(tree, obj_names, cls_names):
     '''
     return [obj for obj in walk_tree(tree, obj_names, cls_names)]
 
+
 class World:
     '''class representing an in-game world'''
     def __init__(self, prelude={}, personae={}, tree={}):
@@ -161,7 +161,7 @@ class World:
                 self.entity_classes[cls.__name__] = cls
 
     @staticmethod
-    def from_savefile(save_name):
-        '''returns a World loaded from a save_file'''
-        save_data = read_savefile(save_name)
-        return World(**save_data)
+    def from_file(filename):
+        '''returns a World loaded from a file'''
+        world_data = read_worldfile(filename)
+        return World(**world_data)
