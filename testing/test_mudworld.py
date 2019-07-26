@@ -25,6 +25,7 @@ class TestLoad(unittest.TestCase):
 
     def test_simple(self):
         '''test loading a simple save'''
+        self.maxDiff = 2000
         result = mudimport.read_worldfile('testing/test_saves/simple.yaml')
         expected = {
             "prelude": {
@@ -49,13 +50,9 @@ class TestLoad(unittest.TestCase):
                 "ring": {"_type": "CursedRing"}
             },
             "tree": {
-                "Boring House": {
-                    "Grug": None
-                },
+                "Boring House": "Grug",
                 "Boring House Interior": {
-                    "Abra": {
-                        "ring": None
-                    }
+                    "Abra": "ring"
                 }
             }
         }

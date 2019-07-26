@@ -519,7 +519,8 @@ class Character(control.Monoreceiver, metaclass=CharacterClass):
 
     @classmethod
     def load(cls, data):
-        return cls(data["_id"])
+        name = data["name"] if "name" in data else None
+        return cls(name)
 
     def post_load(self, data, obj_names, type_names):
         pass

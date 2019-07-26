@@ -241,7 +241,7 @@ class Location:
     def load(self, data):
         '''load in a location with data in the following form:
         { '_id' : [name of location], 'description': [description]'''
-        return Location(data["_id"], data["description"])
+        return Location(data["name"], data["description"])
 
     def post_load(self, data, objects, classes):
         if "exits" in data:

@@ -30,8 +30,8 @@ personae:
     _type: CursedRing
 tree:
   Boring House:
-    Grug:
+    Grug
   Boring House Interior:
     Abra:
-      ring:
+      ring
     
