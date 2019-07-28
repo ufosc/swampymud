@@ -5,8 +5,8 @@ import control
 import inventory
 import item
 from command import Command, CommandDict
+import util
 import util.english as eng
-import util.misc as misc
 
 class CharException(Exception):
     pass
@@ -85,7 +85,7 @@ class CharacterClass(type):
         super().__init__(cls, bases, namespace)
 
     def __str__(cls):
-        '''overriding str'''
+        '''overriding str to return classname'''
         return cls.classname
 
 class Character(control.Monoreceiver, metaclass=CharacterClass):
@@ -119,6 +119,17 @@ class Character(control.Monoreceiver, metaclass=CharacterClass):
         self._parser = lambda line: self.parse_command(line)
         #TODO: make this a property
         self.is_alive = True
+
+    @property
+    def symbol(self):
+        '''return a unique symbol for this Character'''
+        # failsafe to ensure that Character always has a symbol
+        # even if someone forgets to set self._symbol in the __init__
+        if hasattr(self, "_symbol"):
+            symbol = "%s#%s" % (type(self).__name__,
+                                util.to_base(id(self), 62))
+            setattr("_symbol", symbol)
+        return self._symbol
 
     def message(self, msg):
         '''send a message to the controller of this character'''
@@ -342,7 +353,7 @@ class Character(control.Monoreceiver, metaclass=CharacterClass):
                 item_list = list(map(str,self.location.all_items()))
                 if item_list:
                     item_msg = ["Items available:"]
-                    item_msg.append(misc.group_and_count(item_list))
+                    item_msg.append(util.group_and_count(item_list))
                     msg.append("\n".join(item_msg))
             self.message("\n".join(msg))
         else:

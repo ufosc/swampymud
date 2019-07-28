@@ -1,6 +1,7 @@
 import inventory as inv
 import item
 from character import Character, CharFilter
+import util
 
 class Exit:
     '''Class representing an Exit
@@ -116,6 +117,8 @@ class Location:
         self._items = inv.Inventory()
         self.name = name
         self.description = description
+        self._symbol = "LOC_%s#%s" % (self.name.replace(" ", "")[:8],
+                                      util.to_base(id(self), 62))
 
     def add_char(self, char):
         self._character_list.append(char)
@@ -236,6 +239,12 @@ class Location:
     def describe(self, character=None):
         '''Describes the location '''
         return self.description
+
+    @property
+    def symbol(self):
+        '''return a guaranteed unique symbol for this location'''
+        return self._symbol
+
 
     @classmethod
     def load(self, data):
