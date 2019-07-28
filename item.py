@@ -101,17 +101,6 @@ class Equippable(metaclass=EquippableClass):
         this will be how the item appears to the player'''
         return self._item_name
 
-    #TODO: remove this naive equality mechanism
-    def __eq__(self, other):
-        '''Test if the other item is equivalent, based on
-        the item_name and the item_type being the same
-        '''
-        try:
-            return (self.name == other.name and
-                    self.item_type == other.item_type)
-        except:
-            return False
-
     def add_cmds(self, char):
         '''add all the commands from this item to the char
         any conflicting commands are simply shadowed'''
@@ -167,17 +156,7 @@ class EquipTarget:
 
     def __str__(self):
         '''Return target's name'''
-        return self.name 
-
-    def __eq__(self, value):
-        '''Return self.target_id == other.target_id
-        (if value is not an EquipTarget, returns False)
-        '''
-        try:
-            return self.target_id == value.target_id
-        except AttributeError:
-            # other item is not an EquipTarget
-            return False
+        return self.name
 
     def __hash__(self):
         '''Return hash based on name and id'''
@@ -228,17 +207,6 @@ class Usable(metaclass=UsableClass):
         ''' Describes the object '''
         return self._description
 
-    #TODO: remove this naive equality mechanism
-    def __eq__(self, other):
-        '''Test if the other item is equivalent, based on
-        the item_name and the item_type being the same
-        '''
-        try:
-            return (self.name == other.name and
-                    self.item_type == other.item_type)
-        except:
-            return False
-
     @classmethod
     def load(cls, data):
         '''default implementation of load that calls init with no arguments'''
@@ -263,17 +231,6 @@ class MiscItem(metaclass=ItemClass):
         '''Return a string representing the object
         this will be how the item appears to the player'''
         return self._item_name
-
-    #TODO: remove this naive equality mechanism
-    def __eq__(self, other):
-        '''Test if the other item is equivalent, based on
-        the item_name and the item_type being the same
-        '''
-        try:
-            return (self.name == other.name and
-                    self.item_type == other.item_type)
-        except:
-            return False
 
     def describe(self):
         '''Describes the item '''
