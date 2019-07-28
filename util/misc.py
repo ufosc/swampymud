@@ -10,8 +10,12 @@ def camel_to_space(name):
         output.append(letter)
     return "".join(output).strip()
 
-def to_base(num, base, alphabet="0123456789abcdefghijklmnopqrstuvwxyz"):
-    '''convert an unsigned integer [num] to base 36'''
+# default base alphabet
+__ALPHABET = "0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"
+def to_base(num, base, alphabet=__ALPHABET):
+    '''convert an unsigned integer [num] to [base]. Provide an optional
+[alphabet] for different encoding style.
+Raises ValueError if base is out of appropriate range [2, len(alphabet)].'''
     # check that the base is in an appropriate range
     try:
         max_base = len(alphabet)

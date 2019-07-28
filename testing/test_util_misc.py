@@ -18,7 +18,7 @@ class TestMisc(unittest.TestCase):
             format="%s: %i", single_format="%s: 0", sep=", "
         )
         self.assertEqual(test3, "apple: 2, banana: 0, cap: 3")
-    
+
     def test_to_base(self):
         '''test that to_base(int, base) works with several bases'''
         # test type checks work
@@ -33,7 +33,7 @@ class TestMisc(unittest.TestCase):
         with self.assertRaises(ValueError):
             util.to_base(42, 1)
         with self.assertRaises(ValueError):
-            util.to_base(42, 37)
+            util.to_base(42, 69)
         test_values = [0, 32, 43243, 999999]
         # base 10 converstion should work just like str() method
         for value in test_values:
