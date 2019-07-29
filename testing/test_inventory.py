@@ -4,7 +4,7 @@ import inventory as inv
 from item import Usable, Equippable, EquipTarget, MiscItem
 
 class SilverCoin(MiscItem):
-    pass
+    '''example of a Miscellaneous Item'''
 
 # some testing classes for items
 class HealthPotion(Usable):
@@ -17,29 +17,31 @@ class HealthPotion(Usable):
     @classmethod
     def load(cls, data):
         cls(data["hp"])
-    
+
     def save(self):
         return {"hp": self.hp}
 
 
 class Sword(Equippable):
     target = EquipTarget("hand")
-    
+
     def __init__(self, dmg, material):
         self.dmg = dmg
         self.material = material
 
     def equip(self, char):
         pass
-    
+
     def unequip(self, char):
         pass
-    
+
     @classmethod
     def load(cls, data):
+        '''load Sword with [data]'''
         cls(data["dmg"], data["material"])
-    
+
     def save(self):
+        '''provide a pythonic representation of this Sword'''
         return {
             "dmg": self.dmg,
             "material": self.material
@@ -68,14 +70,13 @@ class TestItemStack(unittest.TestCase):
         sub1 = {"a": 3, "c": 10}
         sub2 = {"a": 3, "foo": 5}
         sub3 = {"a": 0, "b": 1}
-        empty = {}
         self.assertTrue(inv.matching_subset(main, sub1))
         self.assertFalse(inv.matching_subset(main, sub2))
         self.assertFalse(inv.matching_subset(main, sub3))
         # if the subset is {}, then it should match all cases
         self.assertTrue(inv.matching_subset(main, {}))
         self.assertTrue(inv.matching_subset({}, {}))
-    
+
     def test_repr(self):
         '''test that ItemStacks create a proper representation'''
         self.assertEqual(repr(self.coin_stack),
@@ -87,7 +88,7 @@ class TestItemStack(unittest.TestCase):
         self.assertEqual(repr(self.rare_stack),
                          "ItemStack(Sword, 1, " +
                          "{'dmg': 50, 'material': 'iron'})")
-    
+
     def test_amount(self):
         '''test that the amount property works properly'''
         self.assertEqual(self.coin_stack.amount, 100)
@@ -104,7 +105,7 @@ class TestItemStack(unittest.TestCase):
             self.rare_stack.amount -= 1
         with self.assertRaises(ValueError):
             self.strong_potions.amount = -100
-    
+
     def test_matches(self):
         '''exhaustive test that ItemStack.matches method works properly'''
         # match with no parameters should return true
@@ -118,7 +119,7 @@ class TestItemStack(unittest.TestCase):
         self.assertTrue(self.strong_potions.matches(HealthPotion))
         self.assertTrue(self.weak_potions.matches(HealthPotion))
         self.assertFalse(self.rare_stack.matches(HealthPotion))
-        
+
         self.assertFalse(self.coin_stack.matches(Sword))
         self.assertFalse(self.strong_potions.matches(Sword))
         self.assertFalse(self.weak_potions.matches(Sword))
@@ -199,7 +200,7 @@ class TestItemStack(unittest.TestCase):
         self.assertFalse(self.weak_potions.matches(Sword, exact_data=rare))
         self.assertTrue(self.rare_stack.matches(Sword, exact_data=rare))
         self.assertFalse(self.sword_stack.matches(Sword, exact_data=rare))
-        
+
         self.assertFalse(self.coin_stack.matches(Sword, exact_data=rare,
                                                  material="iron"))
         self.assertFalse(self.strong_potions.matches(Sword, exact_data=rare,
@@ -210,14 +211,14 @@ class TestItemStack(unittest.TestCase):
                                                 material="iron"))
         self.assertFalse(self.sword_stack.matches(Sword, exact_data=rare,
                                                   material="iron"))
-        
+
         self.assertFalse(self.coin_stack.matches(Sword, exact_data=strong,
                                                  material="iron"))
         self.assertFalse(self.strong_potions.matches(Sword, exact_data=strong,
-                                                 material="iron"))
+                                                     material="iron"))
         self.assertFalse(self.weak_potions.matches(Sword, exact_data=strong,
                                                    material="iron"))
         self.assertFalse(self.rare_stack.matches(Sword, exact_data=strong,
-                                                material="iron"))
+                                                 material="iron"))
         self.assertFalse(self.sword_stack.matches(Sword, exact_data=strong,
                                                   material="iron"))
