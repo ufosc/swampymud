@@ -243,3 +243,8 @@ class MiscItem(metaclass=ItemClass):
 
     def post_load(self, data, obj_names, cls_names):
         '''no post-load actions required by default implementation'''
+    
+    def save(self):
+        '''return a pythonic representation of this object
+this base class has no fields, so no data is returned'''
+        return {}

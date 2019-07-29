@@ -36,7 +36,7 @@ method provided by [item_type]
         data = item.save()
         if data == {}:
             data = None
-        self._type = item_type
+        self._type = type(item)
         self._amount = amount
         self._data = data
         self._item = item
@@ -61,11 +61,12 @@ method provided by [item_type]
 
     def __repr__(self):
         if self._data:
-            return "ItemStack(%s, %s, %s)" % (self._type, self._amount, self._data)
-        return "ItemStack(%s, %s)" % (self._type, self._amount)
+            return "ItemStack(%s, %s, %s)" % (self._type.__name__,
+                                              self._amount, self._data)
+        return "ItemStack(%s, %s)" % (self._type.__name__, self._amount)
     
     def matches(self, item_type=None, exact_data=None, **fields):
-        '''check that cls and data agree with both arguments are optional'''
+        '''check that [item_type] and data agree with both arguments are optional'''
         if item_type is not None and self._type is not item_type:
             return False
         if exact_data is not None and exact_data != self._data:
@@ -74,6 +75,9 @@ method provided by [item_type]
             if self._data is not None or exact_data != {}:
                 return False
         # check any remaining fields and return the result
+        # edge case: self._data is None but fields are provided
+        if self._data is None:
+            return fields == {}
         return matching_subset(self._data, fields)
 
 
@@ -83,23 +87,39 @@ class Inventory:
     def __init__(self):
         self._items = defaultdict(list)
     
-    def add_item(self, item):
+    def add_item(self, item, quantity=1):
+        '''add [quantity] of [item] to this inventory
+raises ValueError if quantity < 1'''
+        if not isinstance(quantity, int) or quantity < 1:
+            raise ValueError("Expected integer quantity > 0, received %s"
+                             % quantity)
         name = str(item)
-        item_data = item.save()
-        #TODO: convert empty dict to None to save space
-        # see if a stack of this item exists
         for stack in self._items[name]:
             if stack.matches(type(item), item_data):
-                stack.amount += 1
+                stack.amount += quantity
                 break
         # otherwise, create a new stack
         else:
-            new_stack = ItemStack(type(item), 1, item_data)
+            new_stack = ItemStack(item, quantity)
             self._items[name].append(new_stack)
     
     def remove_item(self, item):
-        '''remove [item] from this dictionary'''
-        
+        '''remove [item] from this dictionary
+raises ValueError if item is not found'''
+        name = str(item)
+        item_type = type(item)
+        item_data = item.save()
+        for stack in self._items[item]:
+            if stack.matches(item_type, item_data):
+                stack.amount -= 1
+                break
+        # if nothing was found, raise an error
+        else:
+            raise ValueError("Item not found in inventory: %r" % item)
+        # if stack is empty, remove it from the list
+        if stack.amount == 0:
+            self._items[item].remove(stack)
+
 
     def find(self, name=None, cls=None, exact_data=None, **other_fields):
         if name:
