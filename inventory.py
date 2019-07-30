@@ -39,7 +39,6 @@ method provided by [item_type]
         self._type = type(item)
         self._amount = amount
         self._data = data
-        self._item = item
 
     @property
     def amount(self):
@@ -79,7 +78,12 @@ method provided by [item_type]
         if self._data is None:
             return fields == {}
         return matching_subset(self._data, fields)
-
+    
+    def copy(self):
+        '''returns a copy of an item stored in the stack'''
+        item = self._type.load(self._data)
+        item.post_load(self._data)
+        return item
 
 # make the common case fast
 # this structure is optimized for name-based lookups
@@ -94,8 +98,9 @@ raises ValueError if quantity < 1'''
             raise ValueError("Expected integer quantity > 0, received %s"
                              % quantity)
         name = str(item)
+        data = item.save()
         for stack in self._items[name]:
-            if stack.matches(type(item), item_data):
+            if stack.matches(type(item), data):
                 stack.amount += quantity
                 break
         # otherwise, create a new stack
@@ -133,7 +138,6 @@ raises ValueError if item is not found'''
             for name, bucket in self._items.items():
                 for stack in bucket:
                     pass
-
 
 class Inventory:
     '''Inventory for containing items, stacking by quantity

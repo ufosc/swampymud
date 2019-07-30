@@ -38,7 +38,7 @@ class Sword(Equippable):
     @classmethod
     def load(cls, data):
         '''load Sword with [data]'''
-        cls(data["dmg"], data["material"])
+        return cls(data["dmg"], data["material"])
 
     def save(self):
         '''provide a pythonic representation of this Sword'''
@@ -222,3 +222,16 @@ class TestItemStack(unittest.TestCase):
                                                  material="iron"))
         self.assertFalse(self.sword_stack.matches(Sword, exact_data=strong,
                                                   material="iron"))
+
+    def test_get_item(self):
+        coin = self.coin_stack.copy()
+        self.assertTrue(isinstance(coin, SilverCoin))
+        self.assertFalse(coin is self.coin)
+
+        sword = self.rare_stack.copy()
+        self.assertTrue(isinstance(sword, Sword))
+        self.assertEqual(sword.material, self.rare_sword.material)
+        self.assertEqual(sword.dmg, self.rare_sword.dmg)
+
+class TestInventory:
+    pass

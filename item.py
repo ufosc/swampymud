@@ -121,7 +121,7 @@ class Equippable(metaclass=EquippableClass):
         '''default implementation of load that calls init with no arguments'''
         return cls()
 
-    def post_load(self, data, obj_names, cls_names):
+    def post_load(self, data):
         '''no post-load actions required by default implementation'''
 
 class EquipTarget:
@@ -212,7 +212,7 @@ class Usable(metaclass=UsableClass):
         '''default implementation of load that calls init with no arguments'''
         return cls()
 
-    def post_load(self, data, obj_names, cls_names):
+    def post_load(self, data):
         '''no post-load actions required by default implementation'''
 
 class MiscItem(metaclass=ItemClass):
@@ -241,7 +241,7 @@ class MiscItem(metaclass=ItemClass):
         '''default implementation of load that calls init with no arguments'''
         return cls()
 
-    def post_load(self, data, obj_names, cls_names):
+    def post_load(self, data):
         '''no post-load actions required by default implementation'''
     
     def save(self):
