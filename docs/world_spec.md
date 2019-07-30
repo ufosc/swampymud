@@ -379,7 +379,7 @@ tree:
     thief_den:
         benedict_the_thief:
             - _type: ^ItemStack
-              item: ^GoldenNugget
+              item_type: ^GoldenNugget
               amount: 6  
 ```
 
@@ -437,7 +437,7 @@ As an example, this `ItemStack` represents 13 health potions with that restore 5
 In YAML:
 ```yaml
 _type: ^ItemStack
-item: ^HealthPotion
+item_type: ^HealthPotion
 amount: 13
 data:
     hp: 5
