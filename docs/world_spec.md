@@ -108,13 +108,13 @@ For instance:
 ```yaml
 personae:
     Red_House:
-        _type: Location
+        _type: ^Location
         description: This is a beautiful brick house.
     WIZARD_MATT:
-        _type: Wizard
+        _type: ^Wizard
         lvl: 5
     vulcans_band:
-        _type: GoldenRing
+        _type: ^GoldenRing
         value: 1500
         shield_type: fire
 ```
@@ -127,12 +127,36 @@ vulcans_band = GoldenRing(value=1500, shield_type="fire")
 ```
 Although this Python representation adequately describes this example, this code will be expanded [below](#implementation-detail-cyclic-references).
 
-#### Symbol Recommendations
-To make the World Tree unambigious, all but two symbols are forbidden. 
-Two strings are reserved words and cannot be used as symbols: `_type` and `_id`.
-This restriction is used to make the World Tree unambigious.
+#### Symbol Restrictions
+In object definitions, symbols are prefixed with one of two [sigils](https://en.wikipedia.org/wiki/Sigil_(computer_programming)).
+- Symbols prefixed with '$' are interpreted as objects
+- Symbols prefixed with '^' are interpreted as types
 
-Although any string except for `_type` and `_id` can be used as an identifier, we recommend that they match the regex `[A-Za-z0-9_]+`. 
+This example demonstrates the two different types of symbols in action.
+```yaml
+dark_alley:
+    # Location type is prefixed with '^'
+    _type: ^Location
+    name: Dark Alley
+    description: A suspicious looking alleyway.
+    exits:
+        - name: secret
+          # destination is a Location object,
+          # so the symbol is prefixed with '$'
+          destination: $Secret Den
+          # defining a filter that selects for 
+          # specific characters and classes
+          visibility:
+            mode: whitelist
+            # we prefix these classes [types] with '^'
+            classes: [^Thief, ^Wizard]
+            # we prefix the object Benedict with '$'
+            exclude_chars: [$Bendict]
+```
+To make the World Tree unambigious, one symbol is forbidden. 
+`_type` is considered a reserved word and cannot be used as a data field or object identitifer.
+
+Although any string except `_type` can be used as an identifier, we recommend that they match the regex `[A-Za-z0-9_]+`. 
 In other words, one or more letters, digits or underscores. Symbols should be short, but expressive (e.g. "WIZ_MATT" or "chest53").
 
 Most importantly, symbols **must** be unique to each game object.
@@ -148,15 +172,15 @@ Consider a "Person" class, a class that allows everyone to have one best friend 
     bill:
         _type: Person
         age: 21
-        bff: george
+        bff: $george
     george:
         _type: Person
         age: 20
-        bff: bill
+        bff: $bill
     fred:
         age: 30
         _type: Person
-        bff: fred
+        bff: $fred
 ```
 
 If we translate this to Python code like the code above, we will get an error:
@@ -167,9 +191,10 @@ fred = Person(bff=fred)     # NameError: 'fred' is not defined
 ```
 
 To address this, we need to refine our model of the personae.
-In actuality, the `personae` is **read twice**.
-First, basic objects are loaded and bound to the appropriate symbol.
-Then, when all symbols have been established, objects are read in a second time.
+Rather, our project does multiple passes through the `personae`.
+First, basic objects are loaded with their class's `.load` method and bound to their symbol.
+Then, we update our intermediate representation to replace all symbols with their appropriate type / object.
+Then, when all symbols have been established, we give the same data to objects, this time by calling their `.post_load` method.
 
 This is a more accurate representation of what happens with the code above.
 ```python
@@ -177,8 +202,8 @@ bill = Person()
 george = Person()
 fred = Person()
 
-# we call a 'postload' method
-# which can use symbols 
+# we call a 'post_load' method
+# that does the equivalent of this
 bill.set_bff(george)
 george.set_bff(bill)
 fred.set_bff(fred)
@@ -208,17 +233,18 @@ First, a symbol (string) is a valid World Tree.
 # a valid, yet simple World Tree
 vulcans_band
 ```
+*(Note that the symbol is not prefixed with '$', unlike in object data blocks.)*
 
 An anonymous object [(discussed below)](#anonymous-objects) is a valid World Tree.
 ```yaml
-_type: IronSword
+_type: ^IronSword
 name: Ole Rusty
 damage: 10
 ```
 
 An list of World Trees is a valid World Tree.
 ```yaml
-- _type: IronSword
+- _type: ^IronSword
   name: Ole Rusty
   damage: 10
 - vulcans_band
@@ -283,24 +309,24 @@ prelude:
     scripts/thief.py: [Thief, GoldenNugget]
 personae:
     thief_den:
-        _type: Location
+        _type: ^Location
         name: Thief's Den
         description: This is where the infamous thief Benedict lives.
     benedict_the_thief:
-        _type: Thief
+        _type: ^Thief
         name: Benedict
     gold_nug1:
-        _type: GoldenNugget
+        _type: ^GoldenNugget
     gold_nug2:
-        _type: GoldenNugget
+        _type: ^GoldenNugget
     gold_nug3:
-        _type: GoldenNugget
+        _type: ^GoldenNugget
     gold_nug4:
-        _type: GoldenNugget
+        _type: ^GoldenNugget
     gold_nug5:
-        _type: GoldenNugget
+        _type: ^GoldenNugget
     gold_nug6:
-        _type: GoldenNugget
+        _type: ^GoldenNugget
 tree:
     thief_den:
         benedict_the_thief:
@@ -319,21 +345,21 @@ prelude:
     scripts/thief.py: [Thief, GoldenNugget]
 personae:
     thief_den:
-        _type: Location
+        _type: ^Location
         name: Thief's Den
         description: This is where the infamous thief Benedict lives.
     benedict_the_thief:
-        _type: Thief
+        _type: ^Thief
         name: Benedict
 tree:
     thief_den:
         benedict_the_thief:
-            - _type: GoldenNugget
-            - _type: GoldenNugget
-            - _type: GoldenNugget
-            - _type: GoldenNugget
-            - _type: GoldenNugget
-            - _type: GoldenNugget
+            - _type: ^GoldenNugget
+            - _type: ^GoldenNugget
+            - _type: ^GoldenNugget
+            - _type: ^GoldenNugget
+            - _type: ^GoldenNugget
+            - _type: ^GoldenNugget
 ```
 Because we used anonymous objects, we have cut out unnecessary `personae` symbols that will never be used during the file.
 If we use an [ItemStack](#built-in-classes), the save will be even more condensed.
@@ -343,17 +369,17 @@ prelude:
     scripts/thief.py: [Thief, GoldenNugget]
 personae:
     thief_den:
-        _type: Location
+        _type: ^Location
         name: Thief's Den
         description: This is where the infamous thief Benedict lives.
     benedict_the_thief:
-        _type: Thief
+        _type: ^Thief
         name: Benedict
 tree:
     thief_den:
         benedict_the_thief:
-            - _type: ItemStack
-              item: GoldenNugget
+            - _type: ^ItemStack
+              item: ^GoldenNugget
               amount: 6  
 ```
 
@@ -410,8 +436,8 @@ For items to stack, their data *must* be the same.
 As an example, this `ItemStack` represents 13 health potions with that restore 5 HP.
 In YAML:
 ```yaml
-_type: ItemStack
-item: HealthPotion
+_type: ^ItemStack
+item: ^HealthPotion
 amount: 13
 data:
     hp: 5
