@@ -34,20 +34,20 @@ class TestLoad(unittest.TestCase):
             },
             "personae": {
                 "Boring House" : {
-                    "_type": "Location",
+                    "_type": "^Location",
                     "name": "Boring House",
                     "description": "A house with four walls and a roof.",
-                    "exits": [{"name": "inside", "destination": "Boring House Interior"}]
+                    "exits": [{"name": "inside", "destination": "$Boring House Interior"}]
                 },
                 "Boring House Interior" : {
-                    "_type": "Location",
+                    "_type": "^Location",
                     "name": "Boring House Interior",
                     "description": "There is a chair. The walls are brown.",
-                    "exits": [{"name": "outside", "destination": "Boring House"}]
+                    "exits": [{"name": "outside", "destination": "$Boring House"}]
                 },
-                "Abra": {"_type": "Wizard", "name": "Abra"},
-                "Grug": {"_type": "Warrior", "name": "Grug"},
-                "ring": {"_type": "CursedRing"}
+                "Abra": {"_type": "^Wizard", "name": "Abra"},
+                "Grug": {"_type": "^Warrior", "name": "Grug"},
+                "ring": {"_type": "^CursedRing"}
             },
             "tree": {
                 "Boring House": "Grug",
@@ -108,20 +108,20 @@ class TestPersonae(unittest.TestCase):
         # up these as necessary
         self.simple = {
             "Boring House" : {
-                "_type": "Location",
+                "_type": "^Location",
                 "name": "Boring House",
                 "description": "A house with four walls and a roof.",
-                "exits": [{"name": "inside", "destination": "Boring House Interior"}]
+                "exits": [{"name": "inside", "destination": "$Boring House Interior"}]
             },
             "Boring House Interior" : {
-                "_type": "Location",
+                "_type": "^Location",
                 "name": "Boring House Interior",
                 "description": "There is a chair. The walls are brown.",
-                "exits": [{"name": "outside", "other_names": ["out"], "destination": "Boring House"}]
+                "exits": [{"name": "outside", "other_names": ["out"], "destination": "$Boring House"}]
             },
-            "Abra": {"_type": "Wizard", "name": "Abra"},
-            "Grug": {"_type": "Warrior", "name": "Grug"},
-            "ring": {"_type": "CursedRing"}
+            "Abra": {"_type": "^Wizard", "name": "Abra"},
+            "Grug": {"_type": "^Warrior", "name": "Grug"},
+            "ring": {"_type": "^CursedRing"}
         }
         self.simple_classes = {
             "Location": Location,
@@ -201,7 +201,7 @@ class TestPersonae(unittest.TestCase):
         # load the personae with the skimmed locations
         symbols = mudimport.load_personae(self.simple, 
                                 self.simple_classes,
-                                starter=locations)
+                                obj_names=locations)
         
         # this should yield the same results, so the results below are copied
         
@@ -246,31 +246,31 @@ class TestPersonae(unittest.TestCase):
         # making a few modifications to the simple scenario
         # adding a secret room
         self.simple["Secret Room"] = {
-            "_type": "Location",
+            "_type": "^Location",
             "name": "Secret Room",
             "description": "Maybe this house isn't boring after all!"
         }
         # adding an exit to the secret room
         exit_data = {
             "name": "bookshelf",
-            "destination": "Secret Room",
+            "destination": "$Secret Room",
             "hide_des": True,
             # adding an access filter that allows only Wizards and MrCool
             "access": {
                 "mode": "whitelist",
-                "classes": ["Wizard"],
-                "include_chars": ["MrCool"],
+                "classes": ["^Wizard"],
+                "include_chars": ["$MrCool"],
             },
             # forbid warriors from seeing the exit
             "visibility": {
                 "mode": "blacklist",
-                "classes": ["Warrior"]
+                "classes": ["^Warrior"]
             }
         }
         self.simple["Boring House Interior"]["exits"].append(exit_data)
         # adding a character named MrCool
         # MrCool is not a Wizard but he can see the exit
-        self.simple["MrCool"] = {"_type": "Warrior"}
+        self.simple["MrCool"] = {"_type": "^Warrior"}
 
         symbols = mudimport.load_personae(self.simple, self.simple_classes)
         secret_exit = None

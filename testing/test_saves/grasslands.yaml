@@ -12,72 +12,72 @@ personae:
   # some locations
   Southern Grasslands:
     name: Southern Grasslands
-    _type: Location
+    _type: ^Location
     description:
       The dry air dries out your skin. The yellowed grass scrapes against your feet. Up ahead, the ground drops away and forms a sheer cliff.
     exits:
     - name: north
-      destination: Southern Grasslands
+      destination: $Southern Grasslands
     - name: cliff
       other_names: ["edge", "ahead", "up ahead"]
-      destination: Cliff's Edge
+      destination: $Cliff's Edge
     - name: hole
-      destination: Thieves' Den
+      destination: $Thieves' Den
       hide_des: true
       visibility:
         mode: whitelist
-        classes: [Thief]
+        classes: [^Thief]
       access:
         mode: blacklist
-        classes: [Warrior]
-        exclude_chars: [Sneck]
+        classes: [^Warrior]
+        exclude_chars: [$Sneck]
   Cliff's Edge:
     name: Cliff's Edge
-    _type: Location
+    _type: ^Location
     description: You feel a strange urge pulling you towards the edge. The sun beats on your back, and the breeze coaxes you closer.
     exits:
     - name: back
       other_names: southern
-      destination: Southern Grasslands
+      destination: $Southern Grasslands
     - name: edge
-      destination: The Pit
+      destination: $The Pit
       hide_des: true
   The Pit:
-    name: The Pit
-    _type: Location
+    name: $The Pit
+    _type: ^Location
     description:
       Miraculously, you find yourself in the bottom of of this shadowy pit. The sheer walls surround you, walls that offer no clear footholds. You feel like the walls are closing in on you.
   Northern Grasslands:
     name: Northern Grasslands
-    _type: Location
+    _type: ^Location
     description: Verdent, tall grass sways gently in the wind. When you listen carefully, it sounds as though Nature is trying to tell you something...
     exits:
       - name: south
-        destination: Southern Grasslands
+        destination: $Southern Grasslands
   Thieves' Den:
-    name: Thieves' Den
-    _type: Location
+    name: $Thieves' Den
+    _type: ^Location
     description: Roots dangle from the low-hanging ceiling above. Far from comfortable, this spot is nonetheless safe.
     exits:
       - name: out
         other_names: [outside]
-        destination: Northern Grasslands
+        destination: $Northern Grasslands
   # some characters
   Grug:
     name: Grug
-    _type: Warrior
+    _type: ^Warrior
   Boduk:
     name: Boduk
-    _type: Warrior
+    _type: ^Warrior
   Elythicus:
     name: Elythicus
-    _type: Wizard
+    _type: ^Wizard
   Sneck:
     name: Sneck
-    _type: Wizard
+    _type: ^Wizard
   Shin:
     name: Shin
-    _type: Thief
+    _type: ^Thief
 tree:
   Southern Grasslands:
     Grug:

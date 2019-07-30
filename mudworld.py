@@ -49,36 +49,70 @@ def skim_for_locations(personae):
     '''return a dict mapping names to locations based on the provided tree'''
     return {
         name : Location(name, data["description"])
-            for name, data in personae.items() if data["_type"] == "Location" 
+            for name, data in personae.items() if data["_type"] == "^Location" 
     }
 
 
 def load_object(obj_data, type_names):
-    # get object's type
-    ObjType = type_names[obj_data["_type"]]
+    '''load a personae-formatted object with [obj_data]'''
+    # get object's type, which should be prefixed with "^"
+    ObjType = type_names[obj_data["_type"][1:]]
     return ObjType.load(obj_data)
 
 
-def load_personae(personae_data, type_names, starter=None):
-    '''return a SymbolTable containing locations, chars, items, and entities
-    loaded from [personae_data]
-    by default, a fresh SymbolTable is created, but to load data into an existing
-    SymbolTable, use the [starter] argument'''
-    table = starter.copy() if starter else {}
+def replace_symbols(data, obj_names, type_names):
+    '''returns a deep copy of [data] where all symbols (names prefixed with $)
+have been recursively replaced according to the dictionary [obj_names]'''
+    # base case 1--data is a string
+    if isinstance(data, str):
+        if data.startswith("$"):
+            # data is an object symbol, return the corresponding object
+            return obj_names[data[1:]]
+        elif data.startswith("^"):
+            # data is a type symbol, return the corresponding type
+            return type_names[data[1:]]
+        # otherwise, return the original string
+        return data
+    # recurive case 1--data is a list
+    elif isinstance(data, list):
+        # run the function on every member of the list
+        return [replace_symbols(x, obj_names, type_names) for x in data]
+    # recurive case 2--data is a dict
+    elif isinstance(data, dict):
+        # run the function on every value in the dictionary
+        return {
+            key: replace_symbols(value, obj_names, type_names)
+            for (key, value) in data.items()
+        }
+    # base case 2--data is some other type and we won't touch it
+    else:
+        return data
+
+
+def load_personae(personae_data, type_names, obj_names=None):
+    '''[personae_data] : personae-formatted object definions
+[type_names]: dict mapping strings (names) to classes
+[obj_names]: optional argument containing starter symbols and objects
+returns a dict mapping symbols to game objects loaded form [personae_data]
+'''
+    # copy any starter symbols if provided
+    obj_names = obj_names.copy() if obj_names else {}
     for obj_id, obj_data in personae_data.items():
         # check if 'name' is already in the symbol table
         # e.g. skimmed locations need not be loaded in again
-        if obj_id in table:
+        if obj_id in obj_names:
             continue
         # load the object and add it to the table
-        table[obj_id] = load_object(obj_data, type_names)
+        obj_names[obj_id] = load_object(obj_data, type_names)
+    # update all the symbols as appropriate
+    updated_data = replace_symbols(personae_data, obj_names, type_names)
     # now call all the 'post_load' methods
-    for obj_id, obj in table.items():
+    for obj_id, obj in obj_names.items():
         # look up the object's data
-        obj_data = personae_data[obj_id]
+        obj_data = updated_data[obj_id]
         # call the post load method
-        obj.post_load(obj_data, table, type_names)
-    return table
+        obj.post_load(obj_data)
+    return obj_names
 
 
 def walk_tree(tree, obj_names, cls_names):
@@ -140,10 +174,10 @@ class World:
         # load in classes from the prelude
         type_names = load_prelude(prelude)
         # prepare a dictionary of type names
-        type_names["Exit"] = Exit
+        type_names["Location"] = Location
         # load the dramatis personae
         symbols = load_personae(personae, type_names,
-                                starter=self.locations)
+                                obj_names=self.locations)
         # load the tree
         load_tree(tree, symbols, type_names)
 

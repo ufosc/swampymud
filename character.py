@@ -533,7 +533,7 @@ class Character(control.Monoreceiver, metaclass=CharacterClass):
         name = data["name"] if "name" in data else None
         return cls(name)
 
-    def post_load(self, data, obj_names, type_names):
+    def post_load(self, data):
         pass
 
 
@@ -691,23 +691,10 @@ class CharFilter:
                   self._exclude_chars))
 
     @staticmethod
-    def from_dict(filter_dict, obj_symbols, cls_symbols):
+    def from_dict(filter_dict):
         '''Convert the dictionary to CharFilter
         filter_dict = dict following the FILTER_SCHEMA dict
         chars = dict of character classes
         this method raises a KeyError if a class is not found
         '''
-        mode = filter_dict["mode"]
-        classes = []
-        if "classes" in filter_dict:
-            for name in filter_dict["classes"]:
-                classes.append(cls_symbols[name])
-        include_chars = []
-        if "include_chars" in filter_dict:
-            for name in filter_dict["include_chars"]:
-                include_chars.append(obj_symbols[name])
-        exclude_chars = []
-        if "exclude_chars" in filter_dict:
-            for name in filter_dict["exclude_chars"]:
-                exclude_chars.append(obj_symbols[name])
-        return CharFilter(mode, classes, include_chars, exclude_chars)
+        return CharFilter(**filter_dict)
