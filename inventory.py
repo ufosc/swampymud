@@ -27,16 +27,15 @@ sub3 is not a "matching subset" since sub3["a"] = 0 but main["a"] == 3
 
 
 class ItemStack:
-    def __init__(self, item, amount):
+    def __init__(self, item_type, amount, data={}):
         '''create a new ItemStack with Item class [item_type], integer [amount]
 Optionally, you can provide [data], where [data] is compatible with the .load
 method provided by [item_type]
 '''
         # for sake of memory, store None instead of empty dict
-        data = item.save()
         if data == {}:
             data = None
-        self._type = type(item)
+        self._type = item_type
         self._amount = amount
         self._data = data
 
@@ -85,6 +84,16 @@ method provided by [item_type]
         item.post_load(self._data)
         return item
 
+    @staticmethod
+    def from_item(item, amount=1):
+        '''create an ItemStack from an existing item'''
+        return ItemStack(type(item), amount, item.save())
+
+    @staticmethod
+    def load(data):
+        '''load an ItemStack from a Pythonic representation'''
+        return ItemStack(**data)
+
 # make the common case fast
 # this structure is optimized for name-based lookups
 class Inventory:
@@ -98,14 +107,15 @@ raises ValueError if quantity < 1'''
             raise ValueError("Expected integer quantity > 0, received %s"
                              % quantity)
         name = str(item)
+        item_type = type(item)
         data = item.save()
         for stack in self._items[name]:
-            if stack.matches(type(item), data):
+            if stack.matches(item_type, data):
                 stack.amount += quantity
                 break
         # otherwise, create a new stack
         else:
-            new_stack = ItemStack(item, quantity)
+            new_stack = ItemStack(item_type, data, quantity)
             self._items[name].append(new_stack)
     
     def remove_item(self, item):
@@ -124,7 +134,6 @@ raises ValueError if item is not found'''
         # if stack is empty, remove it from the list
         if stack.amount == 0:
             self._items[item].remove(stack)
-
 
     def find(self, name=None, cls=None, exact_data=None, **other_fields):
         if name:

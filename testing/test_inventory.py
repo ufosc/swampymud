@@ -58,11 +58,11 @@ class TestItemStack(unittest.TestCase):
         self.iron_sword = Sword(10, "iron")
         self.bronze_sword = Sword(5, "bronze")
         self.rare_sword = Sword(50, "iron")
-        self.coin_stack = inv.ItemStack(self.coin, 100)
-        self.weak_potions = inv.ItemStack(self.weak, 3)
-        self.strong_potions = inv.ItemStack(self.strong, 234)
-        self.rare_stack = inv.ItemStack(self.rare_sword, 1)
-        self.sword_stack = inv.ItemStack(self.iron_sword, 3)
+        self.coin_stack = inv.ItemStack.from_item(self.coin, 100)
+        self.weak_potions = inv.ItemStack.from_item(self.weak, 3)
+        self.strong_potions = inv.ItemStack.from_item(self.strong, 234)
+        self.rare_stack = inv.ItemStack.from_item(self.rare_sword, 1)
+        self.sword_stack = inv.ItemStack.from_item(self.iron_sword, 3)
 
     def test_matching_subset(self):
         '''test the the matching_subset function works correctly'''
