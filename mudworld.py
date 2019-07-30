@@ -60,7 +60,7 @@ def load_object(obj_data, type_names):
     return ObjType.load(obj_data)
 
 
-def replace_symbols(data, obj_names, type_names):
+def update_symbols(data, obj_names, type_names):
     '''returns a deep copy of [data] where all symbols (names prefixed with $)
 have been recursively replaced according to the dictionary [obj_names]'''
     # base case 1--data is a string
@@ -76,12 +76,12 @@ have been recursively replaced according to the dictionary [obj_names]'''
     # recurive case 1--data is a list
     elif isinstance(data, list):
         # run the function on every member of the list
-        return [replace_symbols(x, obj_names, type_names) for x in data]
+        return [update_symbols(x, obj_names, type_names) for x in data]
     # recurive case 2--data is a dict
     elif isinstance(data, dict):
         # run the function on every value in the dictionary
         return {
-            key: replace_symbols(value, obj_names, type_names)
+            key: update_symbols(value, obj_names, type_names)
             for (key, value) in data.items()
         }
     # base case 2--data is some other type and we won't touch it
@@ -105,7 +105,7 @@ returns a dict mapping symbols to game objects loaded form [personae_data]
         # load the object and add it to the table
         obj_names[obj_id] = load_object(obj_data, type_names)
     # update all the symbols as appropriate
-    updated_data = replace_symbols(personae_data, obj_names, type_names)
+    updated_data = update_symbols(personae_data, obj_names, type_names)
     # now call all the 'post_load' methods
     for obj_id, obj in obj_names.items():
         # look up the object's data
@@ -160,8 +160,8 @@ def load_tree(tree, obj_names, cls_names):
     '''wrapper function for walk_tree
     returns a list of objects at the top of the hierarchy
     '''
+    # TODO: check that symbols are used only once in each tree
     return [obj for obj in walk_tree(tree, obj_names, cls_names)]
-
 
 class World:
     '''class representing an in-game world'''
@@ -193,6 +193,18 @@ class World:
                 self.item_classes[cls.__name__] = cls
             elif isinstance(cls, EntityClass):
                 self.entity_classes[cls.__name__] = cls
+    
+    def save(self):
+        '''returns a pythonic representation of this world'''
+        # build the world tree, personae, and symbol counts simultaneously
+        # simply copy the prelude
+
+        # optimizing the tree
+        # if all the members of a list are dicts, we can replace the list with a combined dict
+        # if a "leaf" of the tree is a symbol used only once, we can replace it with an anonymous object
+
+    def to_file(self, filename):
+        '''write this world's save data to [filename]'''
 
     @staticmethod
     def from_file(filename):
