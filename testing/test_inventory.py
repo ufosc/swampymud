@@ -328,7 +328,64 @@ class TestInventory(unittest.TestCase):
         coin_inv.add_item(HealthPotion(3), 2)
         coin_inv.add_item(HealthPotion(100))
         self.assertEqual(coin_inv, self.potion_seller)
+        # check that the 'Health Potion' bucket is correct
+        bucket = coin_inv._items["Health Potion"]
+        self.assertEqual(len(bucket), 4)
+        self.assertTrue(inv.ItemStack(HealthPotion, 7, {"hp":3}) in bucket)
+        self.assertTrue(inv.ItemStack(HealthPotion, 5, {"hp":10}) in bucket)
+        self.assertTrue(inv.ItemStack(HealthPotion, 3, {"hp":50}) in bucket)
+        self.assertTrue(inv.ItemStack(HealthPotion, 2, {"hp":100}) in bucket)
         #TODO: add some tests with the sword
+
+    def test_remove_item(self):
+        '''test that removing an item works'''
+        with self.assertRaises(KeyError):
+            self.empty.remove_item(SilverCoin())
+        self.coins.remove_item(SilverCoin())
+        self.assertEqual(self.coins, inv.Inventory((SilverCoin(), 9)))
+        self.coins.remove_item(SilverCoin(), 3)
+        self.assertEqual(self.coins, inv.Inventory((SilverCoin(), 6)))
+        # Removing more coins than we have should cause a value error
+        with self.assertRaises(ValueError):
+            self.coins.remove_item(SilverCoin(), 10)
+        # Stack should be removed once amount = 0
+        self.coins.remove_item(SilverCoin(), 6)
+        self.assertEqual(self.coins, self.empty)
+        # testing with a more diverse inventory
+        # items that almost match should not be removed
+        with self.assertRaises(KeyError):
+            self.rich.remove_item(Sword(15, "platinum"))
+        # this should work correctly
+        self.rich.remove_item(Sword(15, "steel"))
+        self.assertEqual(self.rich, inv.Inventory(
+            (HealthPotion(10), 5),
+            (SilverCoin(), 15),
+            (Sword(15, "steel"), 1)
+        ))
+        self.rich.remove_item(Sword(15, "steel"))
+        self.assertEqual(self.rich, inv.Inventory(
+            (HealthPotion(10), 5),
+            (SilverCoin(), 15),
+        ))
+        # manually check that bucket has been removed
+        self.assertEqual(len(self.rich._items), 2)
+        with self.assertRaises(KeyError):
+            self.rich.remove_item(HealthPotion(3))
+        # we can remove 4 potions...
+        self.rich.remove_item(HealthPotion(10), 4)
+        # ...but we can't remove 4 more
+        with self.assertRaises(ValueError):
+            self.rich.remove_item(HealthPotion(10), 4)
+        # check the state of the inventory
+        self.assertEqual(self.rich, inv.Inventory(
+            (SilverCoin(), 15),
+            (HealthPotion(10), 1),
+        ))
+        # now let's try to remove everything else
+        self.rich.remove_item(HealthPotion(10))
+        self.rich.remove_item(SilverCoin(), 15)
+        self.assertEqual(self.rich, self.empty)
+        self.assertEqual(self.rich._items, {})
 
     def test_iter(self):
         '''test that __iter__ works properly'''
@@ -340,10 +397,6 @@ class TestInventory(unittest.TestCase):
         inv_items = list(self.rich)
         cloned_inv = inv.Inventory(*inv_items)
         self.assertEqual(self.rich, cloned_inv)
-
-    def test_remove_item(self):
-        '''test that removing an item works'''
-        # TODO
 
     def test_find(self):
         '''test that find method can be used to find items'''

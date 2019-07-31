@@ -135,22 +135,31 @@ raises ValueError if quantity < 1'''
             new_stack = ItemStack(item_type, amount, data)
             self._items[name].append(new_stack)
 
-    def remove_item(self, item):
+    def remove_item(self, item, amount=1):
         '''remove [item] from this dictionary
 raises ValueError if item is not found'''
         name = str(item)
         item_type = type(item)
         item_data = item.save()
-        for stack in self._items[item]:
+        # raise an error if the key is not found
+        # this is to avoid creating an empty list at that key
+        if name not in self._items:
+            raise KeyError("Item not found in inventory: %r" % item)
+        # check all the stacks in the bucket
+        for index, stack in enumerate(self._items[name]):
             if stack.matches(item_type, item_data):
-                stack.amount -= 1
+                # item found, remove [amount] of items
+                stack.amount -= amount
+                # if the stack is empty, remove it from the bucket
+                if stack.amount == 0:
+                    del self._items[name][index]
                 break
         # if nothing was found, raise an error
         else:
-            raise ValueError("Item not found in inventory: %r" % item)
-        # if stack is empty, remove it from the list
-        if stack.amount == 0:
-            self._items[item].remove(stack)
+            raise KeyError("Item not found in inventory: %r" % item)
+        # if the bucket is empty, remove it from the dictionary
+        if not self._items[name]:
+            del self._items[name]
 
     def find(self, name=None, cls=None, exact_data=None, **other_fields):
         if name:
@@ -158,15 +167,16 @@ raises ValueError if item is not found'''
             if name in self._items:
                 for stack in self._items[name]:
                     if stack.matches(cls, exact_data, other_fields):
-                        yield stack.copy()
+                        yield stack.copy(), stack.amount
         else:
             # if not, search through every bucket
             for name, bucket in self._items.items():
                 for stack in bucket:
                     if stack.matches(cls, exact_data, other_fields):
-                        yield stack.copy()
+                        yield stack.copy(), stack.amount
 
     def __iter__(self):
+        '''iterate over each Item, Amount pair in the list'''
         for bucket in self._items.values():
             for stack in bucket:
                 yield stack.copy(), stack.amount
