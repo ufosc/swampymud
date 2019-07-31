@@ -80,12 +80,13 @@ personae:
     _type: ^Thief
 tree:
   Southern Grasslands:
-    Grug:
+    Grug
   The Pit:
-    Boduk:
+    Boduk
   Northern Grasslands:
-    Shin:
-    Elythicus:
+    - Shin
+    - Elythicus
+    - Sneck
   Thieves' Den:
 
 

@@ -148,6 +148,7 @@ def walk_tree(tree, obj_names, cls_names):
                 # get the owner from the sybmol
                 owner = obj_names[symbol]
                 # load in each child in this subtree
+                print(list(load_tree(subtree, obj_names, cls_names)))
                 for child_obj in load_tree(subtree, obj_names, cls_names):
                     if isinstance(child_obj, Character):
                         owner.add_char(child_obj)
@@ -161,7 +162,8 @@ def walk_tree(tree, obj_names, cls_names):
     # recursive case 2--tree is a list of subtrees
     elif isinstance(tree, list):
         for subtree in tree:
-            yield load_tree(subtree, obj_names, cls_names)
+            for child in load_tree(subtree, obj_names, cls_names):
+                yield child
     elif tree is None:
         pass
     else:
