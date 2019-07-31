@@ -5,6 +5,8 @@ from item import Usable, Equippable, EquipTarget, MiscItem
 
 class SilverCoin(MiscItem):
     '''example of a Miscellaneous Item'''
+    def __repr__(self):
+        return "SilverCoin()"
 
 # some testing classes for items
 class HealthPotion(Usable):
@@ -16,10 +18,13 @@ class HealthPotion(Usable):
 
     @classmethod
     def load(cls, data):
-        cls(data["hp"])
+        return cls(data["hp"])
 
     def save(self):
         return {"hp": self.hp}
+
+    def __repr__(self):
+        return "HealthPotion(%s)" % self.hp
 
 
 class Sword(Equippable):
@@ -46,6 +51,9 @@ class Sword(Equippable):
             "dmg": self.dmg,
             "material": self.material
         }
+
+    def __repr__(self):
+        return "Sword(%s, %r)" % (self.dmg, self.material)
 
 
 class TestItemStack(unittest.TestCase):
@@ -248,6 +256,95 @@ class TestItemStack(unittest.TestCase):
         self.assertEqual(sword.material, self.rare_sword.material)
         self.assertEqual(sword.dmg, self.rare_sword.dmg)
 
-class TestInventory:
+class TestInventory(unittest.TestCase):
     '''test case for the inventory class'''
 
+    def setUp(self):
+        self.empty = inv.Inventory()
+        self.coins = inv.Inventory(
+            (SilverCoin(), 10)
+        )
+        self.rich = inv.Inventory(
+            (SilverCoin(), 15),
+            (HealthPotion(10), 5),
+            (Sword(15, "steel"), 2)
+        )
+        self.potion_seller = inv.Inventory(
+            (SilverCoin(), 20),
+            (HealthPotion(hp=10), 5),
+            (HealthPotion(hp=3), 7),
+            (HealthPotion(hp=100), 2),
+            (HealthPotion(hp=50), 3)
+        )
+
+    def test_repr(self):
+        '''testing the __repr__ method'''
+        self.assertEqual(repr(self.empty), 'Inventory()')
+        self.assertEqual(repr(self.coins), 'Inventory((SilverCoin(), 10))')
+        expected = "Inventory((SilverCoin(), 15), (HealthPotion(10), 5), (Sword(15, 'steel'), 2))"
+        self.assertEqual(repr(self.rich), expected)
+
+    def test_eq(self):
+        '''testing the __eq__ method (mostly used for testing)'''
+        # test equality with an empty list
+        self.assertTrue(self.empty is not inv.Inventory())
+        self.assertTrue(self.empty == inv.Inventory())
+        self.assertTrue(inv.Inventory() == self.empty)
+        # test with object of wrong type
+        self.assertTrue(self.empty != "oops wrong type")
+        # test with filled inventories
+        other = inv.Inventory((SilverCoin(), 10))
+        self.assertTrue(other is not self.coins)
+        self.assertTrue(self.coins == other)
+        rich = inv.Inventory(
+            (HealthPotion(10), 5),
+            (SilverCoin(), 15),
+            (Sword(15, "steel"), 2)
+        )
+        self.assertTrue(rich is not self.rich)
+        self.assertTrue(rich == self.rich)
+        self.assertTrue(self.rich != self.coins)
+
+    def test_add_item(self):
+        '''test that the add_item property works correctly'''
+        coin_inv = inv.Inventory()
+        self.assertEqual(coin_inv, self.empty)
+        coin_inv.add_item(SilverCoin(), 7)
+        self.assertTrue(coin_inv != self.coins)
+        self.assertEqual(coin_inv, inv.Inventory((SilverCoin(), 7)))
+        coin_inv.add_item(SilverCoin(), 3)
+        self.assertEqual(coin_inv, self.coins)
+        coin_inv.add_item(HealthPotion(3), 1)
+        coin_inv.add_item(SilverCoin(), 10)
+        self.assertTrue(coin_inv != self.coins)
+        # test that items are always put into correct buckets
+        # regardless of time of insert
+        coin_inv.add_item(HealthPotion(50), 3)
+        coin_inv.add_item(HealthPotion(10), 4)
+        coin_inv.add_item(HealthPotion(100))
+        coin_inv.add_item(HealthPotion(3), 2)
+        coin_inv.add_item(HealthPotion(10), 1)
+        coin_inv.add_item(HealthPotion(3), 2)
+        coin_inv.add_item(HealthPotion(3), 2)
+        coin_inv.add_item(HealthPotion(100))
+        self.assertEqual(coin_inv, self.potion_seller)
+        #TODO: add some tests with the sword
+
+    def test_iter(self):
+        '''test that __iter__ works properly'''
+        self.assertEqual(len(list(self.empty)), 0)
+        coin_list = list(self.coins)
+        self.assertEqual(len(coin_list), 1)
+        self.assertEqual(coin_list[0][1], 10)
+        self.assertTrue(isinstance(coin_list[0][0], SilverCoin))
+        inv_items = list(self.rich)
+        cloned_inv = inv.Inventory(*inv_items)
+        self.assertEqual(self.rich, cloned_inv)
+
+    def test_remove_item(self):
+        '''test that removing an item works'''
+        # TODO
+
+    def test_find(self):
+        '''test that find method can be used to find items'''
+        # TODO

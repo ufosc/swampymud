@@ -111,6 +111,8 @@ method provided by [item_type]
 class Inventory:
     def __init__(self, *items):
         self._items = defaultdict(list)
+        for (item, amt) in items:
+            self.add_item(item, amt)
 
     def __repr__(self):
         return "Inventory(%s)" % (", ".join(map(repr, self)))
