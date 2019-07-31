@@ -85,7 +85,7 @@ class Exit:
             return "%s -> %s" % (self._name, self._destination.name)
         else:
             return self._name
-    
+
     @staticmethod
     def from_dict(ex_dict):
         '''creates an Exit from a pythonic representation'''
@@ -264,7 +264,7 @@ class Location:
         if "exits" in data:
             for exit_data in data["exits"]:
                 self.add_exit(Exit.from_dict(exit_data))
-    
+
     def save(self):
         return {
             "_type": Location,
@@ -273,7 +273,7 @@ class Location:
             "exits":
                 [ex.to_dict() for ex in self.exits]
         }
-    
+
     def children(self):
         for char in self.characters:
             yield char

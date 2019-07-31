@@ -89,6 +89,21 @@ class TestItemStack(unittest.TestCase):
                          "ItemStack(Sword, 1, " +
                          "{'dmg': 50, 'material': 'iron'})")
 
+    def test_eq(self):
+        '''test that ItemStack equality works properly'''
+        self.assertTrue(self.coin_stack != "meme")
+        self.assertTrue(self.coin_stack == self.coin_stack)
+        other_coins = inv.ItemStack.from_item(self.coin, 100)
+        self.assertTrue(self.coin_stack is not other_coins)
+        self.assertTrue(self.coin_stack == other_coins)
+        other_potions = inv.ItemStack.from_item(self.weak, 3)
+        self.assertTrue(self.weak_potions == other_potions)
+        self.assertTrue(self.strong_potions != other_potions)
+        other_potions.amount = 234
+        self.assertTrue(self.weak_potions != other_potions)
+        self.assertTrue(self.strong_potions != other_potions)
+
+
     def test_amount(self):
         '''test that the amount property works properly'''
         self.assertEqual(self.coin_stack.amount, 100)
@@ -234,4 +249,5 @@ class TestItemStack(unittest.TestCase):
         self.assertEqual(sword.dmg, self.rare_sword.dmg)
 
 class TestInventory:
-    pass
+    '''test case for the inventory class'''
+

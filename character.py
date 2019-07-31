@@ -190,7 +190,7 @@ class Character(control.Monoreceiver, metaclass=CharacterClass):
             return self.info()
         else:
             return self._name
-    
+
     def describe(self):
         ''' Describes the character '''
         return self.info()
@@ -535,11 +535,11 @@ class Character(control.Monoreceiver, metaclass=CharacterClass):
 
     def post_load(self, data):
         pass
-    
+
     def save(self):
         '''return a pythonic representation of this Character'''
         return {"_type": type(self), "name": self._name}
-    
+
     def children(self):
         '''pass'''
         return []
@@ -695,7 +695,7 @@ class CharFilter:
 
     def __repr__(self):
         '''overriding repr()'''
-        return ("CharFilter(%r, %r, %r, %r)" 
+        return ("CharFilter(%r, %r, %r, %r)"
                 % (self._mode.value, self._classes, self._include_chars,
                    self._exclude_chars))
 
@@ -706,7 +706,7 @@ class CharFilter:
 
     def to_dict(self):
         '''returns a pythonic representation of this CharFilter'''
-        data = {"mode" : self._mode.value }
+        data = {"mode" : self._mode.value}
         if self._classes:
             data["classes"] = list(self._classes)
         if self._include_chars:
