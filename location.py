@@ -88,6 +88,7 @@ class Exit:
     
     @staticmethod
     def from_dict(ex_dict):
+        '''creates an Exit from a pythonic representation'''
         # convert access filter data into a CharFilter
         if "access" in ex_dict:
             ex_dict["access"] = CharFilter.from_dict(ex_dict["access"])
@@ -95,6 +96,19 @@ class Exit:
         if "visibility" in ex_dict:
             ex_dict["visibility"] = CharFilter.from_dict(ex_dict["visibility"])
         return Exit(**ex_dict)
+
+    def to_dict(self):
+        '''returns a pythonic representation of this Exit'''
+        other_names = list(self._nameset)
+        other_names.remove(self._name)
+        data = {"name" : self._name, "other_names": other_names}
+        data["destination"] = self._destination
+        if self.hide_des:
+            data["hide_des"] = True
+        #TODO: elide CharFilter fields if they are empty blacklists
+        data["access"] = self.access.to_dict()
+        data["visibility"] = self.access.to_dict()
+        return data
 
 
 class Location:
@@ -111,7 +125,7 @@ class Location:
         self._items = inv.Inventory()
         self.name = name
         self.description = description
-        self._symbol = "LOC_%s#%s" % (self.name.replace(" ", "")[:8],
+        self._symbol = "%s#%s" % (self.name.replace(" ", ""),
                                       util.to_base(id(self), 62))
 
     def add_char(self, char):
@@ -243,10 +257,26 @@ class Location:
     @classmethod
     def load(self, data):
         '''load in a location with data in the following form:
-        { '_id' : [name of location], 'description': [description]'''
+{ 'name' : [name of location], 'description': [description]'''
         return Location(data["name"], data["description"])
 
     def post_load(self, data):
         if "exits" in data:
             for exit_data in data["exits"]:
                 self.add_exit(Exit.from_dict(exit_data))
+    
+    def save(self):
+        return {
+            "_type": Location,
+            "name": self.name,
+            "description": self.description,
+            "exits":
+                [ex.to_dict() for ex in self.exits]
+        }
+    
+    def children(self):
+        for char in self.characters:
+            yield char
+        for entity in self.entities:
+            yield entity
+        #TODO: add items

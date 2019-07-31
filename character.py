@@ -125,10 +125,10 @@ class Character(control.Monoreceiver, metaclass=CharacterClass):
         '''return a unique symbol for this Character'''
         # failsafe to ensure that Character always has a symbol
         # even if someone forgets to set self._symbol in the __init__
-        if hasattr(self, "_symbol"):
+        if not hasattr(self, "_symbol"):
             symbol = "%s#%s" % (type(self).__name__,
                                 util.to_base(id(self), 62))
-            setattr("_symbol", symbol)
+            setattr(self, "_symbol", symbol)
         return self._symbol
 
     def message(self, msg):
@@ -535,6 +535,15 @@ class Character(control.Monoreceiver, metaclass=CharacterClass):
 
     def post_load(self, data):
         pass
+    
+    def save(self):
+        '''return a pythonic representation of this Character'''
+        return {"_type": type(self), "name": self._name}
+    
+    def children(self):
+        '''pass'''
+        return []
+        #TODO: handle items here
 
 
 #TODO: clean this up, provide documentation
@@ -688,13 +697,20 @@ class CharFilter:
         '''overriding repr()'''
         return ("CharFilter(%r, %r, %r, %r)" 
                 % (self._mode.value, self._classes, self._include_chars,
-                  self._exclude_chars))
+                   self._exclude_chars))
 
     @staticmethod
     def from_dict(filter_dict):
-        '''Convert the dictionary to CharFilter
-        filter_dict = dict following the FILTER_SCHEMA dict
-        chars = dict of character classes
-        this method raises a KeyError if a class is not found
-        '''
+        '''returns a CharFilter pythonic representation [filter_dict]'''
         return CharFilter(**filter_dict)
+
+    def to_dict(self):
+        '''returns a pythonic representation of this CharFilter'''
+        data = {"mode" : self._mode.value }
+        if self._classes:
+            data["classes"] = list(self._classes)
+        if self._include_chars:
+            data["include_chars"] = list(self._include_chars)
+        if self._exclude_chars:
+            data["exclude_chars"] = list(self._exclude_chars)
+        return data

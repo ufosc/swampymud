@@ -1,11 +1,15 @@
 '''This module provides methods for serializing / deserializing game data,
 and also defines the World class'''
 import importlib
+from collections import defaultdict
 import yaml
-from location import Location, Exit
+from location import Location
 from character import CharacterClass, Character
 from item import ItemClass, Item
 from entity import EntityClass, Entity
+
+_GAME_OBJS = [Character, Item, Entity, Location]
+_GAME_CLASSES = [CharacterClass, ItemClass, EntityClass]
 
 def read_worldfile(save_name):
     '''return a parsed save file'''
@@ -22,10 +26,18 @@ def read_worldfile(save_name):
                             % (section, save_name))
     return save_data
 
-VALID_CLASSES = [CharacterClass, ItemClass, EntityClass]
+
+def write_worldfile(save_name, save_data):
+    '''write [save_data] to file [save_name] in YAML format'''
+    #TODO add a gzip layer to this
+    save_data = yaml.dump(save_data, default_flow_style=False)
+    with open(save_name, 'w') as save_file:
+        save_file.write(save_data)
+
+
 
 def load_prelude(prelude_data):
-    # TODO use context manager for locations
+    #TODO use context manager for locations
     cls_dict = {}
     for fname, classes in prelude_data.items():
         # convert the pathname to a module name
@@ -36,20 +48,20 @@ def load_prelude(prelude_data):
         for cls_name in classes:
             cls = getattr(mod, cls_name)
             # check that class is a valid class to import
-            if any(map(lambda x: isinstance(cls, x), VALID_CLASSES)):
+            if any(map(lambda x: isinstance(cls, x), _GAME_CLASSES)):
                 cls_dict[cls_name] = cls
             # if not, raise an exception
             else:
                 #TODO: use a more specific exception
                 raise Exception("Class is wrong type")
     return cls_dict
-    
+
 
 def skim_for_locations(personae):
     '''return a dict mapping names to locations based on the provided tree'''
     return {
         name : Location(name, data["description"])
-            for name, data in personae.items() if data["_type"] == "^Location" 
+        for name, data in personae.items() if data["_type"] == "^Location"
     }
 
 
@@ -163,9 +175,76 @@ def load_tree(tree, obj_names, cls_names):
     # TODO: check that symbols are used only once in each tree
     return [obj for obj in walk_tree(tree, obj_names, cls_names)]
 
+
+def symbol_replace(data, sym_counts):
+    '''returns a copy of [data], but with all classes
+and game objects replaced with the proper symbols
+the frequency of each symbol is recorded in [sym_counts]'''
+    # check if object is a game object, replace with obj symbol
+    if any(map(lambda x: isinstance(data, x), _GAME_OBJS)):
+        sym = "$%s" % data.symbol
+        sym_counts[sym] += 1
+        return sym
+    # if the object is a game class, replace with class symbol
+    elif any(map(lambda x: isinstance(data, x), _GAME_CLASSES)) or data in _GAME_OBJS:
+        return "^%s" % data.__name__
+    # recurive case 1--data is a list
+    elif isinstance(data, list):
+        # run the function on every member of the list
+        return [symbol_replace(x, sym_counts) for x in data]
+    # recurive case 2--data is a dict
+    elif isinstance(data, dict):
+        # run the function on every key and value in the dictioanry
+        return {
+            symbol_replace(key, sym_counts): symbol_replace(value, sym_counts)
+            for (key, value) in data.items()
+        }
+    # base case 2--data is some other type and we won't touch it
+    else:
+        return data
+
+
+def build_tree(obj, personae_counts, tree_counts):
+    '''returns a tuple containing subtree, personae_chunk
+subtree: a subtree of the World Tree
+personae_data: a chunk of personae_data
+'''
+    personae = {}
+    subtrees = []
+    # recursive step
+    for child in obj.children():
+        # replace the child's data symbols and add to personae
+        child_data = symbol_replace(child.save(), personae_counts)
+        personae[child.symbol] = child_data
+
+        personae_chunk, subtree = build_tree(child, personae_counts, tree_counts)
+        # update personae with the personae_chunk
+        # this is valid since each symbol should be unique
+        personae.update(personae_chunk)
+        subtrees.append(subtree)
+    # run through a series of cases to build the tree
+    # refer to the World Specification document for discussion of each case
+    if len(subtrees) == 0:
+        # if there are no subtrees, then we can use obj's symbol as tree
+        tree = obj.symbol
+    elif len(subtrees) == 1:
+        tree = { obj.symbol : subtrees[0] }
+    elif all(map(lambda x: isinstance(x, dict), subtrees)):
+        # list is unecessary, we can join the dicts together
+        # this is valid because symbols can be used only once
+        combined_dict = {}
+        for subdict in subtrees:
+            combined_dict.update(subdict)
+        tree = {obj.symbol: combined_dict}
+    else:
+        # worst case, simply map the list
+        tree = {obj.symbol: subtrees}
+    return personae, tree
+
+
 class World:
     '''class representing an in-game world'''
-    def __init__(self, prelude={}, personae={}, tree={}):
+    def __init__(self, prelude, personae, tree):
         '''initialize an empty world'''
         # skim the personae, creating all locations
         self.locations = skim_for_locations(personae)
@@ -185,7 +264,7 @@ class World:
         self.char_classes = {}
         self.item_classes = {}
         self.entity_classes = {}
-
+        self.symbol = "world"
         for cls in type_names.values():
             if isinstance(cls, CharacterClass):
                 self.char_classes[cls.__name__] = cls
@@ -193,18 +272,26 @@ class World:
                 self.item_classes[cls.__name__] = cls
             elif isinstance(cls, EntityClass):
                 self.entity_classes[cls.__name__] = cls
-    
+
+    def children(self):
+        '''iterate over the locations in this world'''
+        for location in self.locations.values():
+            yield location
+
     def save(self):
         '''returns a pythonic representation of this world'''
-        # build the world tree, personae, and symbol counts simultaneously
-        # simply copy the prelude
-
-        # optimizing the tree
-        # if all the members of a list are dicts, we can replace the list with a combined dict
-        # if a "leaf" of the tree is a symbol used only once, we can replace it with an anonymous object
+        personae_counts = defaultdict(int)
+        tree_counts = defaultdict(int)
+        personae, tree = build_tree(self, personae_counts, tree_counts)
+        return {
+            "prelude": self.prelude,
+            "personae": personae,
+            "tree": tree["world"]
+        }
 
     def to_file(self, filename):
         '''write this world's save data to [filename]'''
+        write_worldfile(filename, self.save())
 
     @staticmethod
     def from_file(filename):
