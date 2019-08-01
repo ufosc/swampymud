@@ -166,13 +166,13 @@ raises ValueError if item is not found'''
             # if name provided, get the corresponding bucket
             if name in self._items:
                 for stack in self._items[name]:
-                    if stack.matches(cls, exact_data, other_fields):
+                    if stack.matches(cls, exact_data, **other_fields):
                         yield stack.copy(), stack.amount
         else:
             # if not, search through every bucket
             for name, bucket in self._items.items():
                 for stack in bucket:
-                    if stack.matches(cls, exact_data, other_fields):
+                    if stack.matches(cls, exact_data, **other_fields):
                         yield stack.copy(), stack.amount
 
     def __iter__(self):

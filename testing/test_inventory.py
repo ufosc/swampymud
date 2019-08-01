@@ -26,6 +26,22 @@ class HealthPotion(Usable):
     def __repr__(self):
         return "HealthPotion(%s)" % self.hp
 
+class BadPoison(Usable):
+    def __init__(self, hp):
+        self.hp = hp
+
+    def use(self, char):
+        pass
+
+    @classmethod
+    def load(cls, data):
+        return cls(data["hp"])
+
+    def save(self):
+        return {"hp": self.hp}
+
+    def __repr__(self):
+        return "BadPoison(%s)" % self.hp
 
 class Sword(Equippable):
     target = EquipTarget("hand")
@@ -400,4 +416,46 @@ class TestInventory(unittest.TestCase):
 
     def test_find(self):
         '''test that find method can be used to find items'''
-        # TODO
+        # no results for an item names Silver Coin in self.empty
+        results = list(self.empty.find(name="Silver Coin"))
+        self.assertEqual(results, [])
+        # really, nothing should work for self.empty
+        results = list(self.empty.find())
+        self.assertEqual(results, [])
+
+        # testing find for self.coins
+        results = list(self.coins.find())
+        self.assertEqual(len(results), 1)
+        # checking that the item yielded is indeed a SilverCoin
+        self.assertTrue(isinstance(results[0][0], SilverCoin))
+        # checking the quantity
+        self.assertEqual(results[0][1], 10)
+        
+        # test results should be the same if a name is provided
+        results = list(self.coins.find(name="Silver Coin"))
+        self.assertTrue(isinstance(results[0][0], SilverCoin))
+        self.assertEqual(results[0][1], 10)
+
+        # ...or if exact data is provided
+        results = list(self.coins.find(exact_data={}))
+        self.assertTrue(isinstance(results[0][0], SilverCoin))
+        self.assertEqual(results[0][1], 10)
+
+        # ...or both
+        results = list(self.coins.find(name="Silver Coin", exact_data={}))
+        self.assertTrue(isinstance(results[0][0], SilverCoin))
+        self.assertEqual(results[0][1], 10)
+
+
+        # but if we provide non-matching data, we expect nothing
+        results = list(self.coins.find(exact_data={"value": 10}))
+        self.assertEqual(results, [])
+
+        # or if we provide another field
+        results = list(self.coins.find(value=10))
+        self.assertEqual(results, [])
+
+        #testing find for potion_seller
+        # calling find with no arguments should yield everything
+        results = list(self.potion_seller.find())
+        # TODO finish testing
