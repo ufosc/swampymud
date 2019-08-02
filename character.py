@@ -1,4 +1,4 @@
-'''Module defining the CharacterClass metaclass, and Character base class'''
+"""Module defining the CharacterClass metaclass, and Character base class"""
 import enum
 import util
 import control
@@ -13,7 +13,7 @@ class CharException(Exception):
 
 
 class AmbiguityError(CharException):
-    '''Error representing some sort of ambiguity
+    """Error representing some sort of ambiguity
     This error should be thrown if a user's input
     could refer to multiple in-game options
     For instance:
@@ -24,9 +24,9 @@ class AmbiguityError(CharException):
         If the user types "Epic Sword" we cannot assume which one
         should be used. Hence, we should use raise an error of
         this class.
-    '''
+    """
     def __init__(self, indices, query, options):
-        '''
+        """
         indices = the indices of the offending words
                 [May be a slice or int]
         phrase = the offending phrase
@@ -36,7 +36,7 @@ class AmbiguityError(CharException):
         indices = slice(1,2)
         query = "epic sword"
         options = [list of results from inventory.get_item()]
-        '''
+        """
         super().__init__()
         self.indices = indices
         self.options = options
@@ -44,12 +44,12 @@ class AmbiguityError(CharException):
 
 
 class CharacterClass(type):
-    '''The metaclass for all Character class
+    """The metaclass for all Character class
     key features:
         name: how the class appears to the players
         _unique_cmds: a list of commands not found in base classes
         command_class: a list of commands not found in base classes
-    '''
+    """
     def __init__(self, cls, bases, namespace):
         # creating the proper name, if one is not provided
         if "classname" not in namespace:
@@ -85,11 +85,11 @@ class CharacterClass(type):
         super().__init__(cls, bases, namespace)
 
     def __str__(cls):
-        '''overriding str to return classname'''
+        """overriding str to return classname"""
         return cls.classname
 
 class Character(control.Monoreceiver, metaclass=CharacterClass):
-    '''Base class for all other CharacterClasses'''
+    """Base class for all other CharacterClasses"""
 
     # Name for this class
     classname = "Default Character"
@@ -121,7 +121,7 @@ class Character(control.Monoreceiver, metaclass=CharacterClass):
         self.is_alive = True
 
     def message(self, msg):
-        '''send a message to the controller of this character'''
+        """send a message to the controller of this character"""
         if self.controller:
             self.controller.write_msg(msg)
 
@@ -136,7 +136,7 @@ class Character(control.Monoreceiver, metaclass=CharacterClass):
                 self.message(str(cex))
 
     def parse_command(self, line=None, args=None):
-        '''parses a command, raises AttributeError if command cannot be found'''
+        """parses a command, raises AttributeError if command cannot be found"""
         if args is None and line is None:
             return
         if args is None:
@@ -156,10 +156,10 @@ class Character(control.Monoreceiver, metaclass=CharacterClass):
             self.message(str(ex))
 
     def _check_ambiguity(self, indices, phrase, options):
-        '''wraps function outputs to handle ambiguity
+        """wraps function outputs to handle ambiguity
         if no option is returned, then raise an error
         if multiple options are found, raise an ambiguity error
-        '''
+        """
         if len(options) == 1:
             return options[0]
         elif len(options) == 0:
@@ -168,31 +168,31 @@ class Character(control.Monoreceiver, metaclass=CharacterClass):
             raise AmbiguityError(indices, phrase, options)
 
     def __repr__(self):
-        '''return a representation of the player'''
+        """return a representation of the player"""
         if self._name is None:
             return "%s()" % type(self).__name__
         return "%s(name=%s)" % (type(self).__name__, self._name)
 
     def __str__(self):
-        '''return the player's name'''
+        """return the player's name"""
         if self._name is None:
             return self.info()
         else:
             return self._name
 
     def describe(self):
-        ''' Describes the character '''
+        """ Describes the character """
         return self.info()
 
     def info(self):
-        '''return the player's name'''
+        """return the player's name"""
         if self._name is None:
             return "A nameless %s" % type(self)
         return "%s the %s" % (self._name, type(self))
 
     # these methods need heavy refinement
     def die(self, msg="%s died."):
-        '''method executed when a player dies'''
+        """method executed when a player dies"""
         if msg is not None:
             if "%s" in msg:
                 msg = msg % self
@@ -205,10 +205,10 @@ class Character(control.Monoreceiver, metaclass=CharacterClass):
 
     #location manipulation methods
     def set_location(self, new_location):
-        '''sets location, updating the previous and new locations as appropriate
+        """sets location, updating the previous and new locations as appropriate
         if reported_exit is supplied, then other players in the location
         will be notified of which location he is going to
-        '''
+        """
         try:
             self.location.remove_char(self)
             # remove commands from all the entities
@@ -231,7 +231,7 @@ class Character(control.Monoreceiver, metaclass=CharacterClass):
             try:
                 if enter_via:
                     exit.destination.message_chars("%s entered through %s."
-                                                 % (self, leave_via))
+                                                   % (self, leave_via))
                 else:
                     exit.destination.message_chars("%s entered." % (self,))
             except AttributeError:
@@ -244,7 +244,7 @@ class Character(control.Monoreceiver, metaclass=CharacterClass):
             try:
                 if leave_via:
                     old_loc.message_chars("%s left through %s."
-                                                 % (self, leave_via))
+                                           % (self, leave_via))
                 else:
                     old_loc.location.message_chars("%s left" % (self,))
             except AttributeError:
@@ -282,26 +282,26 @@ class Character(control.Monoreceiver, metaclass=CharacterClass):
 
     # default commands
     def cmd_help(self, args):
-        '''Show relevant help information for a particular command.
-usage: help [command]
-If no command is supplied, a list of all commands is shown.
-        '''
+        """Show relevant help information for a particular command.
+        usage: help [command]
+        If no command is supplied, a list of all commands is shown.
+        """
         if len(args) < 2:
             self.message(self.cmd_dict.help())
             return
         name = args[1]
         if self.cmd_dict.has_name(name):
-            self.message(str(self.cmd_dict.get_cmd(name).help()))
+            self.message(self.cmd_dict.get_cmd(name).help())
         else:
             self.message("Command \'{name}\' not recognized.")
 
     def cmd_look(self, args, verbose=True):
-        '''Gives description of current location, or looks at a certain object/character
-in your location and/or inventory when called with arguments
-usage: look
-OR
-usage: look [item/character/entity name]
-        '''
+        """Gives description of current location, or looks at a certain object/character
+        in your location and/or inventory when called with arguments
+        usage: look
+        OR
+        usage: look [item/character/entity name]
+        """
         #TODO: move much of this functionality into the Location.info method
         # (replace the ugly formatting in that function)
         # add an optional char_class parameter so we can filter it
@@ -368,15 +368,15 @@ usage: look [item/character/entity name]
             self.message("You couldn't find anything by that name.")
 
     def cmd_say(self, args):
-        '''Say a message aloud, sent to all players in your current locaton.
-usage: say [msg]
-        '''
+        """Say a message aloud, sent to all players in your current locaton.
+        usage: say [msg]
+        """
         self.location.message_chars(f"{self} : {' '.join(args[1:])}")
 
     def cmd_go(self, args):
-        '''Walk to an accessible location.
-usage: walk [exit name]
-        '''
+        """Walk to an accessible location.
+        usage: walk [exit name]
+        """
         exit_name = " ".join(args[1:])
         #TODO: check for visibility
         found_exit = self.location.find_exit(exit_name)
@@ -393,7 +393,7 @@ usage: walk [exit name]
             self.message("No exit with name %s" % exit_name)
 
     def cmd_equip(self, args):
-        '''Equip an equippable item from your inventory.'''
+        """Equip an equippable item from your inventory."""
         if len(args) < 2:
             self.message("Provide an item to equip.")
             return
@@ -406,7 +406,7 @@ usage: walk [exit name]
             self.message("Could not find item '%s'" % item_name)
 
     def cmd_unequip(self, args):
-        '''Unequip an equipped item.'''
+        """Unequip an equipped item."""
         if len(args) < 2:
             self.message("Provide an item to equip.")
             return
@@ -419,7 +419,7 @@ usage: walk [exit name]
         self.unequip(item)
 
     def cmd_pickup(self, args):
-        ''' Pick up item from the environment'''
+        """ Pick up item from the environment"""
         if len(args) < 2:
             self.message("Provide an item to pick up.")
             return
@@ -434,7 +434,7 @@ usage: walk [exit name]
             self.message(f"Could not find item with name '{item_name}'")
 
     def cmd_drop(self, args):
-        '''Drop an item into the environment'''
+        """Drop an item into the environment"""
         if len(args) < 2:
             self.message("Provide an item to drop.")
             return
@@ -448,7 +448,7 @@ usage: walk [exit name]
             self.message(f"Could not find item with name {item_name}")
 
     def cmd_inv(self, args):
-        '''Show your inventory.'''
+        """Show your inventory."""
         output = ""
         for target, equipped in self.equip_dict.items():
             output += str(target).upper() + "\n\t" + str(equipped) + "\n"
@@ -456,12 +456,12 @@ usage: walk [exit name]
 
     #TODO: streamline this method
     def cmd_use(self,args):
-        ''' Use an item
+        """ Use an item
         Using an item on someone else:
         use [item_name] on [target's name]
         Using an item on yourself:
         use [item_name]
-        '''
+        """
         if len(args) < 2:
             self.message("Provide an item to be used.")
         elif args[-1] == "on":
@@ -513,13 +513,13 @@ usage: walk [exit name]
                 self.message("You do not have an item with that name.")
 
     def add_item(self, item):
-        '''add [item] to player's inventory'''
+        """add [item] to player's inventory"""
         self.inv.add_item(item)
 
     # serialization-related methods
     @property
     def symbol(self):
-        '''return a unique symbol for this Character'''
+        """return a unique symbol for this Character"""
         # failsafe to ensure that Character always has a symbol
         # even if someone forgets to set self._symbol in the __init__
         if not hasattr(self, "_symbol"):
@@ -537,11 +537,11 @@ usage: walk [exit name]
         pass
 
     def save(self):
-        '''return a pythonic representation of this Character'''
+        """return a pythonic representation of this Character"""
         return {"_type": type(self), "name": self._name}
 
     def children(self):
-        '''pass'''
+        """pass"""
         return []
         #TODO: handle items here
 
@@ -587,25 +587,25 @@ class FilterMode(enum.Enum):
 
 
 class CharFilter:
-    '''Filter for screening out certain CharacterClasses and Characters
+    """Filter for screening out certain CharacterClasses and Characters
         _classes  - set of CharacterClasses tracked by the filter
         _include_chars - set characters to be included, regardless of _classes
         _exclude_chars - set characters to be included, regardless of _classes
         _mode - FilterMode.WHITELIST or FilterMode.BLACKLIST
                 if WHITELIST is selected, only tracked chars are allowed in
                 if BLACKLIST is selected, tracked chars are excluded
-    '''
+    """
 
     def __init__(self, mode, classes=frozenset(),
                  include_chars=frozenset(),
                  exclude_chars=frozenset()):
-        '''initialize a CharFilter with [mode]
+        """initialize a CharFilter with [mode]
         if [mode] is True, the CharFilter will act as a whitelist
         if [mode] is False, the CharFilter will act as a blacklist
         [classes] are those classes to be whitelisted/blacklisted
         [include_chars] are specific characters to be included
         [exclude_chars] are specific characters to be excluded
-        '''
+        """
         self._classes = set(classes)
         for char in include_chars:
             if char in exclude_chars:
@@ -634,11 +634,11 @@ class CharFilter:
 
 
     def permits(self, other):
-        '''returns True if Character/CharacterClass is allowed in
+        """returns True if Character/CharacterClass is allowed in
         the individual Character is evaluated first,
         then the Character's class, then all the Character's
         ancestor classes
-        '''
+        """
         if isinstance(other, Character):
             if other in self._include_chars:
                 return True
@@ -660,8 +660,8 @@ class CharFilter:
         return not self._mode.value
 
     def include(self, other):
-        '''Set the filter to return 'True' if [other] is supplied
-        to permit()'''
+        """Set the filter to return 'True' if [other] is supplied
+        to permit()"""
         # check that other is a Character / CharacterClass
         if isinstance(other, CharacterClass):
             if self._mode is FilterMode.WHITELIST:
@@ -678,8 +678,8 @@ class CharFilter:
                              " received %s" % type(other))
 
     def exclude(self, other):
-        '''Set the filter to return 'False' if [other] is supplied
-        to permit()'''
+        """Set the filter to return 'False' if [other] is supplied
+        to permit()"""
         # check that other is a Character / CharacterClass
         if isinstance(other, CharacterClass):
             if self._mode is FilterMode.WHITELIST:
@@ -696,18 +696,18 @@ class CharFilter:
                              " received %s" % type(other))
 
     def __repr__(self):
-        '''overriding repr()'''
+        """overriding repr()"""
         return ("CharFilter(%r, %r, %r, %r)"
                 % (self._mode.value, self._classes, self._include_chars,
                    self._exclude_chars))
 
     @staticmethod
     def from_dict(filter_dict):
-        '''returns a CharFilter pythonic representation [filter_dict]'''
+        """returns a CharFilter pythonic representation [filter_dict]"""
         return CharFilter(**filter_dict)
 
     def to_dict(self):
-        '''returns a pythonic representation of this CharFilter'''
+        """returns a pythonic representation of this CharFilter"""
         data = {"mode" : self._mode.value}
         if self._classes:
             data["classes"] = list(self._classes)
