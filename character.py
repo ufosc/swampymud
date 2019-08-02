@@ -3,7 +3,7 @@ import enum
 import util
 import control
 import inventory
-import item
+import item as item_mod
 from command import Command, CommandDict
 import util
 import util.english as eng
@@ -115,21 +115,10 @@ class Character(control.Monoreceiver, metaclass=CharacterClass):
                 # add the command to the command dict
                 self.cmd_dict.add_cmd(cmd)
 
-        self.equip_dict = item.EquipTarget.make_dict(*self.equip_slots)
+        self.equip_dict = item_mod.EquipTarget.make_dict(*self.equip_slots)
         self._parser = lambda line: self.parse_command(line)
         #TODO: make this a property
         self.is_alive = True
-
-    @property
-    def symbol(self):
-        '''return a unique symbol for this Character'''
-        # failsafe to ensure that Character always has a symbol
-        # even if someone forgets to set self._symbol in the __init__
-        if not hasattr(self, "_symbol"):
-            symbol = "%s#%s" % (type(self).__name__,
-                                util.to_base(id(self), 62))
-            setattr(self, "_symbol", symbol)
-        return self._symbol
 
     def message(self, msg):
         '''send a message to the controller of this character'''
@@ -201,7 +190,7 @@ class Character(control.Monoreceiver, metaclass=CharacterClass):
             return "A nameless %s" % type(self)
         return "%s the %s" % (self._name, type(self))
 
-    # these methods need heavy refinement 
+    # these methods need heavy refinement
     def die(self, msg="%s died."):
         '''method executed when a player dies'''
         if msg is not None:
@@ -214,10 +203,10 @@ class Character(control.Monoreceiver, metaclass=CharacterClass):
         self.is_alive = False
 
 
-    #location manipulation methods        
+    #location manipulation methods
     def set_location(self, new_location):
         '''sets location, updating the previous and new locations as appropriate
-        if reported_exit is supplied, then other players in the location 
+        if reported_exit is supplied, then other players in the location
         will be notified of which location he is going to
         '''
         try:
@@ -236,7 +225,7 @@ class Character(control.Monoreceiver, metaclass=CharacterClass):
         for entity in new_location.entities:
             entity.add_cmds(self)
 
-    def take_exit(self, exit, show_leave=True, leave_via=None, 
+    def take_exit(self, exit, show_leave=True, leave_via=None,
                   show_enter=True, enter_via=None):
         if show_enter:
             try:
@@ -246,7 +235,7 @@ class Character(control.Monoreceiver, metaclass=CharacterClass):
                 else:
                     exit.destination.message_chars("%s entered." % (self,))
             except AttributeError:
-                # self.location was none
+                # self.location was None
                 pass
         old_loc = self.location
         self.set_location(exit.destination)
@@ -259,43 +248,43 @@ class Character(control.Monoreceiver, metaclass=CharacterClass):
                 else:
                     old_loc.location.message_chars("%s left" % (self,))
             except AttributeError:
-                # self.location was none
+                # self.location was None
                 pass
 
     #inventory/item related methods
     def equip(self, item, remove_inv=True):
         if item.target in self.equip_dict:
+            # check for an already equipped weapon, unequip it
             already_equip = self.equip_dict[item.target]
             if already_equip is not None:
                 self.unequip(already_equip)
             item.equip(self)
             item.add_cmds(self)
             self.equip_dict[item.target] = item
-            # check remove_inv, if true, remove item
+            # check remove_inv, if true, remove item from inventory
             # this avoids duplication
             if remove_inv:
-                self.inv -= item
+                self.inv.remove_item(item)
             self.message("Equipped %s." % item)
+        # class doesn't have an equip target for this item, cannot equip
         else:
-            raise CharException("You cannot equip item \'%s\' as %s."
-                                % (item, self.__class__))
+            raise CharException(f"Cannot equip item {item} as {type(self)}.")
 
     def unequip(self, item):
         if self.equip_dict[item.target] == item:
             item.unequip(self)
             item.remove_cmds(self)
-            self.inv += item
+            self.inv.add_item(item)
             self.equip_dict[item.target] = None
-            self.message("Unequipped %s." % item)
+            self.message(f"Unequipped {item}.")
         else:
-            raise CharException("Cannot unequip \'%s\'. Item not equipped."
-                % item)
+            raise CharException(f"Cannot unequip {item}. Item not equipped.")
 
-    # default commands        
+    # default commands
     def cmd_help(self, args):
         '''Show relevant help information for a particular command.
-        usage: help [command]
-        If no command is supplied, a list of all commands is shown.
+usage: help [command]
+If no command is supplied, a list of all commands is shown.
         '''
         if len(args) < 2:
             self.message(self.cmd_dict.help())
@@ -304,14 +293,14 @@ class Character(control.Monoreceiver, metaclass=CharacterClass):
         if self.cmd_dict.has_name(name):
             self.message(str(self.cmd_dict.get_cmd(name).help()))
         else:
-            self.message("Command \'%s\' not recognized." % name)
+            self.message("Command \'{name}\' not recognized.")
 
     def cmd_look(self, args, verbose=True):
         '''Gives description of current location, or looks at a certain object/character
-        in your location and/or inventory when called with arguments 
-        usage: look
-        OR
-        usage: look [item/character/entity name]
+in your location and/or inventory when called with arguments
+usage: look
+OR
+usage: look [item/character/entity name]
         '''
         #TODO: move much of this functionality into the Location.info method
         # (replace the ugly formatting in that function)
@@ -340,7 +329,7 @@ class Character(control.Monoreceiver, metaclass=CharacterClass):
                 if char_list:
                     char_msg = ["You see"]
                     # The function call from eng (util/english.py) formats the list to a gramatically correct english list
-                    char_msg.append(eng.english_list_no_article(char_list))  
+                    char_msg.append(eng.english_list_no_article(char_list))
                     msg.append(" ".join(char_msg))
                 # Convert all entities in list to their strings
                 entity_list = list(map(str,entity_list))
@@ -374,30 +363,30 @@ class Character(control.Monoreceiver, metaclass=CharacterClass):
                     return
                 except:
                     # Change this message later
-                    self.message("You weren't able to look at that!") 
+                    self.message("You weren't able to look at that!")
                     return
             self.message("You couldn't find anything by that name.")
 
     def cmd_say(self, args):
         '''Say a message aloud, sent to all players in your current locaton.
-        usage: say [msg]
+usage: say [msg]
         '''
-        self.location.message_chars("%s : %s" % (self, " ".join(args[1:])))
+        self.location.message_chars(f"{self} : {' '.join(args[1:])}")
 
     def cmd_go(self, args):
         '''Walk to an accessible location.
-        usage: walk [exit name]
+usage: walk [exit name]
         '''
         exit_name = " ".join(args[1:])
         #TODO: check for visibility
-        found_exit = self.location.find_exit(exit_name)            
+        found_exit = self.location.find_exit(exit_name)
         if found_exit:
             #TODO: check for accessbility
             if found_exit.access.permits(self):
-                self.take_exit(found_exit, True, 
+                self.take_exit(found_exit, True,
                                 "exit '%s'" % str(found_exit), True)
             elif not found_exit.visibility.permits(self):
-                self.message("No exit with name %s" % exit_name)            
+                self.message("No exit with name %s" % exit_name)
             else:
                 self.message("The path to %s" % exit_name + " is unaccessible to you")
         else:
@@ -409,11 +398,9 @@ class Character(control.Monoreceiver, metaclass=CharacterClass):
             self.message("Provide an item to equip.")
             return
         item_name = " ".join(args[1::])
-        #item = self._check_ambiguity(slice(1, len(args)), item_name, self.inv.find_all(item_name))
-        found_item = self.inv.find(item_name)
-            # args must be item that we already have
-            #item = args[1]
-        if found_item:
+        #TODO: handle ambiguity
+        found_items = list(self.inv.find(name=item_name))
+        if found_items:
             self.equip(found_item)
         else:
             self.message("Could not find item '%s'" % item_name)
@@ -429,35 +416,36 @@ class Character(control.Monoreceiver, metaclass=CharacterClass):
             if item and item.name.lower() == item_name:
                 options.append(item)
         item = self._check_ambiguity(1, item_name, options)
-        self.unequip(item) 
+        self.unequip(item)
 
     def cmd_pickup(self, args):
-        ''' Pick up item from the environment'''        
+        ''' Pick up item from the environment'''
         if len(args) < 2:
             self.message("Provide an item to pick up.")
             return
 
         item_name = " ".join(args[1::])
-        item = self.location.find(item_name)
+        #TODO: handle ambiguity
+        item = self.location.find(name=item_name)
         if item:
             self.inv.add_item(item)
             self.location.remove_item(item)
         else:
-            self.message("Could not find item with name '%s'" % item_name)
+            self.message(f"Could not find item with name '{item_name}'")
 
     def cmd_drop(self, args):
         '''Drop an item into the environment'''
         if len(args) < 2:
             self.message("Provide an item to drop.")
             return
-
         item_name = " ".join(args[1::])
-        found_item = self.inv.find(item_name)
+        #TODO: handle ambiguity
+        found_item = list(self.inv.find(name=item_name))
         if found_item:
             self.inv.remove_item(found_item)
             self.location.add_item(found_item)
         else:
-            self.message("Could not find item with name '%s'" % item_name)
+            self.message(f"Could not find item with name {item_name}")
 
     def cmd_inv(self, args):
         '''Show your inventory.'''
@@ -528,6 +516,18 @@ class Character(control.Monoreceiver, metaclass=CharacterClass):
         '''add [item] to player's inventory'''
         self.inv.add_item(item)
 
+    # serialization-related methods
+    @property
+    def symbol(self):
+        '''return a unique symbol for this Character'''
+        # failsafe to ensure that Character always has a symbol
+        # even if someone forgets to set self._symbol in the __init__
+        if not hasattr(self, "_symbol"):
+            symbol = "%s#%s" % (type(self).__name__,
+                                util.to_base(id(self), 62))
+            setattr(self, "_symbol", symbol)
+        return self._symbol
+
     @classmethod
     def load(cls, data):
         name = data["name"] if "name" in data else None
@@ -577,7 +577,7 @@ class AmbiguityResolver:
     def __str__(self):
         string = "Multiple options for %s:\n" % self._amb.query
         string += "\n".join(["\t%s) %s" % (index, repr(option)) for index, option in enumerate(self._amb.options)])
-        string += "\nEnter a number to resolve it:" 
+        string += "\nEnter a number to resolve it:"
         return string
 
 
@@ -596,7 +596,9 @@ class CharFilter:
                 if BLACKLIST is selected, tracked chars are excluded
     '''
 
-    def __init__(self, mode, classes=[], include_chars=[], exclude_chars=[]):
+    def __init__(self, mode, classes=frozenset(),
+                 include_chars=frozenset(),
+                 exclude_chars=frozenset()):
         '''initialize a CharFilter with [mode]
         if [mode] is True, the CharFilter will act as a whitelist
         if [mode] is False, the CharFilter will act as a blacklist
@@ -607,7 +609,7 @@ class CharFilter:
         self._classes = set(classes)
         for char in include_chars:
             if char in exclude_chars:
-                raise ValueError("Cannot have character in both include" 
+                raise ValueError("Cannot have character in both include"
                                  " and exclude")
         for char in exclude_chars:
             if char in include_chars:
@@ -647,7 +649,7 @@ class CharFilter:
         if isinstance(other, CharacterClass):
             # cycle through each ancestor
             ancestors = filter(lambda x: isinstance(x, CharacterClass),
-                              other.__mro__)
+                               other.__mro__)
             for char_class in ancestors:
                 if char_class in self._classes:
                     return self._mode.value
