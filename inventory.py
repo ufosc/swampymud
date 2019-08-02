@@ -74,7 +74,7 @@ method provided by [item_type]
         # if the other_stack isn't really an ItemStack
         except AttributeError:
             return False
-
+    
     def matches(self, item_type=None, exact_data=None, **fields):
         '''check that [item_type] and data agree with both arguments are optional'''
         if item_type is not None and self._type is not item_type:

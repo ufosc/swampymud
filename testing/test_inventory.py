@@ -27,21 +27,21 @@ class HealthPotion(Usable):
         return "HealthPotion(%s)" % self.hp
 
 class BadPoison(Usable):
-    def __init__(self, hp):
-        self.hp = hp
+    def __init__(self, dmg):
+        self.dmg = dmg
 
     def use(self, char):
         pass
 
     @classmethod
     def load(cls, data):
-        return cls(data["hp"])
+        return cls(data["dmg"])
 
     def save(self):
-        return {"hp": self.hp}
+        return {"dmg": self.dmg}
 
     def __repr__(self):
-        return "BadPoison(%s)" % self.hp
+        return "BadPoison(%s)" % self.dmg
 
 class Sword(Equippable):
     target = EquipTarget("hand")
@@ -403,6 +403,20 @@ class TestInventory(unittest.TestCase):
         self.assertEqual(self.rich, self.empty)
         self.assertEqual(self.rich._items, {})
 
+    def hash_item_amt(self, item_amt):
+        '''returns a hash for tuples of the form (Item, int)
+this function is inefficient and fragile, do not use outside simple testing'''
+        item, amt = item_amt
+        return hash((str(type(item)), (tuple(item.save()), amt)))
+
+    def cmp_contents(self, list1, list2):
+        '''returns true if and only if all (item, amt) pairs that appear in
+list1 also appear in list2, and visa versa
+this function is inefficient and fragile, do not use outside simple testing'''
+        set1 = {self.hash_item_amt(x) for x in list1}
+        set2 = {self.hash_item_amt(x) for x in list2}
+        return len(set1) == len(list2) and len(set1) == len(list2) and set1 == set2
+
     def test_iter(self):
         '''test that __iter__ works properly'''
         self.assertEqual(len(list(self.empty)), 0)
@@ -455,7 +469,79 @@ class TestInventory(unittest.TestCase):
         results = list(self.coins.find(value=10))
         self.assertEqual(results, [])
 
-        #testing find for potion_seller
+        # testing find for potion_seller
+        # first, add a few "BadPoisons" to 
         # calling find with no arguments should yield everything
         results = list(self.potion_seller.find())
-        # TODO finish testing
+        self.assertTrue(self.cmp_contents(results, [
+            (SilverCoin(), 20),
+            (HealthPotion(hp=10), 5),
+            (HealthPotion(hp=3), 7),
+            (HealthPotion(hp=100), 2),
+            (HealthPotion(hp=50), 3)
+        ]))
+        # test for type Health Potion
+        results = list(self.potion_seller.find(cls=HealthPotion))
+        self.assertTrue(self.cmp_contents(results, [
+            (HealthPotion(hp=10), 5),
+            (HealthPotion(hp=3), 7),
+            (HealthPotion(hp=100), 2),
+            (HealthPotion(hp=50), 3)
+        ]))
+        # test for fields 'hp=10'
+        results = list(self.potion_seller.find(hp=10))
+        self.assertTrue(self.cmp_contents(results, [
+            (HealthPotion(hp=10), 5),
+        ]))
+        # test for fields 'hp=5'
+        results = list(self.potion_seller.find(hp=5))
+        self.assertTrue(self.cmp_contents(results, [
+        ]))
+        # test for fields 'hp=10' and cls=HealthPotion
+        results = list(self.potion_seller.find(cls=HealthPotion, hp=10))
+        self.assertTrue(self.cmp_contents(results, [
+            (HealthPotion(hp=10), 5),
+        ]))
+        # test with exact data 
+        results = list(self.potion_seller.find(exact_data={"hp": 100}))
+        self.assertTrue(self.cmp_contents(results, [
+            (HealthPotion(hp=100), 2),
+        ]))
+        # test with exact data and redundant 'hp=100'
+        results = list(self.potion_seller.find(exact_data={"hp": 100}, hp=100))
+        self.assertTrue(self.cmp_contents(results, [
+            (HealthPotion(hp=100), 2),
+        ]))
+        # test with exact_data and contradictory 'hp=5'
+        results = list(self.potion_seller.find(exact_data={"hp": 100}, hp=5))
+        self.assertTrue(self.cmp_contents(results, [
+        ]))
+        self.potion_seller.add_item(BadPoison(dmg=10), 5)
+        self.potion_seller.add_item(BadPoison(dmg=3), 5)
+        self.potion_seller.add_item(Sword(dmg=10, material="steel"), 3)
+        self.potion_seller.add_item(Sword(dmg=7, material="steel"), 3)
+        # testing on dmg=10 should yield sword and BadPoison
+        results = list(self.potion_seller.find(dmg=10))
+        self.assertTrue(self.cmp_contents(results, [
+            (BadPoison(dmg=10), 5),
+            (Sword(dmg=10, material="steel"), 3)
+        ]))
+        # testing with exact_data {"dmg": 10} should only yield BadPoison
+        results = list(self.potion_seller.find(exact_data={"dmg":10}))
+        self.assertTrue(self.cmp_contents(results, [
+            (BadPoison(dmg=10), 5),
+        ]))
+        # testing with multiple field arguments
+        results = list(self.potion_seller.find(dmg=10, material="steel"))
+        self.assertTrue(self.cmp_contents(results, [
+            (Sword(dmg=10, material="steel"), 3)
+        ]))
+        # good name should return something
+        results = list(self.potion_seller.find(name="Sword", dmg=7, material="steel"))
+        self.assertTrue(self.cmp_contents(results, [
+            (Sword(dmg=7, material="steel"), 3)
+        ]))
+        # bad name should return nothing
+        results = list(self.potion_seller.find(name="Swor", dmg=10, material="steel"))
+        self.assertTrue(self.cmp_contents(results, [
+        ]))
