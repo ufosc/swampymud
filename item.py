@@ -124,6 +124,11 @@ class Equippable(metaclass=EquippableClass):
     def post_load(self, data):
         '''no post-load actions required by default implementation'''
 
+    def save(self):
+        '''return a pythonic representation of this object
+this base class has no fields, so no data is returned'''
+        return {}
+
 class EquipTarget:
     '''Class for identifying specific slots that an equippable item
     may be equipped to
@@ -215,6 +220,11 @@ class Usable(metaclass=UsableClass):
     def post_load(self, data):
         '''no post-load actions required by default implementation'''
 
+    def save(self):
+        '''return a pythonic representation of this object
+this base class has no fields, so no data is returned'''
+        return {}
+
 class MiscItem(metaclass=ItemClass):
     '''Base class for all MiscItems
     These items cannot be used, and will be typically
@@ -243,7 +253,7 @@ class MiscItem(metaclass=ItemClass):
 
     def post_load(self, data):
         '''no post-load actions required by default implementation'''
-    
+
     def save(self):
         '''return a pythonic representation of this object
 this base class has no fields, so no data is returned'''
