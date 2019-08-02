@@ -122,7 +122,7 @@ class Location:
         self._character_list = []
         self._entity_list = []
         self._exit_list = []
-        self._items = inv.Inventory()
+        self._inv = inv.Inventory()
         self.name = name
         self.description = description
         self._symbol = "%s#%s" % (self.name.replace(" ", ""),
@@ -173,14 +173,15 @@ class Location:
         '''returns a copy of private exit list'''
         return list(self._exit_list)
 
+    # inventory-related methods
     def add_item(self, item, quantity=1):     
-        self._items.add_item(item, quantity)
+        self._inv.add_item(item, quantity)
 
     def remove_item(self, item, quantity=1):
-        return self._items.remove_item(item, quantity)
+        return self._inv.remove_item(item, quantity)
 
     def all_items(self):
-        return list(self._items)
+        return list(self._inv)
 
     # TODO: scrap this method
     def __contains__(self, other):
@@ -198,7 +199,7 @@ class Location:
         elif isinstance(other, Character):
             return other in self._character_list
         elif isinstance(other, item.Item):
-            return other in self._items
+            return other in self._inv
         else:
             raise ValueError("Received %s, expected Exit, Character, or Item"
                              % type(other))
@@ -211,7 +212,7 @@ class Location:
         for exit_name in self._exit_list:
             if exit_name == query:
                 return exit_name
-        item_result = self._items.find(query)
+        item_result = self._inv.find(name=query)
         if item_result:
             return item_result
         for entity in self._entity_list:
@@ -225,6 +226,10 @@ class Location:
             if exit_name == exit:
                 return exit
 
+    def describe(self, character=None):
+        '''Describes the location '''
+        return self.description
+
     def info(self):
         '''return a string containing detailed information'''
         #TODO: make the output more pythonic
@@ -232,7 +237,7 @@ class Location:
         output += "Desc:\t%s\n" % self.description
         output += "Chars:\t%s\n" % self._character_list
         output += "Exits:\t%s\n" % self._exit_list
-        output += "Items:\t%s\n" % list(self._items)
+        output += "Items:\t%s\n" % list(self._inv)
         return output
 
     def __repr__(self):
@@ -244,10 +249,7 @@ class Location:
         '''
         return self.name
 
-    def describe(self, character=None):
-        '''Describes the location '''
-        return self.description
-
+    # serialization-related methods
     @property
     def symbol(self):
         '''return a guaranteed unique symbol for this location'''
