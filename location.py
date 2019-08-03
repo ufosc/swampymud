@@ -63,7 +63,7 @@ class Exit:
         '''Return an a representation of the exit'''
         other_names = list(set(self._nameset - set((self._name,))))
         return ("Exit(%r, %r, other_names=%r, access=%r, visibility=%r)" 
-               % (self._destination, self._name, 
+               % (self._destination, self._name,
                   other_names,
                   self.access, self.visibility))
 

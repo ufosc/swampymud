@@ -140,7 +140,7 @@ class Character(control.Monoreceiver, metaclass=CharacterClass):
         if args is None and line is None:
             return
         if args is None:
-            args = line.split(" ")
+            args = line.split()
         # TODO: match the beginning of the line with one of the cmds
         # to allow for multi-word commands
         cmd_name = args[0]
@@ -225,28 +225,43 @@ class Character(control.Monoreceiver, metaclass=CharacterClass):
         for entity in new_location.entities:
             entity.add_cmds(self)
 
-    def take_exit(self, exit, show_leave=True, leave_via=None,
+    def take_exit(self, exit,
+                  show_leave=True, leave_via=None,
                   show_enter=True, enter_via=None):
+        """
+        high-level function for characters to leave 
+        [exit]: exit taken by the player
+        [show_leave]: if True, characters in the current location are notified
+        of this character leaving
+        [leave_via]: if a string is provided, then players are informed which
+        exit the character left through
+        [show_enter]: if True, characters in the destination are notified of
+        this character arriving
+        [enter_via]: if True, characters in the destination are notified of
+        this character arriving
+        """
+        # send entry message first, so that this character doesn't see it
         if show_enter:
             try:
                 if enter_via:
-                    exit.destination.message_chars("%s entered through %s."
-                                                   % (self, leave_via))
+                    exit.destination.message_chars(f"{self} entered through {enter_via}.")
                 else:
-                    exit.destination.message_chars("%s entered." % (self,))
+                    exit.destination.message_chars(f"{self} entered.")
             except AttributeError:
                 # self.location was None
                 pass
+        # change the location
         old_loc = self.location
         self.set_location(exit.destination)
-        self.cmd_look(["look"], verbose=False)
+        # TODO have the player look around
+        # self.cmd_look(["look"], verbose=False)
+        # now send the exit message
         if show_leave:
             try:
                 if leave_via:
-                    old_loc.message_chars("%s left through %s."
-                                           % (self, leave_via))
+                    old_loc.message_chars(f"{self} left through {leave_via}.")
                 else:
-                    old_loc.location.message_chars("%s left" % (self,))
+                    old_loc.location.message_chars(f"{self} left.")
             except AttributeError:
                 # self.location was None
                 pass
@@ -293,7 +308,7 @@ class Character(control.Monoreceiver, metaclass=CharacterClass):
         if self.cmd_dict.has_name(name):
             self.message(self.cmd_dict.get_cmd(name).help())
         else:
-            self.message("Command \'{name}\' not recognized.")
+            self.message(f"Command '{name}' not recognized.")
 
     def cmd_look(self, args, verbose=True):
         """Gives description of current location, or looks at a certain object/character
@@ -371,26 +386,29 @@ class Character(control.Monoreceiver, metaclass=CharacterClass):
         """Say a message aloud, sent to all players in your current locaton.
         usage: say [msg]
         """
-        self.location.message_chars(f"{self} : {' '.join(args[1:])}")
+        msg = ' '.join(args[1:])
+        if msg:
+            self.location.message_chars(f"{self.info()}: {msg}")
 
     def cmd_go(self, args):
-        """Walk to an accessible location.
-        usage: walk [exit name]
+        """Go to an accessible location.
+        usage: go [exit name]
         """
-        exit_name = " ".join(args[1:])
-        #TODO: check for visibility
-        found_exit = self.location.find_exit(exit_name)
+        ex_name = " ".join(args[1:])
+        # TODO handle ambiguity?
+        # structural solution might be avoided here
+        found_exit = self.location.find_exit(ex_name)
         if found_exit:
-            #TODO: check for accessbility
             if found_exit.access.permits(self):
-                self.take_exit(found_exit, True,
-                                "exit '%s'" % str(found_exit), True)
+                # TODO: replace this with a more generic name
+                self.take_exit(found_exit, show_leave=True, show_enter=True,
+                               leave_via=f"exit '{ex_name}'")
             elif not found_exit.visibility.permits(self):
-                self.message("No exit with name %s" % exit_name)
+                self.message(f"No exit with name '{ex_name}'.")
             else:
-                self.message("The path to %s" % exit_name + " is unaccessible to you")
+                self.message(f"Exit '{ex_name}' is unaccessible to you.")
         else:
-            self.message("No exit with name %s" % exit_name)
+            self.message(f"No exit with name '{ex_name}'.")
 
     def cmd_equip(self, args):
         """Equip an equippable item from your inventory."""
