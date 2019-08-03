@@ -1,10 +1,10 @@
-'''module containing testcases for the inventory module'''
+"""module containing testcases for the inventory module"""
 import unittest
 import inventory as inv
 from item import Usable, Equippable, EquipTarget, MiscItem
 
 class SilverCoin(MiscItem):
-    '''example of a Miscellaneous Item'''
+    """example of a Miscellaneous Item"""
     def __repr__(self):
         return "SilverCoin()"
 
@@ -58,11 +58,11 @@ class Sword(Equippable):
 
     @classmethod
     def load(cls, data):
-        '''load Sword with [data]'''
+        """load Sword with [data]"""
         return cls(data["dmg"], data["material"])
 
     def save(self):
-        '''provide a pythonic representation of this Sword'''
+        """provide a pythonic representation of this Sword"""
         return {
             "dmg": self.dmg,
             "material": self.material
@@ -89,7 +89,7 @@ class TestItemStack(unittest.TestCase):
         self.sword_stack = inv.ItemStack.from_item(self.iron_sword, 3)
 
     def test_matching_subset(self):
-        '''test the the matching_subset function works correctly'''
+        """test the the matching_subset function works correctly"""
         main = {"a": 3, "b": 4, "c": 10}
         sub1 = {"a": 3, "c": 10}
         sub2 = {"a": 3, "foo": 5}
@@ -102,7 +102,7 @@ class TestItemStack(unittest.TestCase):
         self.assertTrue(inv.matching_subset({}, {}))
 
     def test_repr(self):
-        '''test that ItemStacks create a proper representation'''
+        """test that ItemStacks create a proper representation"""
         self.assertEqual(repr(self.coin_stack),
                          "ItemStack(SilverCoin, 100)")
         self.assertEqual(repr(self.weak_potions),
@@ -114,7 +114,7 @@ class TestItemStack(unittest.TestCase):
                          "{'dmg': 50, 'material': 'iron'})")
 
     def test_eq(self):
-        '''test that ItemStack equality works properly'''
+        """test that ItemStack equality works properly"""
         self.assertTrue(self.coin_stack != "meme")
         self.assertTrue(self.coin_stack == self.coin_stack)
         other_coins = inv.ItemStack.from_item(self.coin, 100)
@@ -129,7 +129,7 @@ class TestItemStack(unittest.TestCase):
 
 
     def test_amount(self):
-        '''test that the amount property works properly'''
+        """test that the amount property works properly"""
         self.assertEqual(self.coin_stack.amount, 100)
         self.assertEqual(self.weak_potions.amount, 3)
         self.assertEqual(self.strong_potions.amount, 234)
@@ -146,7 +146,7 @@ class TestItemStack(unittest.TestCase):
             self.strong_potions.amount = -100
 
     def test_matches(self):
-        '''exhaustive test that ItemStack.matches method works properly'''
+        """exhaustive test that ItemStack.matches method works properly"""
         # match with no parameters should return true
         self.assertTrue(self.coin_stack.matches())
         self.assertTrue(self.strong_potions.matches())
@@ -273,7 +273,7 @@ class TestItemStack(unittest.TestCase):
         self.assertEqual(sword.dmg, self.rare_sword.dmg)
 
 class TestInventory(unittest.TestCase):
-    '''test case for the inventory class'''
+    """test case for the inventory class"""
 
     def setUp(self):
         self.empty = inv.Inventory()
@@ -294,14 +294,14 @@ class TestInventory(unittest.TestCase):
         )
 
     def test_repr(self):
-        '''testing the __repr__ method'''
+        """testing the __repr__ method"""
         self.assertEqual(repr(self.empty), 'Inventory()')
         self.assertEqual(repr(self.coins), 'Inventory((SilverCoin(), 10))')
         expected = "Inventory((SilverCoin(), 15), (HealthPotion(10), 5), (Sword(15, 'steel'), 2))"
         self.assertEqual(repr(self.rich), expected)
 
     def test_eq(self):
-        '''testing the __eq__ method (mostly used for testing)'''
+        """testing the __eq__ method (mostly used for testing)"""
         # test equality with an empty list
         self.assertTrue(self.empty is not inv.Inventory())
         self.assertTrue(self.empty == inv.Inventory())
@@ -322,7 +322,7 @@ class TestInventory(unittest.TestCase):
         self.assertTrue(self.rich != self.coins)
 
     def test_add_item(self):
-        '''test that the add_item property works correctly'''
+        """test that the add_item property works correctly"""
         coin_inv = inv.Inventory()
         self.assertEqual(coin_inv, self.empty)
         coin_inv.add_item(SilverCoin(), 7)
@@ -354,7 +354,7 @@ class TestInventory(unittest.TestCase):
         #TODO: add some tests with the sword
 
     def test_remove_item(self):
-        '''test that removing an item works'''
+        """test that removing an item works"""
         with self.assertRaises(KeyError):
             self.empty.remove_item(SilverCoin())
         self.coins.remove_item(SilverCoin())
@@ -404,21 +404,21 @@ class TestInventory(unittest.TestCase):
         self.assertEqual(self.rich._items, {})
 
     def hash_item_amt(self, item_amt):
-        '''returns a hash for tuples of the form (Item, int)
-this function is inefficient and fragile, do not use outside simple testing'''
+        """returns a hash for tuples of the form (Item, int)
+this function is inefficient and fragile, do not use outside simple testing"""
         item, amt = item_amt
         return hash((str(type(item)), (tuple(item.save()), amt)))
 
     def cmp_contents(self, list1, list2):
-        '''returns true if and only if all (item, amt) pairs that appear in
+        """returns true if and only if all (item, amt) pairs that appear in
 list1 also appear in list2, and visa versa
-this function is inefficient and fragile, do not use outside simple testing'''
+this function is inefficient and fragile, do not use outside simple testing"""
         set1 = {self.hash_item_amt(x) for x in list1}
         set2 = {self.hash_item_amt(x) for x in list2}
         return len(set1) == len(list2) and len(set1) == len(list2) and set1 == set2
 
     def test_iter(self):
-        '''test that __iter__ works properly'''
+        """test that __iter__ works properly"""
         self.assertEqual(len(list(self.empty)), 0)
         coin_list = list(self.coins)
         self.assertEqual(len(coin_list), 1)
@@ -428,8 +428,21 @@ this function is inefficient and fragile, do not use outside simple testing'''
         cloned_inv = inv.Inventory(*inv_items)
         self.assertEqual(self.rich, cloned_inv)
 
+    def test_stack_iter(self):
+        self.assertEqual(list(self.coins.stacks()),
+                         [inv.ItemStack(SilverCoin, 10)])
+        results = list(self.potion_seller.stacks())
+        results.sort(key=lambda x: x.amount)
+        self.assertEqual(results, [
+            inv.ItemStack(HealthPotion, 2, data={"hp": 100}),
+            inv.ItemStack(HealthPotion, 3, data={"hp": 50}),
+            inv.ItemStack(HealthPotion, 5, data={"hp": 10}),
+            inv.ItemStack(HealthPotion, 7, data={"hp": 3}),
+            inv.ItemStack(SilverCoin, 20),
+        ])
+
     def test_find(self):
-        '''test that find method can be used to find items'''
+        """test that find method can be used to find items"""
         # no results for an item names Silver Coin in self.empty
         results = list(self.empty.find(name="Silver Coin"))
         self.assertEqual(results, [])
