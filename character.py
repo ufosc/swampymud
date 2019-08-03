@@ -2,7 +2,7 @@
 import enum
 import util
 import control
-import inventory
+import inventory as inv
 import item as item_mod
 from command import Command, CommandDict
 import util
@@ -104,7 +104,8 @@ class Character(control.Monoreceiver, metaclass=CharacterClass):
         super().__init__()
         self._name = name
         self.location = None
-        self.inv = inventory.Inventory()
+        self.last_msg = None
+        self.inv = inv.Inventory()
         self.cmd_dict = CommandDict()
 
         # add all the commands from this class
@@ -124,6 +125,8 @@ class Character(control.Monoreceiver, metaclass=CharacterClass):
         """send a message to the controller of this character"""
         if self.controller:
             self.controller.write_msg(msg)
+        # store this last message for convenience
+        self.last_msg = msg
 
     def update(self):
         while self.is_alive and self.controller.has_cmd():
@@ -267,33 +270,69 @@ class Character(control.Monoreceiver, metaclass=CharacterClass):
                 pass
 
     #inventory/item related methods
-    def equip(self, item, remove_inv=True):
-        if item.target in self.equip_dict:
-            # check for an already equipped weapon, unequip it
-            already_equip = self.equip_dict[item.target]
-            if already_equip is not None:
-                self.unequip(already_equip)
-            item.equip(self)
-            item.add_cmds(self)
-            self.equip_dict[item.target] = item
+    def add_item(self, item, amt=1):
+        """add [item] to player's inventory"""
+        # if the item is an ItemStack, unpack it first
+        if isinstance(item, inv.ItemStack):
+            self.inv.add_item(item.copy(), item.amount)
+        self.inv.add_item(item, amt)
+
+    def equip(self, item, from_inv=True):
+        """place [item] in this player's equip dict
+        [item]: item to Equip
+        [from_inv]: if True, [item] should be removed from inventory first
+        if False, [item] is not removed from inventory and returned on unequip
+
+        raises CharException if [item] if not Equippable or if [self] lacks the
+        proper slots to equip this item
+        raises CharException if [from_inv] is True but this character does not
+        have a copy of [item] in its inventory
+        """
+        # duck test that the item is even equippable
+        try:
+            target = item.target
+        except AttributeError:
+            raise CharException(f"{item} cannot be equipped.")
+        if target in self.equip_dict:
             # check remove_inv, if true, remove item from inventory
             # this avoids duplication
-            if remove_inv:
-                self.inv.remove_item(item)
-            self.message("Equipped %s." % item)
+            if from_inv:
+                try:
+                    self.inv.remove_item(item)
+                # item not found
+                except KeyError:
+                    raise CharException(f"Cannot equip {item}-"
+                                        "not found in inventory.")
+            # check for an already equipped weapon, unequip it
+            if self.equip_dict[target] is not None:
+                self.unequip(target)
+            item.equip(self)
+            item.add_cmds(self)
+            self.equip_dict[item.target] = item, from_inv
         # class doesn't have an equip target for this item, cannot equip
         else:
-            raise CharException(f"Cannot equip item {item} as {type(self)}.")
+            raise CharException(f"Cannot equip item {item} to {target}.")
 
-    def unequip(self, item):
-        if self.equip_dict[item.target] == item:
-            item.unequip(self)
-            item.remove_cmds(self)
-            self.inv.add_item(item)
-            self.equip_dict[item.target] = None
-            self.message(f"Unequipped {item}.")
-        else:
-            raise CharException(f"Cannot unequip {item}. Item not equipped.")
+    def unequip(self, target):
+        """updates this character's equip_dict such that the [target]
+        is set to None and any item at that position is unequipped
+        [target]: an EquipTarget"""
+        # test if anything is even equipped
+        # also duck test to see if this character even has [target]
+        # in its equip slots
+        try:
+            if self.equip_dict[target] is None:
+                raise CharException(f"No item not equipped on {target}.")
+        except KeyError:
+            raise CharException(f"{type(self)} does not possess"
+                                " equip slot '{target}'.")
+        equipped, from_inv = self.equip_dict[target]
+        equipped.unequip(self)
+        equipped.remove_cmds(self)
+        self.equip_dict[target] = None
+        # if item was from character's inventory, return it
+        if from_inv:
+            self.inv.add_item(equipped)
 
     # default commands
     def cmd_help(self, args):
@@ -437,7 +476,7 @@ class Character(control.Monoreceiver, metaclass=CharacterClass):
         self.unequip(item)
 
     def cmd_pickup(self, args):
-        """ Pick up item from the environment"""
+        """ Pick up item from the environme.nt"""
         if len(args) < 2:
             self.message("Provide an item to pick up.")
             return
@@ -529,10 +568,6 @@ class Character(control.Monoreceiver, metaclass=CharacterClass):
                     self.message("You are unable to use that item on yourself.")
             else:
                 self.message("You do not have an item with that name.")
-
-    def add_item(self, item):
-        """add [item] to player's inventory"""
-        self.inv.add_item(item)
 
     # serialization-related methods
     @property

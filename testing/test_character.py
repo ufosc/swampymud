@@ -1,13 +1,15 @@
 """module testing the Character class"""
 import unittest
+import item
 import control as con
 import character as char
 import location as loc
-
+import inventory as inv
 
 # defining some test CharacterClasses
 class Human(char.Character):
     """base class for all humans"""
+    equip_slots = ["Head", "Right Hand"]
 
 class Soldier(Human):
     """a soldier class"""
@@ -32,19 +34,19 @@ class TestCharFilter(unittest.TestCase):
     def setUp(self):
         self.maxDiff = 1000
         # a boring human
-        self.gary = Human()
+        self.gary = Human("Gary")
         # some soldiers
-        self.chad = Soldier()
-        self.zeke = Soldier()
+        self.chad = Soldier("Chad")
+        self.zeke = Soldier("Zeke")
         # a bureaucrat
-        self.bill = Bureaucrat()
+        self.bill = Bureaucrat("Bill")
         # a commander
-        self.dwight = Commander()
+        self.dwight = Commander("Dwight")
         # simple slugs
-        self.bloog = Slug()
-        self.plubb = Slug()
+        self.bloog = Slug("Bloog")
+        self.plubb = Slug("Plubb")
         # an intimidating alpha slug
-        self.vloobuk = AlphaSlug()
+        self.vloobuk = AlphaSlug("Vloobuk")
         # lists of each character / CharacterClass to avoid repetition
         self.char_list = [
             self.gary, self.chad, self.zeke, self.bill, self.dwight,
@@ -228,7 +230,6 @@ class TestCharFilter(unittest.TestCase):
         self.assertEqual(blacklist._include_chars, set([self.vloobuk]))
         self.assertEqual(blacklist._exclude_chars, set([self.bloog]))
 
-
 class EntryPlug(con.Controller):
     """simple controller for programmatic control of Characters"""
     def __init__(self, character):
@@ -262,16 +263,199 @@ class EntryPlug(con.Controller):
         """returns true if messages are available"""
         return bool(self.msgs)
 
+# some test locations
 TEST_ROOM = loc.Location("Room", "This is just a room for testing.")
 TEST_OUT = loc.Location("Outside", "This room is outside.")
 TEST_EXIT = loc.Exit(TEST_OUT, "out", ["outside", "test out"])
 TEST_ROOM.add_exit(TEST_EXIT)
 
+# some test items
+class Coin(item.MiscItem):
+    """a simple coin"""
+
+
+class HealthPotion(item.MiscItem):
+    """a health potion with vary strength"""
+    def __init__(self, hp):
+        self.hp = 5
+    
+    @classmethod
+    def load(cls, data):
+        return cls(data["hp"])
+    
+    def save(self):
+        return {"hp": 5}
+
+
+class TestApparel(item.Equippable):
+    """a base class for other test equippables"""
+    
+    target = item.EquipTarget("Head")
+
+    def equip(self, char):
+        char.message(f"equip {self}")
+
+    def unequip(self, char):
+        char.message(f"unequip {self}")
+
+
+class Hat(TestApparel):
+    target = item.EquipTarget("Head")
+
+
+class Helmet(TestApparel):
+    target = item.EquipTarget("Head")
+
+
+class Sword(TestApparel):
+    target = item.EquipTarget("Right Hand")
+
+
+class Mace(TestApparel):
+    target = item.EquipTarget("Right Hand")
+
+
+class Bow(TestApparel):
+    target = item.EquipTarget("left Hand")
+
+
+class TestCharacterInventory(unittest.TestCase):
+    """test that Character inventory methods work properly"""
+    def setUp(self):
+        # a default character
+        self.default = char.Character("Default")
+        # a human
+        self.finn = Human("Finn")
+        self.finn.add_item(Sword())
+        self.finn.add_item(Coin(), 5)
+        self.finn.add_item(HealthPotion(10), 3)
+        # create an EquipDict for comparison
+        self.ref = item.EquipTarget.make_dict(*Human.equip_slots)
+    
+    def add_item_stack(self):
+        """test that either items or ItemStacks can be given to players"""
+        self.default.add_item(inv.ItemStack.from_item(Sword(), 5))
+        self.assertEqual(self.default.inv, inv.Inventory((Sword(), 5)))
+    
+    def test_equip(self):
+        """test that the equip method throws proper exceptions and
+        works as expected"""
+        #TODO: test that all equip_commands are added!
+        # Finn's equip dict should be empty to start with
+        self.assertEqual(self.finn.equip_dict, self.ref)
+        # equip Sword without removing one from the inventory
+        sword = Sword()
+        self.finn.equip(sword, from_inv=False)
+        # sword should not be removed from inventory
+        self.assertEqual(self.finn.inv, inv.Inventory(
+            (Sword(), 1),
+            (Coin(), 5),
+            (HealthPotion(10), 3)
+        ))
+        # equip dict should be updated
+        self.ref[item.EquipTarget("Right Hand")] = sword, False
+        self.assertEqual(self.finn.equip_dict, self.ref)
+        # item's equip method should be called
+        self.assertEqual(self.finn.last_msg, "equip Sword")
+
+        # try to equip an item that cannot be equipped
+        with self.assertRaises(char.CharException,
+                               msg="Health Potion cannot be equipped."):
+            self.finn.equip(HealthPotion(5), False)
+
+        # try to equip an item for which we don't have proper slots
+        with self.assertRaises(char.CharException,
+                               msg="Cannot equip Bow to Left Hand."):
+            self.finn.equip(Bow(), False)
+
+        # try to equip a hat, but this time pull it from the inventory
+        hat = Hat()
+        with self.assertRaises(char.CharException,
+                               msg="Cannot equip Hat-not found in inventory."):
+            self.finn.equip(hat, True)
+        # give finn a hat and try again
+        self.finn.add_item(Hat())
+        self.finn.equip(hat)
+        # hat should be removed from inventory
+        self.assertEqual(self.finn.inv, inv.Inventory(
+            (Sword(), 1),
+            (Coin(), 5),
+            (HealthPotion(10), 3)
+        ))
+        # equip dict should be updated
+        self.ref[item.EquipTarget("Head")] = hat, True
+        self.assertEqual(self.finn.equip_dict, self.ref)
+        # item's equip method should be called
+        self.assertEqual(self.finn.last_msg, "equip Hat")
+
+        # try to equip a Mace, which implicitly unequips the Sword
+        mace = Mace()
+        self.finn.equip(mace, from_inv=False)
+        # mace should not be removed from inventory and
+        # old sword should NOT be returned since from_inv=False
+        self.assertEqual(self.finn.inv, inv.Inventory(
+            (Sword(), 1),
+            (Coin(), 5),
+            (HealthPotion(10), 3)
+        ))
+        # equip dict should be updated
+        self.ref[item.EquipTarget("Right Hand")] = mace, False
+        self.assertEqual(self.finn.equip_dict, self.ref)
+        # item's equip method should be called
+        self.assertEqual(self.finn.last_msg, "equip Mace")
+    
+    def test_unequip(self):
+        """test that the Character.unequip method performs proper error
+        checking and works as expected"""
+        # TODO test that all EquipCommands are removed!
+        # manually equip the hat and the mace
+        # we mark the hat as from_inv=False, so it should not be returned
+        # while the mace should be added back to inventory
+        hat = Hat()
+        mace = Mace()
+        self.finn.equip_dict[hat.target] = hat, False
+        self.finn.equip_dict[mace.target] = mace, True
+        # copy a reference for comparisons
+        ref = self.finn.equip_dict.copy()
+        # clear finn's inventory for convenience
+        self.finn.inv = inv.Inventory()
+
+        # try unequipping a slot that does not exist
+        with self.assertRaises(char.CharException,
+                               msg="Human does not possess equip slot 'Foo'."):
+            self.finn.unequip(item.EquipTarget("Foo"))
+            
+        # unequip the item in the "Head" slot
+        self.finn.unequip(item.EquipTarget("head"))
+        # hat should not be added to inventory since from_inv=False
+        self.assertEqual(self.finn.inv, inv.Inventory())
+        # equip dict should be updated
+        ref[item.EquipTarget("head")] = None
+        self.assertEqual(self.finn.equip_dict, ref)
+        # item's equip method should be called
+        self.assertEqual(self.finn.last_msg, "unequip Hat")
+
+        # unequip the item in the "Right Hand" slot
+        self.finn.unequip(item.EquipTarget("right hand"))
+        # mace should be added to inventory since from_inv=False
+        self.assertEqual(self.finn.inv, inv.Inventory((Mace(), 1)))
+        # equip dict should be updated
+        ref[item.EquipTarget("right hand")] = None
+        self.assertEqual(self.finn.equip_dict, ref)
+        # item's equip method should be called
+        self.assertEqual(self.finn.last_msg, "unequip Mace")
+        
+        # try to unequip from an empty slot
+        with self.assertRaises(char.CharException,
+                               msg="No item equipped on target 'Head'."):
+            self.finn.unequip(item.EquipTarget("hEAD"))
+
+
 class TestDefaultCommands(unittest.TestCase):
     """test that all the default Character commands work properly"""
     def setUp(self):
         self.room = loc.Location("Room", "This is just a room for testing.")
-        self.bill = char.Character("Bill")
+        self.bill = Human("Bill")
         self.bill.set_location(TEST_ROOM)
         self.billcon = EntryPlug(self.bill)
         self.phil = char.Character("Phil")
@@ -284,6 +468,7 @@ class TestDefaultCommands(unittest.TestCase):
     def tearDown(self):
         self.bill.die()
         self.phil.die()
+        self.dana.die()
 
     def test_help(self):
         """test for the help command"""
@@ -315,18 +500,18 @@ class TestDefaultCommands(unittest.TestCase):
         # test with a simple message
         self.billcon.command("say hey, what's up?")
         self.assertEqual(self.billcon.msgs,
-                         ["Bill the Default Character: hey, what's up?"])
+                         ["Bill the Human: hey, what's up?"])
         self.assertEqual(self.philcon.msgs,
-                         ["Bill the Default Character: hey, what's up?"])
+                         ["Bill the Human: hey, what's up?"])
         self.billcon.msgs.clear()
         self.philcon.msgs.clear()
         self.billcon.command("say spam")
         self.billcon.command("say spam")
         self.billcon.command("say spam")
         self.assertEqual(self.billcon.msgs,
-                         ["Bill the Default Character: spam"] * 3)
+                         ["Bill the Human: spam"] * 3)
         self.assertEqual(self.philcon.msgs,
-                         ["Bill the Default Character: spam"] * 3)
+                         ["Bill the Human: spam"] * 3)
         self.billcon.msgs.clear()
         self.philcon.msgs.clear()
         # empty messages should not be sent
@@ -339,9 +524,9 @@ class TestDefaultCommands(unittest.TestCase):
         # consecutive spaces will be treated as one separator
         self.billcon.command("say  whoops   extra  spaces")
         self.assertEqual(self.billcon.msgs,
-                         ["Bill the Default Character: whoops extra spaces"])
+                         ["Bill the Human: whoops extra spaces"])
         self.assertEqual(self.philcon.msgs,
-                         ["Bill the Default Character: whoops extra spaces"])
+                         ["Bill the Human: whoops extra spaces"])
 
     def test_go_err(self):
         """test that the 'go' sends an error with a bad exit name"""
@@ -408,3 +593,6 @@ class TestDefaultCommands(unittest.TestCase):
                          ["Bill left through exit 'outside'."])
         self.assertEqual(self.danacon.msgs, ["Bill entered."])
         self.assertTrue(self.bill.location is TEST_OUT)
+
+    def test_cmd_equip(self):
+        """test that the equip command works properly"""

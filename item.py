@@ -74,9 +74,6 @@ class EquippableClass(ItemClass):
         if cls != "Equippable": 
             #TODO: assert that target is an EquipTarget
             assert "target" in namespace or any([hasattr(base, "target") for base in bases])
-            #TODO: consider making these optional, since equippable methods also exist
-            assert "equip" in namespace or any([hasattr(base, "equip") for base in bases])
-            assert "unequip" in namespace or any([hasattr(base, "unequip") for base in bases])
         self._commands = {}
         for obj in namespace.values():
             if isinstance(obj, EquipCommand):

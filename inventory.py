@@ -137,7 +137,7 @@ raises ValueError if quantity < 1'''
 
     def remove_item(self, item, amount=1):
         '''remove [item] from this dictionary
-raises ValueError if item is not found'''
+raises KeyError if item is not found'''
         name = str(item)
         item_type = type(item)
         item_data = item.save()
