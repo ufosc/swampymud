@@ -2,16 +2,16 @@ import unittest
 from util.validate import validate, META_SCHEMA, check_schema, format_error
 
 class TestValidate(unittest.TestCase):
-    '''test case for the validator function'''
+    """test case for the validator function"""
 
     def test_empty_schema(self):
-        '''empty schema should validate anything'''
+        """empty schema should validate anything"""
         schema = {}
         data = {"foo": "bar", 42: "meaning of life"}
         self.assertEqual(validate(data, schema), None)
 
     def test_str_schema(self):
-        '''simple schema for an item with type'''
+        """simple schema for an item with type"""
         schema = {"type": str}
         data1 = "foo"
         err1 = ["foo"]
@@ -23,7 +23,7 @@ class TestValidate(unittest.TestCase):
                          "Invalid type <class 'dict'>, expected <class 'str'>")
 
     def test_schema_with_check(self):
-        '''test a schema with a check function'''
+        """test a schema with a check function"""
         def checker(data):
             if data > 42:
                 return "Data should not be greater than 42"
@@ -32,7 +32,6 @@ class TestValidate(unittest.TestCase):
         err1 = 32.434
         err2 = "meme"
         err3 = 434234
-        print()
         self.assertEqual(validate(data1, schema), None)
         self.assertEqual(validate(err1, schema),
                          "Invalid type <class 'float'>, expected <class 'int'>")
@@ -42,7 +41,7 @@ class TestValidate(unittest.TestCase):
                          "Data should not be greater than 42")
 
     def test_list_schema(self):
-        '''a list schema should apply its subschema to all of its items''' 
+        """a list schema should apply its subschema to all of its items"""
         def checker(data):
             if data > 42:
                 raise Exception("Data should not be greater than 42")
@@ -61,7 +60,7 @@ class TestValidate(unittest.TestCase):
         })
 
     def test_dict_schema(self):
-        '''a dict schema should apply itself to underlying values as necessary'''
+        """a dict schema should apply itself to underlying values as necessary"""
         def checker(amt):
             if amt < 100:
                 raise Exception("Must be greater than 100")
@@ -115,7 +114,7 @@ class TestValidate(unittest.TestCase):
         })
 
     def test_recursive(self):
-        '''test if schemas can apply themselves recursively'''
+        """test if schemas can apply themselves recursively"""
         father = {
             "required": False,
             "properties": {
@@ -201,7 +200,7 @@ class TestValidate(unittest.TestCase):
                 }
             }
         })
-        formatted ='''At key 'sons':
+        formatted = '''At key 'sons':
   At index '0':
     At key 'sons':
       At index '0':
@@ -215,7 +214,7 @@ class TestValidate(unittest.TestCase):
       Missing required field'''
         self.assertEqual(format_error(bad_grandpa, error), formatted)
     def test_matcher(self):
-        '''schemas should match using the 'match' and 'choices' fields'''
+        """schemas should match using the 'match' and 'choices' fields"""
         def check_int(value):
             if int(value) != 3:
                 raise Exception("Value should be 3")
@@ -257,7 +256,7 @@ class TestValidate(unittest.TestCase):
         })
 
     def test_recursive_matcher(self):
-        '''test that matcher can work recursively'''
+        """test that matcher can work recursively"""
         def check_int(value):
             if int(value) != 3:
                 raise Exception("Value should be 3")
@@ -281,7 +280,7 @@ class TestValidate(unittest.TestCase):
         })
 
     def test_check_schema(self):
-        '''testing the 'check schema' function'''
+        """testing the 'check schema' function"""
         # test no schema provided
         self.assertEqual(check_schema(3), "argument of type 'int' is not iterable")
         # empty schema is valid
