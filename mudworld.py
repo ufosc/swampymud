@@ -1,5 +1,5 @@
-'''This module provides methods for serializing / deserializing game data,
-and also defines the World class'''
+"""This module provides methods for serializing / deserializing game data,
+and also defines the World class"""
 import importlib
 from collections import defaultdict
 import yaml
@@ -12,7 +12,7 @@ _GAME_OBJS = [Character, Item, Entity, Location]
 _GAME_CLASSES = [CharacterClass, ItemClass, EntityClass]
 
 def read_worldfile(save_name):
-    '''return a parsed save file'''
+    """return a parsed save file"""
     #TODO: add a 'gzip' layer to this
     with open(save_name) as save_file:
         save_data = save_file.read()
@@ -28,7 +28,7 @@ def read_worldfile(save_name):
 
 
 def write_worldfile(save_name, save_data):
-    '''write [save_data] to file [save_name] in YAML format'''
+    """write [save_data] to file [save_name] in YAML format"""
     #TODO add a gzip layer to this
     save_data = yaml.dump(save_data, default_flow_style=False)
     with open(save_name, 'w') as save_file:
@@ -58,7 +58,7 @@ def load_prelude(prelude_data):
 
 
 def skim_for_locations(personae):
-    '''return a dict mapping names to locations based on the provided tree'''
+    """return a dict mapping names to locations based on the provided tree"""
     return {
         name : Location(name, data["description"])
         for name, data in personae.items() if data["_type"] == "^Location"
@@ -66,15 +66,15 @@ def skim_for_locations(personae):
 
 
 def load_object(obj_data, type_names):
-    '''load a personae-formatted object with [obj_data]'''
+    """load a personae-formatted object with [obj_data]"""
     # get object's type, which should be prefixed with "^"
     ObjType = type_names[obj_data["_type"][1:]]
     return ObjType.load(obj_data)
 
 
 def update_symbols(data, obj_names, type_names):
-    '''returns a deep copy of [data] where all symbols (names prefixed with $)
-have been recursively replaced according to the dictionary [obj_names]'''
+    """returns a deep copy of [data] where all symbols (names prefixed with $)
+    have been recursively replaced according to the dictionary [obj_names]"""
     # base case 1--data is a string
     if isinstance(data, str):
         if data.startswith("$"):
@@ -102,11 +102,11 @@ have been recursively replaced according to the dictionary [obj_names]'''
 
 
 def load_personae(personae_data, type_names, obj_names=None):
-    '''[personae_data] : personae-formatted object definions
-[type_names]: dict mapping strings (names) to classes
-[obj_names]: optional argument containing starter symbols and objects
-returns a dict mapping symbols to game objects loaded form [personae_data]
-'''
+    """[personae_data] : personae-formatted object definions
+    [type_names]: dict mapping strings (names) to classes
+    [obj_names]: optional argument containing starter symbols and objects
+    returns a dict mapping symbols to game objects loaded form [personae_data]
+    """
     # copy any starter symbols if provided
     obj_names = obj_names.copy() if obj_names else {}
     for obj_id, obj_data in personae_data.items():
@@ -128,7 +128,7 @@ returns a dict mapping symbols to game objects loaded form [personae_data]
 
 
 def walk_tree(tree, obj_names, cls_names):
-    '''recursive function for evaluating the World Tree'''
+    """recursive function for evaluating the World Tree"""
     # base case 1--tree is a symbol
     if isinstance(tree, str):
         # return the object with that symbol
@@ -148,7 +148,6 @@ def walk_tree(tree, obj_names, cls_names):
                 # get the owner from the sybmol
                 owner = obj_names[symbol]
                 # load in each child in this subtree
-                print(list(load_tree(subtree, obj_names, cls_names)))
                 for child_obj in load_tree(subtree, obj_names, cls_names):
                     if isinstance(child_obj, Character):
                         owner.add_char(child_obj)
@@ -171,17 +170,17 @@ def walk_tree(tree, obj_names, cls_names):
 
 
 def load_tree(tree, obj_names, cls_names):
-    '''wrapper function for walk_tree
+    """wrapper function for walk_tree
     returns a list of objects at the top of the hierarchy
-    '''
+    """
     # TODO: check that symbols are used only once in each tree
     return [obj for obj in walk_tree(tree, obj_names, cls_names)]
 
 
 def symbol_replace(data, sym_counts):
-    '''returns a copy of [data], but with all classes
-and game objects replaced with the proper symbols
-the frequency of each symbol is recorded in [sym_counts]'''
+    """returns a copy of [data], but with all classes
+    and game objects replaced with the proper symbols
+    the frequency of each symbol is recorded in [sym_counts]"""
     # check if object is a game object, replace with obj symbol
     if any(map(lambda x: isinstance(data, x), _GAME_OBJS)):
         sym = "$%s" % data.symbol
@@ -207,10 +206,10 @@ the frequency of each symbol is recorded in [sym_counts]'''
 
 
 def build_tree(obj, personae_counts, tree_counts):
-    '''returns a tuple containing subtree, personae_chunk
-subtree: a subtree of the World Tree
-personae_data: a chunk of personae_data
-'''
+    """returns a tuple containing subtree, personae_chunk
+    subtree: a subtree of the World Tree
+    personae_data: a chunk of personae_data
+    """
     personae = {}
     subtrees = []
     # recursive step
@@ -245,9 +244,9 @@ personae_data: a chunk of personae_data
 
 
 class World:
-    '''class representing an in-game world'''
+    """class representing an in-game world"""
     def __init__(self, prelude, personae, tree):
-        '''initialize an empty world'''
+        """initialize an empty world"""
         # skim the personae, creating all locations
         self.locations = skim_for_locations(personae)
         # the prelude won't change, so simply save it
@@ -276,12 +275,12 @@ class World:
                 self.entity_classes[cls.__name__] = cls
 
     def children(self):
-        '''iterate over the locations in this world'''
+        """iterate over the locations in this world"""
         for location in self.locations.values():
             yield location
 
     def save(self):
-        '''returns a pythonic representation of this world'''
+        """returns a pythonic representation of this world"""
         personae_counts = defaultdict(int)
         tree_counts = defaultdict(int)
         personae, tree = build_tree(self, personae_counts, tree_counts)
@@ -292,11 +291,11 @@ class World:
         }
 
     def to_file(self, filename):
-        '''write this world's save data to [filename]'''
+        """write this world's save data to [filename]"""
         write_worldfile(filename, self.save())
 
     @staticmethod
     def from_file(filename):
-        '''returns a World loaded from a file'''
+        """returns a World loaded from a file"""
         world_data = read_worldfile(filename)
         return World(**world_data)
