@@ -558,3 +558,13 @@ this function is inefficient and fragile, do not use outside simple testing"""
         results = list(self.potion_seller.find(name="Swor", dmg=10, material="steel"))
         self.assertTrue(self.cmp_contents(results, [
         ]))
+
+    def test_readable(self):
+        """test that readable view of inventory works properly"""
+        self.assertEqual(self.empty.readable(), "")
+        self.assertEqual(self.coins.readable(), "Silver Coin: 10")
+        self.assertEqual(self.rich.readable(),
+                         "Health Potion: 5\n"
+                         "Silver Coin: 15\n"
+                         "Sword: 2")
+        # TODO: add self.potion_seller testcase after you update this method

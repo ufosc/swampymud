@@ -223,3 +223,12 @@ class Inventory:
             return True
         except AttributeError:
             return False
+
+    def readable(self):
+        """returns a string representation of this inventory"""
+        # get a tuple list of form (item_name, amount)
+        #TODO: call another method other than 'string' to better represent object?
+        items = list(map(lambda x: f"{x[0]}: {x[1]}", self))
+        # sort by name
+        items.sort(key=lambda x: x[0])
+        return "\n".join(items)
