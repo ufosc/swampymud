@@ -135,7 +135,7 @@ class Inventory:
         if not isinstance(amount, int) or amount < 1:
             raise ValueError("Expected integer quantity > 0, received %s"
                              % amount)
-        name = str(item)
+        name = str(item).lower()
         item_type = type(item)
         data = item.save()
         for stack in self._items[name]:
@@ -150,7 +150,7 @@ class Inventory:
     def remove_item(self, item, amount=1):
         """remove [item] from this dictionary
         raises KeyError if item is not found"""
-        name = str(item)
+        name = str(item).lower()
         item_type = type(item)
         item_data = item.save()
         # raise an error if the key is not found
@@ -175,6 +175,7 @@ class Inventory:
 
     def find(self, name=None, cls=None, exact_data=None, **other_fields):
         if name:
+            name = name.lower()
             # if name provided, get the corresponding bucket
             if name in self._items:
                 for stack in self._items[name]:

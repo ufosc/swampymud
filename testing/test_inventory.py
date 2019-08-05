@@ -345,7 +345,7 @@ class TestInventory(unittest.TestCase):
         coin_inv.add_item(HealthPotion(100))
         self.assertEqual(coin_inv, self.potion_seller)
         # check that the 'Health Potion' bucket is correct
-        bucket = coin_inv._items["Health Potion"]
+        bucket = coin_inv._items["health potion"]
         self.assertEqual(len(bucket), 4)
         self.assertTrue(inv.ItemStack(HealthPotion, 7, {"hp":3}) in bucket)
         self.assertTrue(inv.ItemStack(HealthPotion, 5, {"hp":10}) in bucket)
