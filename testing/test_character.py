@@ -278,18 +278,18 @@ class HealthPotion(item.MiscItem):
     """a health potion with vary strength"""
     def __init__(self, hp):
         self.hp = 5
-    
+
     @classmethod
     def load(cls, data):
         return cls(data["hp"])
-    
+
     def save(self):
         return {"hp": 5}
 
 
 class TestApparel(item.Equippable):
     """a base class for other test equippables"""
-    
+
     target = item.EquipTarget("Head")
 
     def equip(self, char):
@@ -331,12 +331,12 @@ class TestCharacterInventory(unittest.TestCase):
         self.finn.add_item(HealthPotion(10), 3)
         # create an EquipDict for comparison
         self.ref = item.EquipTarget.make_dict(*Human.equip_slots)
-    
+
     def add_item_stack(self):
         """test that either items or ItemStacks can be given to players"""
         self.default.add_item(inv.ItemStack.from_item(Sword(), 5))
         self.assertEqual(self.default.inv, inv.Inventory((Sword(), 5)))
-    
+
     def test_equip(self):
         """test that the equip method throws proper exceptions and
         works as expected"""
@@ -403,7 +403,7 @@ class TestCharacterInventory(unittest.TestCase):
         self.assertEqual(self.finn.equip_dict, self.ref)
         # item's equip method should be called
         self.assertEqual(self.finn.last_msg, "equip Mace")
-    
+
     def test_unequip(self):
         """test that the Character.unequip method performs proper error
         checking and works as expected"""
@@ -424,7 +424,7 @@ class TestCharacterInventory(unittest.TestCase):
         with self.assertRaises(char.CharException,
                                msg="Human does not possess equip slot 'Foo'."):
             self.finn.unequip(item.EquipTarget("Foo"))
-            
+
         # unequip the item in the "Head" slot
         self.finn.unequip(item.EquipTarget("head"))
         # hat should not be added to inventory since from_inv=False
@@ -444,7 +444,7 @@ class TestCharacterInventory(unittest.TestCase):
         self.assertEqual(self.finn.equip_dict, ref)
         # item's equip method should be called
         self.assertEqual(self.finn.last_msg, "unequip Mace")
-        
+
         # try to unequip from an empty slot
         with self.assertRaises(char.CharException,
                                msg="No item equipped on target 'Head'."):
@@ -469,6 +469,9 @@ class TestDefaultCommands(unittest.TestCase):
         self.bill.die()
         self.phil.die()
         self.dana.die()
+        # clear the inventories for TEST_ROOM and TEST_EXIT
+        TEST_ROOM.inv = inv.Inventory()
+        TEST_OUT.inv = inv.Inventory()
 
     def test_help(self):
         """test for the help command"""
@@ -539,7 +542,7 @@ class TestDefaultCommands(unittest.TestCase):
         self.assertTrue(self.bill.location is TEST_ROOM)
 
     def test_go_basic(self):
-        """test that basic use of the go command works properly"""
+        """test that basic use of the 'go' command works properly"""
         self.billcon.command("go outside")
         self.assertEqual(self.billcon.msgs, [])
         self.assertEqual(self.philcon.msgs,
@@ -596,3 +599,207 @@ class TestDefaultCommands(unittest.TestCase):
 
     def test_cmd_equip(self):
         """test that the equip command works properly"""
+        self.bill.inv.add_item(Mace())
+        self.bill.inv.add_item(Sword())
+        # try a nonexistant item
+        self.billcon.command("equip fwwrsd")
+        self.assertEqual(self.billcon.msgs.pop(),
+                        "Could not find item 'fwwrsd'.")
+        self.billcon.command("equip mace")
+        # mace should be equipped
+        self.assertEqual(self.billcon.msgs.pop(),
+                         "equip Mace")
+        mace, from_inv = self.bill.equip_dict[item.EquipTarget("Right Hand")]
+        self.assertTrue(isinstance(mace, Mace))
+        self.assertTrue(from_inv)
+        # now we cannot equip the mace again, because it cannot be found
+        self.billcon.command("equip mace")
+        self.assertEqual(self.billcon.msgs.pop(),
+                         "Could not find item 'mace'.")
+        # mace should still be equipped
+        mace, from_inv = self.bill.equip_dict[item.EquipTarget("Right Hand")]
+        self.assertTrue(isinstance(mace, Mace))
+        self.assertTrue(from_inv)
+        # try equipping a sword
+        self.billcon.command("equip sword")
+        self.assertEqual(self.billcon.msgs, [
+            "unequip Mace",
+            "equip Sword"
+        ])
+        self.billcon.msgs.clear()
+        sword, from_inv = self.bill.equip_dict[item.EquipTarget("Right Hand")]
+        self.assertTrue(isinstance(sword, Sword))
+        self.assertTrue(from_inv)
+        # we should be messaged if we equip an item we don't have a slot for
+        self.bill.inv.add_item(Bow())
+        self.billcon.command("equip Bow")
+        self.assertEqual(self.billcon.msgs.pop(),
+                         "Cannot equip item Bow to Left hand.")
+        # equipping an un-equippable item should give us a message
+        self.bill.inv.add_item(Coin())
+        self.billcon.command("equip Coin")
+        self.assertEqual(self.billcon.msgs.pop(),
+                         "Coin cannot be equipped.")
+        # TODO: test ambiguity handling once added
+
+    def test_cmd_unequip(self):
+        """test that the unequip command works properly"""
+        self.bill.inv.add_item(Sword())
+        self.bill.inv.add_item(Hat())
+        # equip the sword and hat
+        self.bill.equip(Sword(), from_inv=True)
+        self.bill.equip(Hat(), from_inv=True)
+        # purge the equip messages
+        self.billcon.msgs.clear()
+        # create a reference copy of the equip_dict for testing
+        ref = self.bill.equip_dict.copy()
+        # try to unequip a non-existent item
+        self.billcon.command("unequip flesh")
+        self.assertEqual(self.billcon.msgs.pop(),
+                         "Could not find equipped item 'flesh'.")
+        # equipped items should be unaffected
+        self.assertEqual(ref, self.bill.equip_dict)
+        # now try unequipping the hat
+        self.billcon.command("unequip hat")
+        self.assertEqual(self.billcon.msgs.pop(),
+                         "unequip Hat")
+        # hat should be removed from our equip_dict
+        ref[item.EquipTarget("head")] = None
+        self.assertEqual(self.bill.equip_dict, ref)
+        # hat should be added back to inventory
+        self.assertEqual(self.bill.inv, inv.Inventory((Hat(), 1)))
+
+        # now try unequipping the hat again
+        self.billcon.command("unequip hat")
+        self.assertEqual(self.billcon.msgs.pop(),
+                         "Could not find equipped item 'hat'.")
+        self.assertEqual(ref, self.bill.equip_dict)
+
+        # try unequipping the sword (should be case-insensitive)
+        self.billcon.command("unequip SwOrD")
+        self.assertEqual(self.billcon.msgs.pop(),
+                         "unequip Sword")
+        # sword should be removed from our equip_dict
+        ref[item.EquipTarget("right hand")] = None
+        self.assertEqual(self.bill.equip_dict, ref)
+        # sword should be added back to inventory
+        inv_items = [(Hat(), 1), (Sword(), 1)]
+        self.assertEqual(self.bill.inv, inv.Inventory(*inv_items))
+
+    def test_cmd_inv(self):
+        """test that the 'inv' command works properly"""
+        self.billcon.command("inv")
+        self.assertEqual(self.billcon.msgs.pop(),
+                         "Head: none\nRight hand: none")
+        # add some stuff to the inventory
+        self.bill.add_item(Coin(), 30)
+        self.bill.add_item(Sword(), 2)
+        self.billcon.command("inv")
+        self.assertEqual(self.billcon.msgs, [
+            "Head: none\nRight hand: none",
+            self.bill.inv.readable()
+        ])
+        self.billcon.msgs.clear()
+        # add more items
+        self.bill.add_item(Mace(), 2)
+        self.bill.add_item(Bow(), 2)
+        self.bill.add_item(Hat(), 1)
+        self.billcon.command("inv")
+        self.assertEqual(self.billcon.msgs, [
+            "Head: none\nRight hand: none",
+            self.bill.inv.readable()
+        ])
+        self.billcon.msgs.clear()
+        # equip some items
+        self.bill.equip(Hat(), from_inv=False)
+        self.billcon.command("inv")
+        self.assertEqual(self.billcon.msgs, [
+            "equip Hat",
+            "Head: Hat\nRight hand: none",
+            self.bill.inv.readable()
+        ])
+        self.billcon.msgs.clear()
+        # equip more items
+        self.bill.equip(Sword(), from_inv=False)
+        self.billcon.command("inv")
+        self.assertEqual(self.billcon.msgs, [
+            "equip Sword",
+            "Head: Hat\nRight hand: Sword",
+            self.bill.inv.readable()
+        ])
+
+    def test_cmd_pickup(self):
+        """test that the 'pickup' command works properly"""
+        # try to pickup an item when there are none available
+        self.billcon.command("pickup coin")
+        self.assertEqual(self.billcon.msgs.pop(),
+                         "Could not find item 'coin' to pick up.")
+        # now add a coin and some swords
+        TEST_ROOM.add_item(Coin(), 5)
+        TEST_ROOM.add_item(Sword(), 1)
+        # create a copy of TEST_ROOM's inv for reference
+        loc_ref = inv.Inventory(*TEST_ROOM.inv)
+        # create a copy of Bill's inv for reference
+        bill_ref = inv.Inventory(*self.bill.inv)
+        # try to pickup an item with a bad name
+        self.billcon.command("pickup foo")
+        self.assertEqual(self.billcon.msgs.pop(),
+                         "Could not find item 'foo' to pick up.")
+        # try looting a coin
+        self.billcon.command("pickup coin")
+        self.assertEqual(self.billcon.msgs, [])
+        # coin should be removed from location
+        loc_ref.remove_item(Coin())
+        self.assertEqual(TEST_ROOM.inv, loc_ref)
+        # coin should be added to character
+        bill_ref.add_item(Coin())
+        self.assertEqual(self.bill.inv, bill_ref)
+
+        # try looting a sword
+        self.billcon.command("pickup sword")
+        self.assertEqual(self.billcon.msgs, [])
+        # coin should be removed from location
+        loc_ref.remove_item(Sword())
+        self.assertEqual(TEST_ROOM.inv, loc_ref)
+        # coin should be added to character
+        bill_ref.add_item(Sword())
+        self.assertEqual(self.bill.inv, bill_ref)
+
+    def test_cmd_drop(self):
+        """test that the 'drop' command works properly"""
+        # try to drop an item when inventory is empty
+        self.billcon.command("drop coin")
+        self.assertEqual(self.billcon.msgs.pop(),
+                         "Could not find item 'coin' to drop.")
+        # now add a coin and some swords to bill's inventory
+        self.bill.add_item(Coin(), 5)
+        self.bill.add_item(Sword(), 1)
+        # create a copy of TEST_ROOM's inv for reference
+        loc_ref = inv.Inventory(*TEST_ROOM.inv)
+        # create a copy of Bill's inv for reference
+        bill_ref = inv.Inventory(*self.bill.inv)
+
+        # try dropping a coin
+        self.billcon.command("drop coin")
+        self.assertEqual(self.billcon.msgs, [])
+        # coin should be added to location's inventory
+        loc_ref.add_item(Coin())
+        self.assertEqual(TEST_ROOM.inv, loc_ref)
+        # coin should be removed from bill's inventory
+        bill_ref.remove_item(Coin())
+        self.assertEqual(self.bill.inv, bill_ref)
+
+        # try dropping a sword
+        self.billcon.command("drop sWORD")
+        self.assertEqual(self.billcon.msgs, [])
+        # sword should be added to the location's inventory
+        loc_ref.add_item(Sword())
+        self.assertEqual(TEST_ROOM.inv, loc_ref)
+        # sword should to be removed from bill's inventory
+        bill_ref.remove_item(Sword())
+        self.assertEqual(self.bill.inv, bill_ref)
+
+        # try dropping a sword (when none are left)
+        self.billcon.command("drop Sword")
+        self.assertEqual(self.billcon.msgs.pop(),
+                         "Could not find item 'sword' to drop.")

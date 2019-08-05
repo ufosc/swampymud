@@ -122,7 +122,7 @@ class Location:
         self._character_list = []
         self._entity_list = []
         self._exit_list = []
-        self._inv = inv.Inventory()
+        self.inv = inv.Inventory()
         self.name = name
         self.description = description
         self._symbol = "%s#%s" % (self.name.replace(" ", ""),
@@ -175,13 +175,13 @@ class Location:
 
     # inventory-related methods
     def add_item(self, item, quantity=1):     
-        self._inv.add_item(item, quantity)
+        self.inv.add_item(item, quantity)
 
     def remove_item(self, item, quantity=1):
-        return self._inv.remove_item(item, quantity)
+        return self.inv.remove_item(item, quantity)
 
     def all_items(self):
-        return list(self._inv)
+        return list(self.inv)
 
     # TODO: scrap this method
     def __contains__(self, other):
@@ -199,7 +199,7 @@ class Location:
         elif isinstance(other, Character):
             return other in self._character_list
         elif isinstance(other, item.Item):
-            return other in self._inv
+            return other in self.inv
         else:
             raise ValueError("Received %s, expected Exit, Character, or Item"
                              % type(other))
@@ -212,7 +212,7 @@ class Location:
         for exit_name in self._exit_list:
             if exit_name == query:
                 return exit_name
-        item_result = self._inv.find(name=query)
+        item_result = self.inv.find(name=query)
         if item_result:
             return item_result
         for entity in self._entity_list:
@@ -237,7 +237,7 @@ class Location:
         output += "Desc:\t%s\n" % self.description
         output += "Chars:\t%s\n" % self._character_list
         output += "Exits:\t%s\n" % self._exit_list
-        output += "Items:\t%s\n" % list(self._inv)
+        output += "Items:\t%s\n" % list(self.inv)
         return output
 
     def __repr__(self):

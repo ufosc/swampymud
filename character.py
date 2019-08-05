@@ -454,62 +454,89 @@ class Character(control.Monoreceiver, metaclass=CharacterClass):
         if len(args) < 2:
             self.message("Provide an item to equip.")
             return
-        item_name = " ".join(args[1::])
-        #TODO: handle ambiguity
+        item_name = " ".join(args[1::]).lower()
         found_items = list(self.inv.find(name=item_name))
-        if found_items:
-            self.equip(found_item)
+        if len(found_items) == 1:
+            self.equip(found_items[0][0])
+        elif len(found_items) > 1:
+            #TODO handle ambiguity
+            self.message(f"Ambigious item name. Results={found_items}")
         else:
-            self.message("Could not find item '%s'" % item_name)
+            self.message(f"Could not find item '{item_name}'.")
 
     def cmd_unequip(self, args):
-        """Unequip an equipped item."""
+        """Unequip an equipped item.
+        Usage: unequip [item]"""
         if len(args) < 2:
             self.message("Provide an item to equip.")
             return
-        item_name = " ".join(args[1::])
-        options = []
-        for target, item in self.equip_dict.items():
-            if item and item.name.lower() == item_name:
-                options.append(item)
-        item = self._check_ambiguity(1, item_name, options)
-        self.unequip(item)
+        item_name = " ".join(args[1::]).lower()
+        # search through the items in the equip_dict
+        found_items = []
+        for target, equip_data in self.equip_dict.items():
+            if equip_data is None:
+                continue
+            item, _ = equip_data
+            if str(item).lower() == item_name:
+                found_items.append(item)
+        if len(found_items) == 1:
+            self.unequip(found_items[0].target)
+        elif len(found_items) > 1:
+            #TODO handle ambiguity
+            self.message(f"Ambigious item name. Results={found_items}")
+        else:
+            self.message(f"Could not find equipped item '{item_name}'.")
 
     def cmd_pickup(self, args):
-        """ Pick up item from the environme.nt"""
+        """Pick up item from the environment."""
         if len(args) < 2:
             self.message("Provide an item to pick up.")
             return
-
-        item_name = " ".join(args[1::])
-        #TODO: handle ambiguity
-        item = self.location.find(name=item_name)
-        if item:
+        item_name = " ".join(args[1::]).lower()
+        found_items = list(self.location.inv.find(name=item_name))
+        if len(found_items) == 1:
+            item = found_items[0][0]
+            self.location.inv.remove_item(item)
             self.inv.add_item(item)
-            self.location.remove_item(item)
+        elif len(found_items) > 1:
+            #TODO handle ambiguity
+            self.message(f"Ambigious item name. Results={found_items}")
         else:
-            self.message(f"Could not find item with name '{item_name}'")
+            self.message(f"Could not find item '{item_name}' to pick up.")
 
     def cmd_drop(self, args):
         """Drop an item into the environment"""
         if len(args) < 2:
             self.message("Provide an item to drop.")
             return
-        item_name = " ".join(args[1::])
-        #TODO: handle ambiguity
-        found_item = list(self.inv.find(name=item_name))
-        if found_item:
-            self.inv.remove_item(found_item)
-            self.location.add_item(found_item)
+        item_name = " ".join(args[1:]).lower()
+        found_items = list(self.inv.find(name=item_name))
+        if len(found_items) == 1:
+            item = found_items[0][0]
+            self.inv.remove_item(item)
+            self.location.inv.add_item(item)
+        elif len(found_items) > 1:
+            #TODO handle ambiguity
+            self.message(f"Ambigious item name. Results={found_items}")
         else:
-            self.message(f"Could not find item with name {item_name}")
+            self.message(f"Could not find item '{item_name}' to drop.")
 
     def cmd_inv(self, args):
-        """Show your inventory."""
-        output = ""
-        for target, equipped in self.equip_dict.items():
-            output += str(target).upper() + "\n\t" + str(equipped) + "\n"
-        self.message(output + self.inv.readable())
+        """Show your inventory.
+        usage: inv"""
+        # create a string representation of the equipped items
+        equipped = []
+        for target, item in self.equip_dict.items():
+            if item is None:
+                equipped.append(f"{target}: none")
+            else:
+                equipped.append(f"{target}: {item[0]}")
+        equipped.sort()
+        self.message("\n".join(equipped))
+        inv_msg = self.inv.readable()
+        # only send a message if inv has items
+        if inv_msg:
+            self.message(inv_msg)
 
     #TODO: streamline this method
     def cmd_use(self,args):
