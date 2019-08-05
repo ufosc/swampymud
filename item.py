@@ -204,7 +204,7 @@ class Usable(metaclass=UsableClass):
         '''Return a string representing the object
         this will be how the item appears to the player'''
         return self._item_name
-    
+
     def describe(self):
         ''' Describes the object '''
         return self._description
@@ -219,7 +219,7 @@ class Usable(metaclass=UsableClass):
 
     def save(self):
         '''return a pythonic representation of this object
-this base class has no fields, so no data is returned'''
+        this base class has no fields, so no data is returned'''
         return {}
 
 class MiscItem(metaclass=ItemClass):
@@ -253,5 +253,5 @@ class MiscItem(metaclass=ItemClass):
 
     def save(self):
         '''return a pythonic representation of this object
-this base class has no fields, so no data is returned'''
+        this base class has no fields, so no data is returned'''
         return {}
