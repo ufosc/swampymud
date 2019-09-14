@@ -37,7 +37,7 @@ personae:
     description: You feel a strange urge pulling you towards the edge. The sun beats on your back, and the breeze coaxes you closer.
     exits:
     - name: back
-      other_names: southern
+      other_names: [southern]
       destination: $Southern Grasslands
     - name: edge
       destination: $The Pit
