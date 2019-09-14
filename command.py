@@ -1,15 +1,16 @@
-'''module containing the CommandDict class'''
+"""module containing the CommandDict class"""
+from inspect import cleandoc
 from util.shadowdict import ShadowDict
 
 class Command:
-    '''class representing a Command
+    """class representing a Command
     a Command has 3 important values:
         - a name that will represent the command
         - a function that the command will call
         - a type_name that is used for sorting the help menu
     Optionally, a Command may also have a source
     (this source is used if the function is an unbound method)
-    '''
+    """
 
     def __init__(self, name, func, type_name, source=None):
         self.name = name
@@ -24,7 +25,8 @@ class Command:
             return self._func(*args, **kwargs)
 
     def help(self):
-        return self._func.__doc__
+        """returns a formatted help info based on function documentation"""
+        return cleandoc(self._func.__doc__)
 
     def __repr__(self):
         return "Command%r" % ((self.name, self._func, self.type_name, self.source),)
@@ -35,7 +37,7 @@ class Command:
         return hash((self.name, self._func, self.type_name, str(self.source)))
 
     def __eq__(self, other):
-        '''overriding  =='''
+        """overriding  =="""
         return all((self.name == other.name, self._func is other._func,
                     self.type_name == other.type_name, self.source is other.source))
 
@@ -44,26 +46,26 @@ class Command:
 
 
 class SpecificCommand(Command):
-    '''Command that can can be bound to a particular source
-    typically used for binding to a particular instance of a class'''
+    """Command that can can be bound to a particular source
+    typically used for binding to a particular instance of a class"""
     def __init__(self, name, func, type_name, filter, source=None, char=None):
         super().__init__(name, func, type_name, source)
         self.filter = filter
         self.char = char
 
     def specify(self, new_source=None, new_char=None):
-        '''return a copy of this command with a new source/char'''
-        new_cmd = SpecificCommand(self.name, self._func, self.type_name, 
-                                 self.filter, new_source, new_char)
+        """return a copy of this command with a new source/char"""
+        new_cmd = SpecificCommand(self.name, self._func, self.type_name,
+                                  self.filter, new_source, new_char)
         return new_cmd
 
     def __call__(self, *args, **kwargs):
-        '''call specific command'''
+        """call specific command"""
         # TODO: should we always assume that a char is specified?
         return self._func(self.source, self.char, *args, **kwargs)
 
     def __repr__(self):
-        return "%s%r" % (type(self).__name__, (self.name, self._func, 
+        return "%s%r" % (type(self).__name__, (self.name, self._func,
                                                self.type_name, self.filter,
                                                self.source, self.char),)
 
@@ -72,16 +74,16 @@ class SpecificCommand(Command):
 # options include adding indicies for CommandTypes
 # or simply caching the help menu
 class CommandDict:
-    '''dictionary that maps names (strings) to commands (functions)'''
+    """dictionary that maps names (strings) to commands (functions)"""
     def __init__(self):
-        '''initialize a CommandDict with commands [cmds]'''
+        """initialize a CommandDict with commands [cmds]"""
         self._commands = ShadowDict()
         self._command_names = {}
 
     def add_cmd(self, cmd, name=None):
-        '''add cmd to the dict with name
+        """add cmd to the dict with name
         if 'name' is not provided, the builtin name
-        of the command is used'''
+        of the command is used"""
         if name is None:
             name = str(cmd)
         self._commands[name] = cmd
@@ -89,39 +91,39 @@ class CommandDict:
 
     #TODO: document shadowing behavior
     def remove_cmd(self, cmd):
-        '''provide a command to remove from the dict'''
+        """provide a command to remove from the dict"""
         name = self._command_names[cmd]
         self._commands.remove_value(name, cmd)
         del self._command_names[cmd]
 
     #TODO: document shadowing behavior
     def remove_name(self, name):
-        '''provide a name to remove from the dict'''
+        """provide a name to remove from the dict"""
         cmd = self._commands[name]
         del self._commands[name]
         del self._command_names[cmd]
 
     def change_name(self, current, new_name):
-        '''change the name associated with a command'''
+        """change the name associated with a command"""
         cmd = self._commands[current]
         del self._commands[current]
         self._commands[new_name] = cmd
         self._command_names[cmd] = new_name
 
     def get_cmd(self, name):
-        '''get a cmd by providing its name'''
+        """get a cmd by providing its name"""
         return self._commands[name]
 
     def get_name(self, cmd):
-        '''get a name by providing the cmd'''
+        """get a name by providing the cmd"""
         return self._command_names[cmd]
 
     def has_name(self, name):
-        '''returns true if 'name' is in use'''
+        """returns true if 'name' is in use"""
         return name in self._commands
 
     def has_cmd(self, cmd):
-        '''returns true if 'cmd' exists in the dict'''
+        """returns true if 'cmd' exists in the dict"""
         return cmd in self._command_names
 
     def iter_cmds(self):
@@ -129,7 +131,7 @@ class CommandDict:
             yield cmd
 
     def help(self, width=30):
-        '''produce a formatted help menu with width [width]'''
+        """produce a formatted help menu with width [width]"""
         output = []
 
         # TODO: improve this sorting process
