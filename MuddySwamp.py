@@ -12,7 +12,7 @@ from glob import glob
 # import the MUD server class
 from mudserver import MudServer, Event, EventType
 # import modules from the MuddySwamp engine
-import mudimport
+import mudworld
 import mudscript
 import control
 import location
@@ -20,8 +20,8 @@ import location
 # better names welcome
 class MainServer(MudServer):
     '''Bundles a server and a library together'''
-    def __init__(self, port=1234):
-        self.lib = mudimport.Library()
+    def __init__(self, world, port):
+        self.world = world
         self.default_class = None
         self.default_location = None
         super().__init__(port)
@@ -29,12 +29,12 @@ class MainServer(MudServer):
     def set_default_class(self, cls_name):
         '''set default class to class with name [default_name]
         throws an error if default_name is not found in server's lib'''
-        self.default_class = server.lib.char_classes[cls_name]
+        self.default_class = server.world.char_classes[cls_name]
 
     def set_default_location(self, loc_name):
         '''set default class to class with name [default_name]
         throws an error if default_name is not found in server's lib'''
-        self.default_location = server.lib.locations[loc_name]
+        self.default_location = server.world.locations[loc_name]
 
     def clear_default_class(self):
         '''clear the provided default class'''
@@ -49,14 +49,14 @@ class MainServer(MudServer):
         if self.default_class is not None:
             return self.default_class
         else:
-            return self.lib.random_class.get()
+            return self.world.random_cls()
 
 
 class Greeter(control.Monoreceiver):
     '''Class responsible for greeting the player
     and handing them a Character to control'''
 
-    GREETING='''Welcome to MuddySwamp!'''
+    GREETING = '''Welcome to MuddySwamp!'''
 
     def __init__(self, server):
         self.server = server
@@ -79,20 +79,26 @@ class Greeter(control.Monoreceiver):
             if not new_name.isalnum():
                 self.controller.write_msg("Names must be alphanumeric.")
                 continue
-            if new_name in self.server.lib.chars:
-                self.controller.write_msg("Name is currently in use.")
+            # TODO: perform check to prevent users from having the same name
             else:
                 # create the character and give it to the player
                 new_char = self.player_cls(new_name)
                 self.controller.assume_control(new_char)
-                self.server.lib.chars[new_name] = new_char
                 if self.server.default_location is not None:
                     new_char.set_location(self.server.default_location)
                 elif self.player_cls.starting_location is not None:
                     new_char.set_location(self.player_cls.starting_location)
                 else:
-                    new_char.set_location(location.NULL_ISLAND)
-                self.server.send_message_to_all("Welcome, %s, to the server!" % new_char)
+                    # no default location provided, so just pick the first location
+                    try:
+                        loc = next(iter(self.server.world.locations.values()))
+                    except StopIteration:
+                        logging.critical("Could not spawn %s, server has no locations", new_char)
+                    logging.warning("%s has no default location, "
+                                    "so %s was spawned in %s",
+                                    self.player_cls, new_char, loc)
+                    new_char.set_location(loc)
+                self.server.send_message_to_all(f"Welcome, {new_char}, to the server!")
                 break
 
 
@@ -100,19 +106,10 @@ class Greeter(control.Monoreceiver):
 logging.basicConfig(format='%(asctime)s [%(threadName)s] [%(levelname)s] %(message)s',
                     level=logging.INFO,
                     handlers=[
-                        logging.FileHandler("server.log"),
+                         logging.FileHandler("server.log"),
                         logging.StreamHandler(sys.stdout)
                     ])
 
-
-# defining a set of paths
-# by default, we import every yaml file in chars and locations
-IMPORT_PATHS = {
-    "locations" : glob("locations/*.yml"),
-    "chars" : glob("chars/*yml"),
-    "items" : glob("items/*yml"),
-    "entities" : glob("entities/*yml")
-}
 
 SHELL_MODE = False
 
@@ -198,7 +195,10 @@ class MudServerWorker(threading.Thread):
         self.mud.shutdown()
 
 parser = argparse.ArgumentParser(description="Launch a MuddySwamp server.")
-parser.add_argument("-p", "--port", type=int, help="Specify a port. [Default: 1234]")
+parser.add_argument("-p", "--port", type=int,
+                    help="Specify a port. [Default: 1234]", default=1234)
+parser.add_argument("-w", "--world", metavar="FILE",
+                    help="Load world from [FILE]")
 parser.add_argument("--default-class", metavar="CLASS",
                     help="Force all characters to spawn as [CLASS]")
 parser.add_argument("--default-location", metavar="LOCATION",
@@ -207,28 +207,24 @@ parser.add_argument("--default-location", metavar="LOCATION",
 
 if __name__ == "__main__":
     args = parser.parse_args()
-    port = args.port if args.port else 1234
+    if args.world:
+        world = mudworld.World.from_file(args.world)
+    else:
+        # if no world file is provided, run a test world
+        world = mudworld.World.test_world()
     try:
-        server = MainServer(port)
+        server = MainServer(world, args.port)
     except PermissionError:
-        print("Error. Do not have permission to use port '%s'" % port, file=sys.stderr)
+        print(f"Error. Do not have permission to use port '{args.port}'",
+              file=sys.stderr)
         exit(-1)
     except OSError as ex:
         if ex.errno == errno.EADDRINUSE:
-            print("Error. Port '%s' is already in use." % port, file=sys.stderr)
+            print(f"Error. Port '{args.port}' is already in use.",
+                  file=sys.stderr)
         else:
             print(ex, file=sys.stderr)
         exit(-1)
-    
-
-    # export the server in case imported files use mudscript
-    mudscript.export_server(server)
-    # import files
-    server.lib.import_files(**IMPORT_PATHS)
-    # log the results
-    logging.info(server.lib.import_results())
-    # build the random class distribution
-    server.lib.build_class_distr()
 
     # set the default class if one was provided
     if args.default_class:
@@ -276,21 +272,27 @@ if __name__ == "__main__":
                 elif command == "list":
                     if params == "locations":
                         location_list = "Loaded Locations:\n"
-                        for loc in server.lib.locations.values():
+                        for loc in server.world.locations.values():
                             location_list += "\t%r\n" % loc
                         logging.info(location_list)
                     elif params == "items":
                         item_list = "Loaded Items:\n"
-                        for name in server.lib.items.values():
+                        for name in server.world.item_classes.values():
                             item_list += "\t%r\n" % name
                         logging.info(item_list)
                     elif params == "chars":
                         char_list = "Loaded CharacterClasses:\n"
-                        for name in server.lib.char_classes.values():
+                        for name in server.world.char_classes.values():
                             char_list += "\t%s\n" % name
                         logging.info(char_list)
                     else:
                         logging.info("Argument not recognized. Type help for a list of commands.")
+                elif command == "save":
+                    if params:
+                        server.world.to_file(params)
+                        logging.info("Saved world to %s", params)
+                    else:
+                        print("Please provide a filename")
                 elif command == "shell":
                     SHELL_MODE = True
                     print("Entering shell mode (press CTRL-C to exit)")

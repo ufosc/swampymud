@@ -2,6 +2,7 @@
 and also defines the World class"""
 import importlib
 from collections import defaultdict
+from random import choices
 import yaml
 from location import Location
 from character import CharacterClass, Character
@@ -273,6 +274,7 @@ class World:
                 self.item_classes[cls.__name__] = cls
             elif isinstance(cls, EntityClass):
                 self.entity_classes[cls.__name__] = cls
+        
 
     def children(self):
         """iterate over the locations in this world"""
@@ -299,3 +301,23 @@ class World:
         """returns a World loaded from a file"""
         world_data = read_worldfile(filename)
         return World(**world_data)
+
+    def random_cls(self):
+        """return a random CharacterClass, based on each CharClass's
+        'frequency' value"""
+        cls_list = list(self.char_classes.values())
+        freqs = [cls.frequency for cls in cls_list]
+        return choices(cls_list, weights=freqs)[0]
+
+    @staticmethod
+    def test_world():
+        """create a barebones world for testing purposes"""
+        prelude = {"character": ["Character"]}
+        personae = {"tavern":{
+            "_type": "^Location",
+            "name": "Swampy Tavern",
+            "description": "Welcome to the best (and only) tavern in the world"
+                           + "! [This is a test location.]"
+        }}
+        tree = "tavern"
+        return World(prelude, personae, tree)
