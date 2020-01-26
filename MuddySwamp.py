@@ -81,23 +81,26 @@ class Greeter(control.Monoreceiver):
                 continue
             # TODO: perform check to prevent users from having the same name
             else:
-                # create the character and give it to the player
-                new_char = self.player_cls(new_name)
-                self.controller.assume_control(new_char)
+                # first, find the location we are putting them in
                 if self.server.default_location is not None:
-                    new_char.set_location(self.server.default_location)
+                    loc = self.server.default_location
                 elif self.player_cls.starting_location is not None:
-                    new_char.set_location(self.player_cls.starting_location)
+                    loc = player_cls.starting_location
                 else:
-                    # no default location provided, so just pick the first location
                     try:
                         loc = next(iter(self.server.world.locations.values()))
                     except StopIteration:
-                        logging.critical("Could not spawn %s, server has no locations", new_char)
+                        logging.critical("Could not spawn %s, server has no locations", new_name)
+                        continue
                     logging.warning("%s has no default location, "
-                                    "so %s was spawned in %s",
-                                    self.player_cls, new_char, loc)
-                    new_char.set_location(loc)
+                                    "so %s will be spawned in %s",
+                                    self.player_cls, new_name, loc)
+
+                # create the character and give it to the player
+                new_char = self.player_cls(new_name)
+                self.controller.assume_control(new_char)
+                # put new character in location
+                new_char.set_location(loc)
                 self.server.send_message_to_all(f"Welcome, {new_char}, to the server!")
                 break
 
