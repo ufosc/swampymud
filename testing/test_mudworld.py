@@ -1,6 +1,7 @@
+"""unit tests for the mudworld module"""
 import unittest
 from importlib import import_module
-import mudworld as mudimport
+import mudworld
 from character import CharacterClass
 from item import Item
 from location import Location
@@ -17,17 +18,17 @@ class TestLoad(unittest.TestCase):
     def test_blank(self):
         """completely blank save should fail"""
         with self.assertRaises(Exception):
-            mudimport.read_worldfile('testing/test_saves/blank.yaml')
+            mudworld.read_worldfile('testing/test_saves/blank.yaml')
 
     def test_empty(self):
         """test a save file with 3 blank sections"""
-        result = mudimport.read_worldfile('testing/test_saves/empty.yaml')
+        result = mudworld.read_worldfile('testing/test_saves/empty.yaml')
         self.assertEqual(result, {"prelude" : None, "tree": None, "personae": None})
 
     def test_simple(self):
         """test loading a simple save"""
         self.maxDiff = 2000
-        result = mudimport.read_worldfile('testing/test_saves/simple.yaml')
+        result = mudworld.read_worldfile('testing/test_saves/simple.yaml')
         expected = {
             "prelude": {
                 "testing/script/basic_rpg.py": ["Wizard", "Warrior"],
@@ -65,14 +66,14 @@ class TestPrelude(unittest.TestCase):
 
     def test_empty(self):
         """test an empty prelude"""
-        self.assertEqual(mudimport.load_prelude({}), {})
+        self.assertEqual(mudworld.load_prelude({}), {})
 
     def test_basic_import(self):
         """test a basic prelude with one file"""
         basic_prelude = {
             "testing/script/basic_rpg.py": ["Warrior", "Wizard", "HealthPotion"]
         }
-        results = mudimport.load_prelude(basic_prelude)
+        results = mudworld.load_prelude(basic_prelude)
 
         self.assertEqual(set(results), set(["Warrior", "Wizard", "HealthPotion"]))
 
@@ -82,7 +83,7 @@ class TestPrelude(unittest.TestCase):
             "testing/script/basic_rpg.py": ["HealthPotion", "DarkWizard", "Golem"],
             "testing/script/weapons.py": ["CursedRing", "WoodenStaff"]
         }
-        classes = mudimport.load_prelude(multi_prelude)
+        classes = mudworld.load_prelude(multi_prelude)
         self.assertEqual(set(classes), set(["DarkWizard", "CursedRing",
                                             "HealthPotion", "WoodenStaff",
                                             "Golem"]))
@@ -95,11 +96,11 @@ class TestPrelude(unittest.TestCase):
             "testing/script/weapons.py": ["CursedRing", "WoodenStaff"]
         }
         with self.assertRaises(Exception):
-            mudimport.load_prelude(multi_prelude)
+            mudworld.load_prelude(multi_prelude)
         # prelude with invalid class should raise an exception
         prelude = {"testing/script/basic_rpg.py": ["HealthPotion", "Foo"]}
         with self.assertRaises(Exception):
-            mudimport.load_prelude(prelude)
+            mudworld.load_prelude(prelude)
         #TODO: test loading a prelude with mudscript.get_location
 
 
@@ -138,11 +139,11 @@ class TestPersonae(unittest.TestCase):
 
     def test_skim_empty(self):
         """test that no locations are skimmed from empty personae"""
-        self.assertEqual(mudimport.skim_for_locations(self.empty), {})
+        self.assertEqual(mudworld.skim_for_locations(self.empty), {})
 
     def test_skim_simple(self):
         """test that simple locations are constructed after a skim"""
-        locations = mudimport.skim_for_locations(self.simple)
+        locations = mudworld.skim_for_locations(self.simple)
         # indirectly test the locations, 
         # since we don't have a way of checking equality for Locations
         boring_house = locations["Boring House"]
@@ -163,7 +164,7 @@ class TestPersonae(unittest.TestCase):
 
     def test_load_simple(self):
         """test loading in the 'simple' personae example"""
-        symbols = mudimport.load_personae(self.simple, self.simple_classes)
+        symbols = mudworld.load_personae(self.simple, self.simple_classes)
         # we expect 5 items from this personae
         self.assertEqual(len(symbols), 5)
         # check the ring
@@ -207,7 +208,7 @@ class TestPersonae(unittest.TestCase):
                 Location("Boring House Interior", "There is a chair. The walls are brown.")
         }
         # load the personae with the skimmed locations
-        symbols = mudimport.load_personae(self.simple,
+        symbols = mudworld.load_personae(self.simple,
                                           self.simple_classes,
                                           obj_names=locations)
 
@@ -280,7 +281,7 @@ class TestPersonae(unittest.TestCase):
         # MrCool is not a Wizard but he can see the exit
         self.simple["MrCool"] = {"_type": "^Warrior"}
 
-        symbols = mudimport.load_personae(self.simple, self.simple_classes)
+        symbols = mudworld.load_personae(self.simple, self.simple_classes)
         secret_exit = None
         for loc_exit in symbols["Boring House Interior"].exits:
             if "bookshelf" in loc_exit:
@@ -333,11 +334,11 @@ class TestTree(unittest.TestCase):
 
     def test_empty(self):
         """should load in an empty tree without issue"""
-        mudimport.load_tree({}, {}, {})
+        mudworld.load_tree({}, {}, {})
 
     def test_simple_tree(self):
         """test that load_tree can load in a simple tree"""
-        mudimport.load_tree(self.simple_tree, self.simple_objs, {})
+        mudworld.load_tree(self.simple_tree, self.simple_objs, {})
 
         abra = self.simple_objs["Abra"]
         grug = self.simple_objs["Grug"]
@@ -372,7 +373,7 @@ class TestWorld(unittest.TestCase):
 
     def test_simple(self):
         """should successfully load in a simple world"""
-        world = mudimport.World.from_file("testing/test_saves/simple.yaml")
+        world = mudworld.World.from_file("testing/test_saves/simple.yaml")
 
         self.assertEqual(set(world.locations),
                          set(("Boring House", "Boring House Interior")))
