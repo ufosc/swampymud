@@ -120,7 +120,10 @@ class TestPersonae(unittest.TestCase):
                 "_type": "^Location",
                 "name": "Boring House Interior",
                 "description": "There is a chair. The walls are brown.",
-                "exits": [{"name": "outside", "other_names": ["out"], "destination": "$Boring House"}]
+                "exits": [
+                    {"name": "outside", "other_names": ["out"], 
+                     "destination": "$Boring House"}
+                ]
             },
             "Abra": {"_type": "^Wizard", "name": "Abra"},
             "Grug": {"_type": "^Warrior", "name": "Grug"},
@@ -138,8 +141,10 @@ class TestPersonae(unittest.TestCase):
         self.assertEqual(mudimport.skim_for_locations(self.empty), {})
 
     def test_skim_simple(self):
+        """test that simple locations are constructed after a skim"""
         locations = mudimport.skim_for_locations(self.simple)
-        # indirectly test the locations, since we don't have a way of checking equality for Locations
+        # indirectly test the locations, 
+        # since we don't have a way of checking equality for Locations
         boring_house = locations["Boring House"]
         self.assertEqual(boring_house.name, "Boring House")
         self.assertEqual(boring_house.description, "A house with four walls and a roof.")
@@ -180,7 +185,7 @@ class TestPersonae(unittest.TestCase):
                          "A house with four walls and a roof.")
         self.assertTrue(isinstance(boring_house, Location))
         self.assertEqual(interior.description,
-                        "There is a chair. The walls are brown.")
+                         "There is a chair. The walls are brown.")
         self.assertTrue(isinstance(interior, Location))
 
         # locations should be fully loaded, so they should have exits now
@@ -203,8 +208,8 @@ class TestPersonae(unittest.TestCase):
         }
         # load the personae with the skimmed locations
         symbols = mudimport.load_personae(self.simple,
-                                self.simple_classes,
-                                obj_names=locations)
+                                          self.simple_classes,
+                                          obj_names=locations)
 
         # this should yield the same results, so the results below are copied
 
