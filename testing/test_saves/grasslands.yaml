@@ -17,7 +17,7 @@ personae:
       The dry air dries out your skin. The yellowed grass scrapes against your feet. Up ahead, the ground drops away and forms a sheer cliff.
     exits:
     - name: north
-      destination: $Southern Grasslands
+      destination: $Northern Grasslands
     - name: cliff
       other_names: ["edge", "ahead", "up ahead"]
       destination: $Cliff's Edge
@@ -61,7 +61,7 @@ personae:
     exits:
       - name: out
         other_names: [outside]
-        destination: $Northern Grasslands
+        destination: $Southern Grasslands
   # some characters
   Grug:
     name: Grug

@@ -8,6 +8,7 @@ from location import Location
 from character import CharacterClass, Character
 from item import ItemClass, Item
 from entity import EntityClass, Entity
+from mudscript import LocationExport
 
 _GAME_OBJS = [Character, Item, Entity, Location]
 _GAME_CLASSES = [CharacterClass, ItemClass, EntityClass]
@@ -61,8 +62,8 @@ def load_prelude(prelude_data):
 def skim_for_locations(personae):
     """return a dict mapping names to locations based on the provided tree"""
     return {
-        name : Location(name, data["description"])
-        for name, data in personae.items() if data["_type"] == "^Location"
+        key: Location(data["name"], data["description"])
+        for key, data in personae.items() if data["_type"] == "^Location"
     }
 
 
@@ -252,10 +253,16 @@ class World:
         self.locations = skim_for_locations(personae)
         # the prelude won't change, so simply save it
         self.prelude = prelude
-        # load in classes from the prelude
-        type_names = load_prelude(prelude)
-        # prepare a dictionary of type names
+
+        # make the locations available for the modules in the prelude
+        # this allows developers to access locations via "import_location"
+        with LocationExport({str(l) : l for l in self.locations.values()}):
+            # load in classes from the prelude
+            type_names = load_prelude(prelude)
+
+        # add "Location" to the possible type names
         type_names["Location"] = Location
+
         # load the dramatis personae
         symbols = load_personae(personae, type_names,
                                 obj_names=self.locations)
@@ -274,7 +281,7 @@ class World:
                 self.item_classes[cls.__name__] = cls
             elif isinstance(cls, EntityClass):
                 self.entity_classes[cls.__name__] = cls
-        
+
 
     def children(self):
         """iterate over the locations in this world"""

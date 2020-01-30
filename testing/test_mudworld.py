@@ -1,7 +1,8 @@
 """unit tests for the mudworld module"""
 import unittest
-from importlib import import_module
+import importlib
 import mudworld
+from control import EntryPlug
 from character import CharacterClass
 from item import Item
 from location import Location
@@ -9,7 +10,7 @@ import inventory as inv
 
 def import_class(modname, classname):
     """function equivalent to from [mod] import [class]"""
-    mod = import_module(modname)
+    mod = importlib.import_module(modname)
     return getattr(mod, classname)
 
 class TestLoad(unittest.TestCase):
@@ -160,8 +161,6 @@ class TestPersonae(unittest.TestCase):
         # exits are not loaded in when the locations are skimmed
         self.assertEqual(len(interior.exits), 0)
 
-    #TODO: test_skim_complex
-
     def test_load_simple(self):
         """test loading in the 'simple' personae example"""
         symbols = mudworld.load_personae(self.simple, self.simple_classes)
@@ -209,8 +208,8 @@ class TestPersonae(unittest.TestCase):
         }
         # load the personae with the skimmed locations
         symbols = mudworld.load_personae(self.simple,
-                                          self.simple_classes,
-                                          obj_names=locations)
+                                         self.simple_classes,
+                                         obj_names=locations)
 
         # this should yield the same results, so the results below are copied
 
@@ -400,3 +399,69 @@ class TestWorld(unittest.TestCase):
         # house should only have 1 exit, to the inside
         inside, = tuple(house.exits)
         self.assertTrue(inside.destination is interior)
+    
+
+class TestLocationScripts(unittest.TestCase):
+    """integration tests for scripts that call mudscript.import_location"""
+
+    def test_bad_location_import(self):
+        """bad location imports should produce a KeyError"""
+        with self.assertRaises(KeyError, msg="Cannot access location 'Epic Castle'"
+                               " (no locations with that name)"):
+            world = mudworld.World.from_file("testing/test_saves/bad_location_import.yaml")
+
+
+    def test_good_location_import(self):
+        """a valid location import should work properly"""
+        world = mudworld.World.from_file("testing/test_saves/simple_import.yaml")
+        # import the dark_lord module
+        mod = importlib.import_module("testing.script.simple_import")
+        # the locations in the module should be loaded directly
+        # from the world
+        self.assertTrue(mod.HOUSE is world.locations["Boring House"])
+        self.assertTrue(mod.INTERIOR is \
+                        world.locations["Boring House Interior"])
+
+        # loading the world a second time will mess up the locations
+        # this is because the modules have already been initalized,
+        # thus the import_location statements are not called
+        # PAY ATTENTION, THIS COULD CAUSE ERRORS
+        world = mudworld.World.from_file("testing/test_saves/simple_import.yaml")
+        self.assertFalse(mod.HOUSE is world.locations["Boring House"])
+        self.assertFalse(mod.INTERIOR is \
+                         world.locations["Boring House Interior"])
+
+
+ 
+    def test_dark_lord(self):
+        """test that the dark lord's abilities work (relies on
+        functioning location, control, and character modules)
+        """
+        world = mudworld.World.from_file("testing/test_saves/dark_lord.yaml")
+        # our two normal humans from the tavern
+        human1, human2 = tuple(world.locations["Tavern"].characters)
+        # get our evil dark_lord
+        dark_lord = world.locations["tower"].characters[0]
+        # set up controllers for each character
+        human_con1 = EntryPlug(human1)
+        human_con2 = EntryPlug(human2)
+        dark_lord_con = EntryPlug(dark_lord)
+
+        # move dark lord to the tavern
+        dark_lord.set_location(world.locations["Tavern"])
+
+        # now return to the castle
+        dark_lord.cmd_retreat([])
+        self.assertEqual(human_con1.msgs.pop(),
+                         "Vennicule disappeared in a plume of smoke!")
+        self.assertEqual(human_con2.msgs.pop(),
+                         "Vennicule disappeared in a plume of smoke!")
+        self.assertTrue(dark_lord in world.locations["tower"].characters)
+
+        # now test the 'capture' command
+        dark_lord.set_location(world.locations["Tavern"])
+        dark_lord.cmd_capture(["capture", str(human1)])
+        self.assertEqual(human_con1.msgs.pop(),
+                         "You have been captured!")
+        self.assertTrue(human1 in world.locations["dungeon"].characters)
+

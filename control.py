@@ -414,3 +414,37 @@ class Multireceiver(Monoreceiver):
         # update the subreceivers
         for sub in self:
             sub.update()
+
+
+class EntryPlug(Controller):
+    """simple controller for programmatic control of Characters"""
+    def __init__(self, character):
+        super().__init__()
+        self.assume_control(character)
+        self.last_cmd = None
+        self.msgs = []
+
+    def __repr__(self):
+        return f"EntryPlug{self.receiver}"
+
+    def command(self, cmd):
+        """add a command and update the receiver to respond"""
+        self.last_cmd = cmd
+        self.receiver.update()
+
+    def read_cmd(self):
+        """return the stored command, set to None"""
+        cmd, self.last_cmd = self.last_cmd, None
+        return cmd
+
+    def has_cmd(self):
+        """returns true if command is available"""
+        return self.last_cmd is not None
+
+    def write_msg(self, msg):
+        """write [msg] back to the controller"""
+        self.msgs.append(msg)
+
+    def has_msg(self):
+        """returns true if messages are available"""
+        return bool(self.msgs)
