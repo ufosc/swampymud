@@ -19,17 +19,17 @@ class TestLoad(unittest.TestCase):
     def test_blank(self):
         """completely blank save should fail"""
         with self.assertRaises(Exception):
-            mudworld.read_worldfile('testing/test_saves/blank.yaml')
+            mudworld.read_worldfile('testing/saves/blank.yaml')
 
     def test_empty(self):
         """test a save file with 3 blank sections"""
-        result = mudworld.read_worldfile('testing/test_saves/empty.yaml')
+        result = mudworld.read_worldfile('testing/saves/empty.yaml')
         self.assertEqual(result, {"prelude" : None, "tree": None, "personae": None})
 
     def test_simple(self):
         """test loading a simple save"""
         self.maxDiff = 2000
-        result = mudworld.read_worldfile('testing/test_saves/simple.yaml')
+        result = mudworld.read_worldfile('testing/saves/simple.yaml')
         expected = {
             "prelude": {
                 "testing/script/basic_rpg.py": ["Wizard", "Warrior"],
@@ -372,7 +372,7 @@ class TestWorld(unittest.TestCase):
 
     def test_simple(self):
         """should successfully load in a simple world"""
-        world = mudworld.World.from_file("testing/test_saves/simple.yaml")
+        world = mudworld.World.from_file("testing/saves/simple.yaml")
 
         self.assertEqual(set(world.locations),
                          set(("Boring House", "Boring House Interior")))
@@ -408,12 +408,12 @@ class TestLocationScripts(unittest.TestCase):
         """bad location imports should produce a KeyError"""
         with self.assertRaises(KeyError, msg="Cannot access location 'Epic Castle'"
                                " (no locations with that name)"):
-            world = mudworld.World.from_file("testing/test_saves/bad_location_import.yaml")
+            world = mudworld.World.from_file("testing/saves/bad_location_import.yaml")
 
 
     def test_good_location_import(self):
         """a valid location import should work properly"""
-        world = mudworld.World.from_file("testing/test_saves/simple_import.yaml")
+        world = mudworld.World.from_file("testing/saves/simple_import.yaml")
         # import the dark_lord module
         mod = importlib.import_module("testing.script.simple_import")
         # the locations in the module should be loaded directly
@@ -426,7 +426,7 @@ class TestLocationScripts(unittest.TestCase):
         # this is because the modules have already been initalized,
         # thus the import_location statements are not called
         # PAY ATTENTION, THIS COULD CAUSE ERRORS
-        world = mudworld.World.from_file("testing/test_saves/simple_import.yaml")
+        world = mudworld.World.from_file("testing/saves/simple_import.yaml")
         self.assertFalse(mod.HOUSE is world.locations["Boring House"])
         self.assertFalse(mod.INTERIOR is \
                          world.locations["Boring House Interior"])
@@ -437,7 +437,7 @@ class TestLocationScripts(unittest.TestCase):
         """test that the dark lord's abilities work (relies on
         functioning location, control, and character modules)
         """
-        world = mudworld.World.from_file("testing/test_saves/dark_lord.yaml")
+        world = mudworld.World.from_file("testing/saves/dark_lord.yaml")
         # our two normal humans from the tavern
         human1, human2 = tuple(world.locations["Tavern"].characters)
         # get our evil dark_lord
