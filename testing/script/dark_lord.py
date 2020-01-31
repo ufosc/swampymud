@@ -29,6 +29,10 @@ class DarkLord(Humanoid):
             target.message("You have been captured!")
             target.set_location(DARK_DUNGEON)
 
+    def cmd_laugh(self, args):
+        """laugh maniacally"""
+        mudscript.message_all(f"{self} laughs maniacally.")
+
 # note we have no mechanism of exporting locations
 # all 'static' locations (locations created before the server launches) should be declared using mudscript.import_location
 # all 'dynamic' locations (locations created programatically) should be connected to an existing Location via an exit

@@ -8,14 +8,12 @@ import enum
 import traceback
 import errno
 import argparse
-from glob import glob
 # import the MUD server class
 from mudserver import MudServer, Event, EventType
 # import modules from the MuddySwamp engine
 import mudworld
 import mudscript
 import control
-import location
 
 # better names welcome
 class MainServer(MudServer):
@@ -25,7 +23,7 @@ class MainServer(MudServer):
         self.default_class = None
         self.default_location = None
         super().__init__(port)
-    
+
     def set_default_class(self, cls_name):
         '''set default class to class with name [default_name]
         throws an error if default_name is not found in server's lib'''
@@ -39,7 +37,7 @@ class MainServer(MudServer):
     def clear_default_class(self):
         '''clear the provided default class'''
         self.default_class = None
-    
+
     def clear_default_location(self):
         '''clear the provided default location'''
         self.default_location = None
@@ -85,7 +83,7 @@ class Greeter(control.Monoreceiver):
                 if self.server.default_location is not None:
                     loc = self.server.default_location
                 elif self.player_cls.starting_location is not None:
-                    loc = player_cls.starting_location
+                    loc = self.player_cls.starting_location
                 else:
                     try:
                         loc = next(iter(self.server.world.locations.values()))
@@ -109,7 +107,7 @@ class Greeter(control.Monoreceiver):
 logging.basicConfig(format='%(asctime)s [%(threadName)s] [%(levelname)s] %(message)s',
                     level=logging.INFO,
                     handlers=[
-                         logging.FileHandler("server.log"),
+                        logging.FileHandler("server.log"),
                         logging.StreamHandler(sys.stdout)
                     ])
 
@@ -135,7 +133,8 @@ class MudServerWorker(threading.Thread):
         super().__init__(*args, **kwargs)
 
 
-    # Cannot call mud.shutdown() here because it will try to call the sockets in run on the final go through
+    # Cannot call mud.shutdown() here because it will try to call 
+    # the sockets in run on the final go through
     def shutdown(self):
         self.keep_running = False
 
@@ -162,7 +161,7 @@ class MudServerWorker(threading.Thread):
             self.mud.update()
 
             # handle events on the server_queue
-            while (len(self.mud.server_queue) > 0):
+            while self.mud.server_queue:
                 event = self.mud.server_queue.popleft()
                 logging.info(event)
                 id = event.id
@@ -229,19 +228,26 @@ if __name__ == "__main__":
             print(ex, file=sys.stderr)
         exit(-1)
 
+    # export server to enable mudscript
+    mudscript.export_server(server)
+
     # set the default class if one was provided
     if args.default_class:
         try:
             server.set_default_class(args.default_class)
         except KeyError:
-            print("Error setting default class.\nCannot find class with name '%s'" % args.default_class, file=sys.stderr)
+            print("Error setting default class.\n"
+                  f"Cannot find class '{args.default_class}'",
+                  file=sys.stderr)
             exit(-1)
-    
+
     if args.default_location:
         try:
             server.set_default_location(args.default_location)
         except KeyError:
-            print("Error setting default location.\nCannot find location with name '%s'" % args.default_location, file=sys.stderr)
+            print("Error setting default location.\n"
+                  f"Cannot find location '{args.default_location}'",
+                  file=sys.stderr)
             exit(-1)
 
 
