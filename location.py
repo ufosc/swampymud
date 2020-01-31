@@ -1,5 +1,7 @@
 import inventory as inv
 import item
+from character import Character, CharFilter
+import util
 
 class Exit:
     '''Class representing an Exit
@@ -16,7 +18,8 @@ class Exit:
         access     = CharFilter that permits accessing the exit 
         visibility = CharFilter that permits viewing the exit
     '''
-    def __init__(self, destination, name, other_names=[], access=None, visibility=None):
+    def __init__(self, destination, name, other_names=[],
+                 access=None, visibility=None, hide_des=False):
         '''Constructor for Exit
         Takes as input:
             location [location it points to]
@@ -26,15 +29,18 @@ class Exit:
             other_names = list of other names
             access  = set the access CharFilter(default: all permitted)
             visible = set the visibility CharFilter(default: all permitted)
+            hide_des = make the destination invisible to players
         '''
+        self._name = name
         self._destination = destination
-        self._names = [name] + list(other_names)
+        self._nameset = set((name, *other_names))
         self.access = access
         if access is None:
-            self.access = character.CharFilter(False)
+            self.access = CharFilter(False)
         self.visibility = visibility
         if visibility is None:
-            self.visibility = character.CharFilter(False)
+            self.visibility = CharFilter(False)
+        self.hide_des = hide_des
 
     @property
     def destination(self):
@@ -55,25 +61,54 @@ class Exit:
 
     def __repr__(self):
         '''Return an a representation of the exit'''
+        other_names = list(set(self._nameset - set((self._name,))))
         return ("Exit(%r, %r, other_names=%r, access=%r, visibility=%r)" 
-               % (self._destination, self._names[0], self._names[1:],
-                   self.access, self.visibility))
+               % (self._destination, self._name,
+                  other_names,
+                  self.access, self.visibility))
 
     def __contains__(self, other):
         '''Overriding in operator
         Returns True if other is in list of names
         '''
-        return other in self._names
+        return other in self._nameset
 
     def __iter__(self):
-        for name in self._names:
+        for name in self._nameset:
             yield name
 
     #TODO replace this with a .info method
     # reclaim string as a simple function to return the name
     def __str__(self):
         '''overriding str() function'''
-        return "%s -> %s" % (self._names[0], self._destination.name)
+        if not self.hide_des:
+            return "%s -> %s" % (self._name, self._destination.name)
+        else:
+            return self._name
+
+    @staticmethod
+    def from_dict(ex_dict):
+        '''creates an Exit from a pythonic representation'''
+        # convert access filter data into a CharFilter
+        if "access" in ex_dict:
+            ex_dict["access"] = CharFilter.from_dict(ex_dict["access"])
+        # convert visibility filter data into a CharFilter
+        if "visibility" in ex_dict:
+            ex_dict["visibility"] = CharFilter.from_dict(ex_dict["visibility"])
+        return Exit(**ex_dict)
+
+    def to_dict(self):
+        '''returns a pythonic representation of this Exit'''
+        other_names = list(self._nameset)
+        other_names.remove(self._name)
+        data = {"name" : self._name, "other_names": other_names}
+        data["destination"] = self._destination
+        if self.hide_des:
+            data["hide_des"] = True
+        #TODO: elide CharFilter fields if they are empty blacklists
+        data["access"] = self.access.to_dict()
+        data["visibility"] = self.access.to_dict()
+        return data
 
 
 class Location:
@@ -85,50 +120,70 @@ class Location:
 
     def __init__(self, name, description):
         self._character_list = []
+        self._entity_list = []
         self._exit_list = []
-        self._items = inv.Inventory()
+        self.inv = inv.Inventory()
         self.name = name
         self.description = description
+        self._symbol = "%s#%s" % (self.name.replace(" ", ""),
+                                      util.to_base(id(self), 62))
 
     def add_char(self, char):
         self._character_list.append(char)
 
     def remove_char(self, char):
         self._character_list.remove(char)
-    
+
     @property
     def characters(self):
+        # TODO: make this an iterator?
         return self._character_list.copy()
+
+    def add_entity(self, entity):
+        self._entity_list.append(entity)
+
+    def remove_entity(self, entity):
+        self._entity_list.remove(entity)
+
+    @property
+    def entities(self):
+        # TODO: make this an iterator?
+        return self._entity_list.copy()
 
     def message_chars(self, msg):
         '''send message to all characters currently in location'''
         for char in self._character_list:
             char.message(msg)
-    
+
     @property
     def exits(self):
+        # TODO: make this an iterator?
         return self._exit_list.copy()
 
     def add_exit(self, exit_to_add):
         '''adds an exit, while performing a check for any ambigious names'''
         for exit_name in exit_to_add:
-            assert exit_name not in self._exit_list, \
-            "\nLocation:\t%s\nExit:\t\t%s" % (self.name, exit_to_add)
+            for already_added in self.exits:
+                assert exit_name not in already_added, \
+                "Location '%s' already has exit with name '%s'" % (self.name, exit_name)
         self._exit_list.append(exit_to_add)
 
+    # TODO: scrap this method
     def exit_list(self):
         '''returns a copy of private exit list'''
         return list(self._exit_list)
 
+    # inventory-related methods
     def add_item(self, item, quantity=1):     
-        self._items.add_item(item, quantity)
+        self.inv.add_item(item, quantity)
 
     def remove_item(self, item, quantity=1):
-        return self._items.remove_item(item, quantity)
+        return self.inv.remove_item(item, quantity)
 
     def all_items(self):
-        return list(self._items)
+        return list(self.inv)
 
+    # TODO: scrap this method
     def __contains__(self, other):
         '''Overriding in operator
         Returns True where
@@ -141,10 +196,10 @@ class Location:
         '''
         if isinstance(other, Exit):
             return other in self._exit_list
-        elif isinstance(other, character.Character):
+        elif isinstance(other, Character):
             return other in self._character_list
         elif isinstance(other, item.Item):
-            return other in self._items
+            return other in self.inv
         else:
             raise ValueError("Received %s, expected Exit, Character, or Item"
                              % type(other))
@@ -157,9 +212,12 @@ class Location:
         for exit_name in self._exit_list:
             if exit_name == query:
                 return exit_name
-        item_result = self._items.find(query)
+        item_result = self.inv.find(name=query)
         if item_result:
             return item_result
+        for entity in self._entity_list:
+            if str(entity) == query:
+                return entity
 
     def find_exit(self, exit_name):
         '''returns an exit corresponding to exit name
@@ -168,6 +226,10 @@ class Location:
             if exit_name == exit:
                 return exit
 
+    def describe(self, character=None):
+        '''Describes the location '''
+        return self.description
+
     def info(self):
         '''return a string containing detailed information'''
         #TODO: make the output more pythonic
@@ -175,7 +237,7 @@ class Location:
         output += "Desc:\t%s\n" % self.description
         output += "Chars:\t%s\n" % self._character_list
         output += "Exits:\t%s\n" % self._exit_list
-        output += "Items:\t%s\n" % list(self._items)
+        output += "Items:\t%s\n" % list(self.inv)
         return output
 
     def __repr__(self):
@@ -187,7 +249,36 @@ class Location:
         '''
         return self.name
 
-# explanation for this import statement being at the bottom
-# location uses the Character class
-# Character references Location class in body of Character class
-import character
+    # serialization-related methods
+    @property
+    def symbol(self):
+        '''return a guaranteed unique symbol for this location'''
+        return self._symbol
+
+
+    @classmethod
+    def load(self, data):
+        '''load in a location with data in the following form:
+{ 'name' : [name of location], 'description': [description]'''
+        return Location(data["name"], data["description"])
+
+    def post_load(self, data):
+        if "exits" in data:
+            for exit_data in data["exits"]:
+                self.add_exit(Exit.from_dict(exit_data))
+
+    def save(self):
+        return {
+            "_type": Location,
+            "name": self.name,
+            "description": self.description,
+            "exits":
+                [ex.to_dict() for ex in self.exits]
+        }
+
+    def children(self):
+        for char in self.characters:
+            yield char
+        for entity in self.entities:
+            yield entity
+        #TODO: add items

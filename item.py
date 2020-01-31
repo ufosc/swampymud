@@ -8,57 +8,123 @@ MiscItemBase
     items with no methods requirements
 '''
 from util import camel_to_space
+from command import SpecificCommand
+import character
+from abc import ABC
 
-class Item(type):
+class ItemClass(type):
     '''Metaclass establishing behavior for all items'''
-    def __init__(self, cls, bases, dic):
-        if "_item_name" not in dic:
+    def __init__(self, cls, bases, namespace):
+        if "_item_name" not in namespace:
             self._item_name = camel_to_space(cls)
-        if "_item_type" not in dic:
+        if "_item_type" not in namespace:
             self.item_type = "Item"
-        super().__init__(cls, bases, dic)
+        super().__init__(cls, bases, namespace)
 
     def __str__(self):
         '''return str(self)'''
         return self._item_name
 
+class Item(ABC):
+    '''This class is made purely so that we may check items in a pythonic way
+    that is:
+    isinstance(item_obj, Item) 
+    is shorthand for:
+    isinstance(type(item_obj), ItemClass)
+    Do not attempt to derive a new item type from this class!
+    Refer to MiscItem, Usable, and Equippable
+    '''
 
-class Equippable(Item):
+    @classmethod
+    def __subclasshook__(cls, subclass):
+        if cls is Item:
+            return isinstance(subclass, ItemClass)
+        else:
+            return NotImplemented
+
+
+class EquipCommand(SpecificCommand):
+    """SpecificCommand with the type set to 'Equipped'"""
+    def __init__(self, name, func, type_name="Equipped", filter=None, 
+                 source=None, char=None):
+        if filter is None:
+            # if no filter is provided, use an empty blacklist 
+            # to let everyone use it
+            filter = character.CharFilter("blacklist")
+        super().__init__(name, func, type_name, filter, source, char)
+
+
+def filtered_command(filt):
+    '''decorator to convert a method into an EquipCommand with a CharFilter'''
+    def inner(func):
+        return EquipCommand(func.__name__, func, filter=filt)
+    return inner
+
+
+def equip_command(func):
+    '''decorator to convert a method into an EquipCommand'''
+    return EquipCommand(func.__name__, func)
+
+#TODO: add pickup and equip CharFilters??
+class EquippableClass(ItemClass):
     '''Metaclass for all items that can be equipped'''
-    def __init__(self, cls, bases, dic):
-        super().__init__(cls, bases, dic)
+    def __init__(self, cls, bases, namespace):
+        super().__init__(cls, bases, namespace)
         self.item_type = "Equippable"
-        if cls != "EquippableBase": 
+        if cls != "Equippable": 
             #TODO: assert that target is an EquipTarget
-            assert "target" in dic or any([hasattr(base, "target") for base in bases])
-            assert "equip" in dic or any([hasattr(base, "equip") for base in bases])
-            assert "unequip" in dic or any([hasattr(base, "unequip") for base in bases])
+            assert "target" in namespace or any([hasattr(base, "target") for base in bases])
+        self._commands = {}
+        for obj in namespace.values():
+            if isinstance(obj, EquipCommand):
+                self._commands[obj.name] = obj
 
 
-class EquippableBase(metaclass=Equippable):
+class Equippable(metaclass=EquippableClass):
     '''Base class for all Equippable items
     You must define your own "target", "equip", and "unequip" methods
     '''
+    _description = "An equippable item"
     @property
     def name(self):
         '''Creating a readonly "name" property'''
         return self._item_name
-        
+
+    def describe(self):
+        return self._description
+
     def __str__(self):
         '''Return a string representing the object
         this will be how the item appears to the player'''
         return self._item_name
 
-    def __eq__(self, other):
-        '''Test if the other item is equivalent, based on
-        the item_name and the item_type being the same
-        '''
-        try:
-            return (self.name == other.name and
-                    self.item_type == other.item_type)
-        except:
-            return False
+    def add_cmds(self, char):
+        '''add all the commands from this item to the char
+        any conflicting commands are simply shadowed'''
+        for cmd in self._commands.values():
+            if cmd.filter.permits(char):
+                cmd = cmd.specify(self, char)
+                char.cmd_dict.add_cmd(cmd)
 
+    def remove_cmds(self, char):
+        '''remove all the commands from this char that belong to the item'''
+        for cmd in self._commands.values():
+            cmd = cmd.specify(self, char)
+            if char.cmd_dict.has_cmd(cmd):
+                char.cmd_dict.remove_cmd(cmd)
+
+    @classmethod
+    def load(cls, data):
+        '''default implementation of load that calls init with no arguments'''
+        return cls()
+
+    def post_load(self, data):
+        '''no post-load actions required by default implementation'''
+
+    def save(self):
+        '''return a pythonic representation of this object
+this base class has no fields, so no data is returned'''
+        return {}
 
 class EquipTarget:
     '''Class for identifying specific slots that an equippable item
@@ -92,25 +158,15 @@ class EquipTarget:
 
     def __str__(self):
         '''Return target's name'''
-        return self.name 
+        return self.name
 
-    def __eq__(self, value):
-        '''Return self.target_id == other.target_id
-        (if value is not an EquipTarget, returns False)
-        '''
-        try:
-            return self.target_id == value.target_id
-        except AttributeError:
-            # other item is not an EquipTarget
-            return False
-    
     def __hash__(self):
         '''Return hash based on name and id'''
         return hash((self.name, self.target_id))
-    
+
     def __repr__(self):
         '''Return repr(self)'''
-        return "EffectTarget(%s)" % (self.name)
+        return "EquipTarget(%r)" % (self.name)
 
     @staticmethod
     def make_dict(*names):
@@ -124,66 +180,78 @@ class EquipTarget:
         return equip_dict
 
 
-class Usable(Item):
-    def __init__(self, cls, bases, dic):
-        super().__init__(cls, bases, dic)
+class UsableClass(ItemClass):
+    def __init__(self, cls, bases, namespace):
+        super().__init__(cls, bases, namespace)
         self.item_type = "Usable"
-        if cls != "UsableBase": 
+        if cls != "Usable": 
             #TODO: assert that target is an EquipTarget
-            assert "use" in dic or any([hasattr(base, "target") for base in bases])
+            assert "use" in namespace or any([hasattr(base, "use") for base in bases])
 
 
-class UsableBase(metaclass=Usable):
+class Usable(metaclass=UsableClass):
     '''Base class for all Usable items
     You must define your own "use" methods
     '''
+    _description = "A usable item"
 
     @property
     def name(self):
         '''Creating a readonly "name" property'''
         return self._item_name
-        
+
     def __str__(self):
         '''Return a string representing the object
         this will be how the item appears to the player'''
         return self._item_name
 
-    def __eq__(self, other):
-        '''Test if the other item is equivalent, based on
-        the item_name and the item_type being the same
-        '''
-        try:
-            return (self.name == other.name and
-                    self.item_type == other.item_type)
-        except:
-            return False
+    def describe(self):
+        ''' Describes the object '''
+        return self._description
 
+    @classmethod
+    def load(cls, data):
+        '''default implementation of load that calls init with no arguments'''
+        return cls()
 
-class MiscItemBase(metaclass=Item):
+    def post_load(self, data):
+        '''no post-load actions required by default implementation'''
+
+    def save(self):
+        '''return a pythonic representation of this object
+        this base class has no fields, so no data is returned'''
+        return {}
+
+class MiscItem(metaclass=ItemClass):
     '''Base class for all MiscItems
     These items cannot be used, and will be typically
     used to store value (e.g. money, gold, building materials)
     '''
+    _description = "A miscellaneous item"
 
     @property
     def name(self):
         '''Creating a readonly "name" property'''
         return self._item_name
-        
+
     def __str__(self):
         '''Return a string representing the object
         this will be how the item appears to the player'''
         return self._item_name
 
-    def __eq__(self, other):
-        '''Test if the other item is equivalent, based on
-        the item_name and the item_type being the same
-        '''
-        try:
-            return (self.name == other.name and
-                    self.item_type == other.item_type)
-        except:
-            return False
+    def describe(self):
+        '''Describes the item '''
+        return self._description
 
-#TODO: add a class wrapper that allows the item to function as a 
-# singleton (even if this may not be pythonic)
+    @classmethod
+    def load(cls, data):
+        '''default implementation of load that calls init with no arguments'''
+        return cls()
+
+    def post_load(self, data):
+        '''no post-load actions required by default implementation'''
+
+    def save(self):
+        '''return a pythonic representation of this object
+        this base class has no fields, so no data is returned'''
+        return {}

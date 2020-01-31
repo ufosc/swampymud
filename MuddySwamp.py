@@ -7,38 +7,112 @@ import queue
 import enum
 import traceback
 import errno
+import argparse
+from glob import glob
 # import the MUD server class
 from mudserver import MudServer, Event, EventType
 # import modules from the MuddySwamp engine
-import mudimport
-from glob import glob
+import mudworld
 import mudscript
 import control
+import location
 
 # better names welcome
 class MainServer(MudServer):
     '''Bundles a server and a library together'''
-    def __init__(self, port=1234):
-        self.lib = mudimport.Library()
+    def __init__(self, world, port):
+        self.world = world
+        self.default_class = None
+        self.default_location = None
         super().__init__(port)
+    
+    def set_default_class(self, cls_name):
+        '''set default class to class with name [default_name]
+        throws an error if default_name is not found in server's lib'''
+        self.default_class = server.world.char_classes[cls_name]
+
+    def set_default_location(self, loc_name):
+        '''set default class to class with name [default_name]
+        throws an error if default_name is not found in server's lib'''
+        self.default_location = server.world.locations[loc_name]
+
+    def clear_default_class(self):
+        '''clear the provided default class'''
+        self.default_class = None
+    
+    def clear_default_location(self):
+        '''clear the provided default location'''
+        self.default_location = None
+
+    def get_player_class(self):
+        '''get a player class from the server'''
+        if self.default_class is not None:
+            return self.default_class
+        else:
+            return self.world.random_cls()
+
+
+class Greeter(control.Monoreceiver):
+    '''Class responsible for greeting the player
+    and handing them a Character to control'''
+
+    GREETING = '''Welcome to MuddySwamp!'''
+
+    def __init__(self, server):
+        self.server = server
+        self.player_cls = server.get_player_class()
+        super().__init__()
+
+    def attach(self, controller):
+        '''attach to [controller], greeting it as appropriate'''
+        super().attach(controller)
+        self.controller.write_msg(self.GREETING)
+        self.controller.write_msg("You are a(n) %s" % self.player_cls)
+        self.controller.write_msg("What is your name?")
+
+
+    def update(self):
+        while self.controller.has_cmd():
+            new_name = self.controller.read_cmd().strip()
+            if new_name == "":
+                continue
+            if not new_name.isalnum():
+                self.controller.write_msg("Names must be alphanumeric.")
+                continue
+            # TODO: perform check to prevent users from having the same name
+            else:
+                # first, find the location we are putting them in
+                if self.server.default_location is not None:
+                    loc = self.server.default_location
+                elif self.player_cls.starting_location is not None:
+                    loc = player_cls.starting_location
+                else:
+                    try:
+                        loc = next(iter(self.server.world.locations.values()))
+                    except StopIteration:
+                        logging.critical("Could not spawn %s, server has no locations", new_name)
+                        continue
+                    logging.warning("%s has no default location, "
+                                    "so %s will be spawned in %s",
+                                    self.player_cls, new_name, loc)
+
+                # create the character and give it to the player
+                new_char = self.player_cls(new_name)
+                self.controller.assume_control(new_char)
+                # put new character in location
+                new_char.set_location(loc)
+                self.server.send_message_to_all(f"Welcome, {new_char}, to the server!")
+                break
 
 
 # Setup the logger
 logging.basicConfig(format='%(asctime)s [%(threadName)s] [%(levelname)s] %(message)s',
                     level=logging.INFO,
                     handlers=[
-                        logging.FileHandler("server.log"),
+                         logging.FileHandler("server.log"),
                         logging.StreamHandler(sys.stdout)
                     ])
 
-
-# defining a set of paths
-# by default, we import every json in chars and locations
-IMPORT_PATHS = {
-    "locations" : glob("locations/*.json"),
-    "chars" : glob("chars/*json"),
-    "items" : glob("items/*json")
-}
 
 SHELL_MODE = False
 
@@ -58,12 +132,8 @@ class MudServerWorker(threading.Thread):
         self.keep_running = True
         self.q = q
         self.mud = server
-        mudscript.export_server(self.mud)
-        self.mud.lib.import_files(**IMPORT_PATHS)
-        logging.info(self.mud.lib.import_results())
-        self.mud.lib.build_class_distr()
         super().__init__(*args, **kwargs)
-        
+
 
     # Cannot call mud.shutdown() here because it will try to call the sockets in run on the final go through
     def shutdown(self):
@@ -98,17 +168,11 @@ class MudServerWorker(threading.Thread):
                 id = event.id
                 if event.type is EventType.PLAYER_JOIN:
                     logging.info("Player %s joined." % event.id)
-                    # welcome the player
-                    self.mud.send_message(id, "Welcome to MuddySwamp!")
-                    # assign the player a random class and inform them
-                    PlayerClass = self.mud.lib.random_class.get()
-                    self.mud.send_message(id, "You are a(n) %s" % PlayerClass)
-                    self.mud.send_message(id, "What is your name?")
-                    # create a controler (a 'Player')
+                    # create a controller (a 'Player')
                     new_player = control.Player(event.id)
-                    new_character = PlayerClass()
-                    # give that Player control of a new character
-                    new_player.assume_control(new_character)
+
+                    # give player a greeter
+                    new_player.assume_control(Greeter(self.mud))
 
                 elif event.type is EventType.MESSAGE_RECEIVED:
                     # log the message
@@ -130,31 +194,55 @@ class MudServerWorker(threading.Thread):
             # temporary: move this to a better place later
             for id, msg in control.Player.receive_messages():
                 self.mud.send_message(id, msg)
-
         # Shut down the mud instance after the while loop finishes
         self.mud.shutdown()
 
+parser = argparse.ArgumentParser(description="Launch a MuddySwamp server.")
+parser.add_argument("-p", "--port", type=int,
+                    help="Specify a port. [Default: 1234]", default=1234)
+parser.add_argument("-w", "--world", metavar="FILE",
+                    help="Load world from [FILE]")
+parser.add_argument("--default-class", metavar="CLASS",
+                    help="Force all characters to spawn as [CLASS]")
+parser.add_argument("--default-location", metavar="LOCATION",
+                    help="Force all new characters to spawn at [LOCATION].\
+                          Overrides any default class spawn locations.")
+
 if __name__ == "__main__":
-    # parse arguments for port number
-    # if we get more complex, we will need an argparser
-    port = 1234
-    if len(sys.argv) > 1:
-        try:
-            port = int(sys.argv[1])
-        except ValueError:
-            print("Error. Port must be an integer.", file=sys.stderr)
-            exit(-1)
+    args = parser.parse_args()
+    if args.world:
+        world = mudworld.World.from_file(args.world)
+    else:
+        # if no world file is provided, run a test world
+        world = mudworld.World.test_world()
     try:
-        server = MainServer(port)
+        server = MainServer(world, args.port)
     except PermissionError:
-        print("Error. Do not have permission to use port '%s'" % port, file=sys.stderr)
+        print(f"Error. Do not have permission to use port '{args.port}'",
+              file=sys.stderr)
         exit(-1)
     except OSError as ex:
         if ex.errno == errno.EADDRINUSE:
-            print("Error. Port '%s' is already in use." % port, file=sys.stderr)
+            print(f"Error. Port '{args.port}' is already in use.",
+                  file=sys.stderr)
         else:
             print(ex, file=sys.stderr)
         exit(-1)
+
+    # set the default class if one was provided
+    if args.default_class:
+        try:
+            server.set_default_class(args.default_class)
+        except KeyError:
+            print("Error setting default class.\nCannot find class with name '%s'" % args.default_class, file=sys.stderr)
+            exit(-1)
+    
+    if args.default_location:
+        try:
+            server.set_default_location(args.default_location)
+        except KeyError:
+            print("Error setting default location.\nCannot find location with name '%s'" % args.default_location, file=sys.stderr)
+            exit(-1)
 
 
     # Create a threadsafe queue for commands entered on the server side
@@ -187,21 +275,27 @@ if __name__ == "__main__":
                 elif command == "list":
                     if params == "locations":
                         location_list = "Loaded Locations:\n"
-                        for loc in server.lib.locations.values():
+                        for loc in server.world.locations.values():
                             location_list += "\t%r\n" % loc
                         logging.info(location_list)
                     elif params == "items":
                         item_list = "Loaded Items:\n"
-                        for name in server.lib.items.values():
+                        for name in server.world.item_classes.values():
                             item_list += "\t%r\n" % name
                         logging.info(item_list)
                     elif params == "chars":
                         char_list = "Loaded CharacterClasses:\n"
-                        for name in server.lib.char_classes.values():
+                        for name in server.world.char_classes.values():
                             char_list += "\t%s\n" % name
                         logging.info(char_list)
                     else:
                         logging.info("Argument not recognized. Type help for a list of commands.")
+                elif command == "save":
+                    if params:
+                        server.world.to_file(params)
+                        logging.info("Saved world to %s", params)
+                    else:
+                        print("Please provide a filename")
                 elif command == "shell":
                     SHELL_MODE = True
                     print("Entering shell mode (press CTRL-C to exit)")

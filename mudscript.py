@@ -1,18 +1,15 @@
-if __name__ == "__main__":
-    '''__name__ holds the name of the module
-    the top level script is called __main__
-    otherwise, if imported, it is not __main__
-    '''
-    print("This script is not intended to be executable.")
-    exit()
+'''module containing useful functions for creating MuddySwamp scripts'''
+from mudserver import MudServer
 
 server = None
+
 def export_server(inp_server):
     '''store a server in the mudscript module
-    this must be done before mudscript can 
-    be called in scripts
+    this must be done before calling the 'message_all' function
     '''
     global server
+    if not isinstance(inp_server, MudServer) and inp_server is not None:
+        raise TypeError(f"expected MudServer, received {type(inp_server)}")
     server = inp_server
 
 
@@ -33,34 +30,51 @@ def server_warning(func, *args, **kwargs):
 
 
 @server_warning
-def get_location(key):
-    global server
-    try:
-        return server.lib.locations[key]
-    except KeyError:
-        pass
-    raise MuddyException("Location '%s' not found." % key)
-
-@server_warning
-def get_item(key):
-    global server
-    try:
-        return server.lib.items[key]
-    except KeyError:
-        pass
-    raise MuddyException("Item '%s' not found." % key)
-
-@server_warning
-def get_char_class(key):
-    global server
-    try:
-        return server.lib.char_classes[key]
-    except KeyError:
-        pass
-    raise MuddyException("CharacterClass '%s' not found." % key)
-
-@server_warning
 def message_all(msg):
     '''send message to all players'''
     global server
     server.send_message_to_all(msg)
+
+_EXPORTED_LOCATIONS = None
+
+class LocationExport:
+    """a context-manager style location exporter
+    example, where my_locations is a dictionary mapping names to Locations
+    with LocationExport(my_locations):
+        # do stuff
+    # cleans up automatically
+    """
+    def __init__(self, loc_dict):
+        self._loc_dict = loc_dict
+
+    def __enter__(self):
+        #TODO: possible swap global with nonlocal?
+        global _EXPORTED_LOCATIONS
+        if _EXPORTED_LOCATIONS is not None:
+            # TODO make this the correct exception
+            raise Exception("Tried to export locations to mudscript  "
+                            "but other locations have already been exported.")
+        _EXPORTED_LOCATIONS = self._loc_dict
+
+    def __exit__(self, exc_type, exc_value, traceback):
+        # clean up the global safely
+        global _EXPORTED_LOCATIONS
+        _EXPORTED_LOCATIONS = None
+        # if an exception occurred, raise it
+        if exc_value is not None:
+            raise
+
+
+def import_location(name):
+    """import a location with [name]
+    raises KeyError if name is not found in exported locations
+    raises MuddyException if no locations have been exported"""
+    global _EXPORTED_LOCATIONS
+    if _EXPORTED_LOCATIONS is None:
+        raise MuddyException(f"Cannot access location '{name}' "
+                             "(no locations are exported)")
+    try:
+        return _EXPORTED_LOCATIONS[name]
+    except KeyError as exc:
+        raise KeyError(f"Cannot access location '{name}' "
+                       "(no locations with that name)") from exc

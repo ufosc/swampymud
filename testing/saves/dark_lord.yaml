@@ -1,0 +1,47 @@
+prelude:
+  testing/script/dark_lord.py:
+    - DarkLord
+  testing/script/basic_rpg.py:
+    - Humanoid
+personae:
+  Tavern:
+    name: Half Silver Tavern
+    _type: ^Location
+    description:
+      A nice little tavern.
+      It's a little drafty in here.
+  tower:
+    name: Dark Tower
+    _type: ^Location
+    description:
+      Perfect place to plan evil deeds.
+    exits:
+      - name: dungeon
+        destination: $dungeon
+  dungeon:
+    name: Dark Dungeon
+    _type: ^Location
+    description:
+      Black, everything black. You some sort of pest (roaches? rats?) scurrying at your feet.
+      Even worse, it's even more drafty than the tavern!
+  Mayberry:
+    name: Mayberry
+    _type: ^Humanoid
+  Alan:
+    name: Alan
+    _type: ^Humanoid
+  Vennicule:
+    name: Vennicule
+    _type: ^DarkLord
+tree:
+  Boring House:
+    Grug
+  Boring House Interior:
+    Abra:
+      ring
+tree:
+  tower: Vennicule
+  Tavern:
+    - Alan
+    - Mayberry
+  dungeon:
