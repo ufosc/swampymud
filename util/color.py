@@ -48,22 +48,15 @@ were not accepted due to low demand. Make a pull request if you are interested.
 If you are interested in what features your target platform supports, try
 printing / sending the TEST_SGR string defined in this module.
 """
+from abc import ABCMeta, abstractmethod
 
 # the CSI command, ESC + [
 CSI="\033["
 
 
-class SGRFunction:
+class SGRFunction(metaclass = ABCMeta):
     '''Base class for other SGRFunctions
     Attempting to instantiate this class raises a TypeError'''
-
-    def __new__(cls, *args, **kwargs):
-        """overriding __new__ to ensure that nobody
-        instantiates the SGRFunction base class"""
-        if cls is SGRFunction:
-            raise TypeError("SGRFunction cannot be instantiated. "
-                            "Use a subclass (e.g. Green) instead.")
-        return object.__new__(cls)
 
     def __init__(self, child):
         """initalize an SGRFunction call, wrapping around [child]
@@ -72,12 +65,12 @@ class SGRFunction:
         """
         self.child = child
 
-    def params(self):
+    def iter_params(self):
         """iterate over all the SGR parameters
         in this stack of functions"""
         yield self.sgr_param
         try:
-            yield from self.child.params()
+            yield from self.child.iter_params()
         except AttributeError:
             # hit the base content (a string with no 'params()' method)
             pass
@@ -104,13 +97,19 @@ class SGRFunction:
         """overriding str()
         produces an ANSI-escaped message based on the content of this function"""
         # get a list of all sgr params
-        params = ';'.join(self.params())
+        params = ';'.join(self.iter_params())
         content = self.content()
         # return a string with
         # the SGR command with its params,
         # the content,
         # and the SGR command to reset the terminal
         return f"{CSI}{params}m{content}{CSI}0m"
+
+    @property
+    @abstractmethod
+    def sgr_param(self):
+        """Abstract method that returns the SGR parameter."""
+        return NotImplemented
 
 # note on bold / faint modes on windows cmd do not necessarily work properly
 # essentially, they make the foreground color "bright"
@@ -171,6 +170,43 @@ class Default(SGRFunction):
     """Displays text using the terminal's default foreground color"""
     sgr_param = "39"
 
+class Color256(SGRFunction):
+    """Select a color from the palette of 256 colors"""
+
+    def __init__(self, child, code):
+        """Wrap [child] with a custom 256-color command.
+        [code] must be a value in range [0,255]
+        """
+        if code not in range(256):
+            raise ValueError("Expected code in range [0,255], "
+                             f"received '{code}''")
+        self.code = code
+        super().__init__(child)
+
+    @property
+    def sgr_param(self):
+        """returns the SGR command, including the 256-color code"""
+        return f"38;5;{self.code}"
+
+
+class ColorRGB(Color256):
+    """Displays text with based on provided r, g, b values.
+    Note that this uses the same SGR command as the Color256 class.
+    """
+
+    def __init__(self, child, r, g, b):
+        """Color [child] according to the rgb palette,
+        where r, g, b are in range [0,6]"""
+        try:
+            code = 16 + r * 36 + g * 6 + b
+        except TypeError as exc:
+            print(exc.args)
+            for letter, value in zip(['r', 'g', 'b'], [r, g, b]):
+                if not isinstance(value, int):
+                    raise TypeError(f"Expected type int for '{letter}', "
+                                    f"received '{type(value)}'") from exc
+        super().__init__(child, code)
+
 
 # constructing a series of SGR tests
 
@@ -214,7 +250,7 @@ for _i in range(232, 256):
 TEST_8BIT_FG = "".join(_list)
 
 # test for 24 bit 'true color' support
-_list = ["{CSI}37m"]
+_list = [f"{CSI}37m"]
 for _r in range(8):
     for _b in range(8):
         for _g in range(8):
