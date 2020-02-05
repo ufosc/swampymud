@@ -53,10 +53,10 @@ printing / sending the TEST_SGR string defined in this module.
 from abc import ABCMeta, abstractmethod
 
 # the CSI command, ESC + [
-CSI="\033["
+CSI = "\033["
 
 
-class SGRFunction(metaclass = ABCMeta):
+class SGRFunction(metaclass=ABCMeta):
     '''Base class for other SGRFunctions
     Attempting to instantiate this class raises a TypeError'''
 
@@ -113,31 +113,51 @@ class SGRFunction(metaclass = ABCMeta):
         """Abstract method that returns the SGR parameter."""
         return NotImplemented
 
-# note on bold / faint modes on windows cmd do not necessarily work properly
-# essentially, they make the foreground color "bright"
-# (this operation is also supported by CSI codes 90-97, but this is nonstandard)
-# i.e.
-# CSI 0 = reset
-# CSI 1 = bold
-# CSI 2 = should be 'faint', no effect
-# CSI 21 = (should be 'bold off', has no effect
-# CSI 22 = should be 'cancel faint / bold', cancels bold
-
 class Bold(SGRFunction):
+    """Display text using a 'bold' style.
+    Many terminals either display the corresponding 'bright' colors,
+    instead of increasing the font weight like we might expect. Regardless,
+    this effect should do *something* on most terminals.
+    """
+    # note on bold / faint modes on windows cmd do not necessarily work properly
+    # essentially, they make the foreground color "bright"
+    # (this operation is also supported by CSI codes 90-97, but this is nonstandard)
+    # i.e.
+    # CSI 0 = reset
+    # CSI 1 = bold
+    # CSI 2 = should be 'faint', no effect
+    # CSI 21 = (should be 'bold off', has no effect
+    # CSI 22 = should be 'cancel faint / bold', cancels bold
     sgr_param = "1"
 
 class Italic(SGRFunction):
-    """Makes text appear italic"""
+    """Displays text in an 'italic' style.
+    Note that many systems simply reverse the colors, or do nothing.
+    """
     sgr_param = "3"
 
 class Underline(SGRFunction):
+    """Displays text with an underline beneath it.
+    This works on some systems, but not more primative ones.
+    """
     sgr_param = "4"
 
 class Blink(SGRFunction):
-    """makes text blink using the 'slow blink' SGR function"""
+    """Displays text with a 'slow blink'.
+    Note that this uses the 'slow blink' SGR param, rather than the 'rapid
+    blink' param. Support for this feature is somewhat spotty."""
     sgr_param = "5"
 
 class Reverse(SGRFunction):
+    """Displays text with the foreground and background reversed.
+    Note, this have unexpected effects when combined with other commands,
+    especially on Windows.
+    For example, using the default Windows color palette:
+    Reverse(Red("hello")) # makes black text on a red background
+    Red(Reverse("hello")) # makes black text on a red background
+    Our best advice is to rarely nest commands.
+    Most systems do something with this command.
+    """
     sgr_param = "7"
 
 class CrossOut(SGRFunction):
@@ -146,27 +166,35 @@ class CrossOut(SGRFunction):
 
 # foreground colors
 class Black(SGRFunction):
+    """Displays text using a Black foreground"""
     sgr_param = "30"
 
 class Red(SGRFunction):
+    """Displays text using a Red foreground"""
     sgr_param = "31"
 
 class Green(SGRFunction):
+    """Displays text using a Green foreground"""
     sgr_param = "32"
 
 class Yellow(SGRFunction):
+    """Displays text using a Yellow foreground"""
     sgr_param = "33"
 
 class Blue(SGRFunction):
+    """Displays text using a Blue foreground"""
     sgr_param = "34"
 
 class Magenta(SGRFunction):
+    """Displays text using a Magenta foreground"""
     sgr_param = "35"
 
 class Cyan(SGRFunction):
+    """Displays text using a Cyan foreground"""
     sgr_param = "36"
 
 class White(SGRFunction):
+    """Displays text using a White foreground"""
     sgr_param = "37"
 
 class Default(SGRFunction):
@@ -175,27 +203,35 @@ class Default(SGRFunction):
 
 # background colors
 class BlackBG(SGRFunction):
+    """Displays text using a Black background"""
     sgr_param = "40"
 
 class RedBG(SGRFunction):
+    """Displays text using a Red background"""
     sgr_param = "41"
 
 class GreenBG(SGRFunction):
+    """Displays text using a Green background"""
     sgr_param = "42"
 
 class YellowBG(SGRFunction):
+    """Displays text using a Yellow background"""
     sgr_param = "43"
 
 class BlueBG(SGRFunction):
+    """Displays text using a Blue background"""
     sgr_param = "44"
 
 class MagentaBG(SGRFunction):
+    """Displays text using a Magenta background"""
     sgr_param = "45"
 
 class CyanBG(SGRFunction):
+    """Displays text using a Cyan background"""
     sgr_param = "46"
 
 class WhiteBG(SGRFunction):
+    """Displays text using a White background"""
     sgr_param = "47"
 
 class DefaultBG(SGRFunction):
@@ -242,58 +278,65 @@ class ColorRGB(Color256):
 
 # constructing a series of SGR tests
 
-# test for 8-bit background support
-_list = [f"{CSI}37m"] # making text white to begin with
-
-for _i in range(16):
-    _list.append(f" {CSI}37;48;5;{_i}m{_i:^3}{CSI}0m ")
-
-_list.append("\n")
-for _j in range(6):
-    _temp = []
-    for _i in range(16,51):
-        _i += _j * 36
-        _temp.append(f" {CSI}37;48;5;{_i}m{_i:^3}{CSI}0m ")
-    _list.append("".join(_temp))
+def test_8bit_fg():
+    """generate a test string for 8-bit foreground colors"""
+    _list = [] # list to hold parts of string
+    # test the basic 16 colors
+    for _i in range(16):
+        _list.append(f" {CSI}37;48;5;{_i}m{_i:^3}{CSI}0m ")
     _list.append("\n")
-
-for _i in range(232,256):
-    _list.append(f" {CSI}37;48;5;{_i}m{_i:^3}{CSI}0m ")
-
-TEST_8BIT_BG = "".join(_list)
-
-# test for 8-bit foreground support
-_list = [] # making text white to begin with
-for _i in range(16):
-    _list.append(f" {CSI}40;38;5;{_i}m{_i:^3}{CSI}0m ")
-
-_list.append("\n")
-for _j in range(6):
-    _temp = []
-    for _i in range(16, 51):
-        _i += _j * 36
-        _temp.append(f" {CSI}40;38;5;{_i}m{_i:^3}{CSI}0m ")
-    _list.append("".join(_temp))
-    _list.append("\n")
-
-for _i in range(232, 256):
-    _list.append(f" {CSI}40;38;5;{_i}m{_i:^3}{CSI}0m ")
-
-TEST_8BIT_FG = "".join(_list)
-
-# test for 24 bit 'true color' support
-_list = [f"{CSI}37m"]
-for _r in range(8):
-    for _b in range(8):
-        for _g in range(8):
-            _list.append(f"{CSI}37;48;2;{_r};{_g};{_b}m{_r}{_g}{_b}{CSI}0m")
+    # test the 'rainbow' colors from 17-231
+    for _j in range(6):
+        _temp = []
+        for _i in range(16, 51):
+            _i += _j * 36
+            _temp.append(f" {CSI}37;48;5;{_i}m{_i:^3}{CSI}0m ")
+        _list.append("".join(_temp))
         _list.append("\n")
+    # test the grayscale colors from 232-255
+    for _i in range(232, 256):
+        _list.append(f" {CSI}37;48;5;{_i}m{_i:^3}{CSI}0m ")
+    return "".join(_list)
+
+
+def test_8bit_bg():
+    """generates a test string for 8-bit background colors"""
+    _list = [f"{CSI}37m"] # making text white to begin with
+    # test the basic 16 colors
+    for _i in range(16):
+        _list.append(f" {CSI}40;38;5;{_i}m{_i:^3}{CSI}0m ")
     _list.append("\n")
+    # test the 'rainbow' colors from 17-231
+    for _j in range(6):
+        _temp = []
+        for _i in range(16, 51):
+            _i += _j * 36
+            _temp.append(f" {CSI}40;38;5;{_i}m{_i:^3}{CSI}0m ")
+        _list.append("".join(_temp))
+        _list.append("\n")
+    # test the grayscale colors from 232-255
+    for _i in range(232, 256):
+        _list.append(f" {CSI}40;38;5;{_i}m{_i:^3}{CSI}0m ")
+    return "".join(_list)
 
-TEST_24BIT = "".join(_list)
+
+def test_24_bit():
+    """generates a test string for 24 bit color support"""
+    # create a new list to hold components
+    parts = [f"{CSI}37m"]
+    for r in range(0, 256, 16):
+        for b in range(0, 256, 16):
+            for g in range(0, 256, 16):
+                color = f"{r:02x}{g:02x}{b:02x}"
+                parts.append(f"{CSI}48;2;{r};{g};{b}m{color}{CSI}0m")
+            parts.append("\n")
+        parts.append("\n")
+    return "".join(parts)
 
 
-TEST_SGR = f"""Testing basic 8 foreground colors.
+# string containing most basic SGR calls
+# you can send this to players or print it out to check their color support
+TEST_BASIC_SGR = f"""Testing basic 8 foreground colors.
 Normal Bold   Faint  
 {CSI}30mHello! {CSI}1;30mHello!{CSI}22m {CSI}2;30mHello!{CSI}0m 'black'
 {CSI}31mHello! {CSI}1;31mHello!{CSI}22m {CSI}2;31mHello!{CSI}0m 'red'
@@ -358,16 +401,26 @@ Test encircled.
 
 Test overlined.
 {CSI}52mThis text should be overlined.{CSI}0m
+"""
+
+def test_full_sgr():
+    """Generate a 'full' test of SGR capabilities, combining
+    all previous SGR tests. (Note, this string could potentially be quite
+    long, due to the 24-bit 'true-color' check.)
+    """
+    return f"""{TEST_BASIC_SGR}
 
 Now testing 8-bit color.
 Foregrounds (all BG colors should be black).
-{TEST_8BIT_FG}
+{test_8bit_fg()}
 
 Backgrounds (all FG colors should be white).
-{TEST_8BIT_BG}
+{test_8bit_bg()}
 
 Now testing 256-bit color.
-{TEST_24BIT}
+{test_24_bit()}
 """
+
+# if someone runs this module, then give them the full test
 if __name__ == "__main__":
-    print(TEST_SGR)
+    print(test_full_sgr())
