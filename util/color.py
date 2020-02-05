@@ -30,7 +30,9 @@ clients, do not use this module.
 
 Almost all terminal emulators support the basic 8 colors (both for backgrounds
 and foregrounds) and some form of color inversion / video reverse.
-For a bit of flair with a great deal of portability, use [INSERT CLASS AND TEXT]
+For a bit of flair with a great deal of portability, use classes
+Black, Red, Green, etc. for foreground colors, classes BlackBg, RedBg, GreenBg, etc.
+for background colors, and the Reverse class to do color inverse.
 
 Many terminal emulators support 'bold' / 'bright' colors, and underlining text.
 Typically, at worst, these features are simply not rendered on unsupported
@@ -43,7 +45,7 @@ Color256 classes for 256-color rendering.
 
 Finally, some terminal emulators support 24-bit "true color", italics, framing,
 and other more obscure SGR commands. However, wrappers for these escape codes
-were not accepted due to low demand. Make a pull request if you are interested.
+were not developed due to low demand. Make a pull request if you are interested.
 
 If you are interested in what features your target platform supports, try
 printing / sending the TEST_SGR string defined in this module.
@@ -142,6 +144,7 @@ class CrossOut(SGRFunction):
     """the 'crossed out' SGR function"""
     sgr_param = "9"
 
+# foreground colors
 class Black(SGRFunction):
     sgr_param = "30"
 
@@ -170,6 +173,36 @@ class Default(SGRFunction):
     """Displays text using the terminal's default foreground color"""
     sgr_param = "39"
 
+# background colors
+class BlackBG(SGRFunction):
+    sgr_param = "40"
+
+class RedBG(SGRFunction):
+    sgr_param = "41"
+
+class GreenBG(SGRFunction):
+    sgr_param = "42"
+
+class YellowBG(SGRFunction):
+    sgr_param = "43"
+
+class BlueBG(SGRFunction):
+    sgr_param = "44"
+
+class MagentaBG(SGRFunction):
+    sgr_param = "45"
+
+class CyanBG(SGRFunction):
+    sgr_param = "46"
+
+class WhiteBG(SGRFunction):
+    sgr_param = "47"
+
+class DefaultBG(SGRFunction):
+    """Displays text using the terminal's default background color"""
+    sgr_param = "49"
+
+# display color from a 256-color palette
 class Color256(SGRFunction):
     """Select a color from the palette of 256 colors"""
 
@@ -206,7 +239,6 @@ class ColorRGB(Color256):
                     raise TypeError(f"Expected type int for '{letter}', "
                                     f"received '{type(value)}'") from exc
         super().__init__(child, code)
-
 
 # constructing a series of SGR tests
 
