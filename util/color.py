@@ -1,4 +1,4 @@
-"""module for easy text coloring via ANSI escape codes
+"""Module for easy text coloring via ANSI escape codes.
 Read more about ANSI escape codes here:
 https://en.wikipedia.org/wiki/ANSI_escape_code
 
@@ -114,17 +114,18 @@ class SGRFunction(metaclass=ABCMeta):
         return NotImplemented
 
 class Bold(SGRFunction):
-    """Display text using a 'bold' style.
-    Many terminals either display the corresponding 'bright' colors,
-    instead of increasing the font weight like we might expect. Regardless,
-    this effect should do *something* on most terminals.
+    """Display text using a 'bold' style. If the provided text is default
+    colored, then it will display with a heavier font weight. Otherwise,
+    many terminals  display the corresponding 'bright' colors, when this
+    command is combined with another foreground color.
     """
-    # note on bold / faint modes on windows cmd do not necessarily work properly
+    # note on bold / faint modes on windows cmd do not really work properly
     # essentially, they make the foreground color "bright"
-    # (this operation is also supported by CSI codes 90-97, but this is nonstandard)
+    # (this operation is also supported by nonstandard CSI codes 90-97
     # i.e.
     # CSI 0 = reset
-    # CSI 1 = bold
+    # CSI 1 = bold, causes foreground color to go bright when combined
+    #         with a foreground color
     # CSI 2 = should be 'faint', no effect
     # CSI 21 = (should be 'bold off', has no effect
     # CSI 22 = should be 'cancel faint / bold', cancels bold
@@ -247,7 +248,7 @@ class Color256(SGRFunction):
         [code] must be a value in range [0,255]
         """
         if code not in range(256):
-            raise ValueError("Expected code in range [0,255], "
+            raise ValueError("Expected code in range [0,255]; "
                              f"received '{code}''")
         self.code = code
         super().__init__(child)
@@ -268,11 +269,16 @@ class ColorRGB(Color256):
         where r, g, b are in range [0,6]"""
         try:
             code = 16 + r * 36 + g * 6 + b
+
+            # check if the code is in the proper range of the 256 colors
+            for letter, value in zip("rgb", [r, g, b]):
+                if value not in range(6):
+                    raise ValueError("Error, expected value in range [0,5]",
+                                     f" for '{letter}'; received '{value}'")
         except TypeError as exc:
-            print(exc.args)
-            for letter, value in zip(['r', 'g', 'b'], [r, g, b]):
+            for letter, value in zip("rgb", [r, g, b]):
                 if not isinstance(value, int):
-                    raise TypeError(f"Expected type int for '{letter}', "
+                    raise TypeError(f"Expected type int for '{letter}'; "
                                     f"received '{type(value)}'") from exc
         super().__init__(child, code)
 
