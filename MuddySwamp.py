@@ -115,29 +115,29 @@ class MudServerWorker(threading.Thread):
                 if etype is EventType.PLAYER_JOIN:
                     logging.info("Player %s joined." % pid)
                     # create a new character and map it to the ID
-                    character = self.mud.get_player_class()()
+                    PlayerClass = self.mud.get_player_class()
+                    character = PlayerClass()
                     self.mud.players[pid] = character
 
                     # TODO: make all location changes silent!
                     # set the character location
-                    # set to server default if present
+                    # server default overrides everything
                     if self.mud.default_location is not None:
-                        character.set_location(self.mud.default_location)
-                    # otherwise, try default player class
+                        start_loc = self.mud.default_location
                     elif character.starting_location is not None:
-                        character.set_location(character.starting_location)
-                    # finally, just try the first location possible
+                        start_loc = character.starting_location
+                    # if no default class 
                     else:
                         try:
-                            loc = next(iter(self.mud.world.locations.values()))
+                            start_loc = next(iter(self.mud.world.locations.values()))
                         except StopIteration:
                             logging.critical(f"Could not spawn {pid}, server has no locations")
                             continue
-                        logging.warning(f"{type(character)} has no default location, "
-                                        f"so {pid} will be spawned in {loc}")
+                        logging.warning(f"{PlayerClass} has no default location, "
+                                        f"so {pid} will be spawned in {start_loc}")
 
                     # put the character in "greet" mode
-                    character._parser = character.greeter
+                    character.spawn(start_loc)
 
                 elif etype is EventType.MESSAGE_RECEIVED:
                     try:

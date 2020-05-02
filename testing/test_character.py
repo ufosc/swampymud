@@ -767,3 +767,69 @@ class TestDefaultCommands(unittest.TestCase):
         self.bill.command("drop Sword")
         self.assertEqual(self.bill.msgs.pop(),
                          "Could not find item 'sword' to drop.")
+
+
+class TestSpawn(unittest.TestCase):
+
+    def setUp(self):
+        self.new_player = Human() # no name
+        self.bill = Human("Bill")
+
+    def tearDown(self):
+        self.bill.die()
+        self.new_player.die()
+
+    def test_name_at_spawn(self):
+        self.assertEqual(self.new_player._name, None)
+        self.assertEqual(self.bill._name, "Bill")
+ 
+    def test_spawn(self):
+        self.assertEqual(self.new_player.msgs, [])
+        self.assertEqual(self.bill.msgs, [])
+        self.assertEqual(self.new_player.location, None)
+        self.assertEqual(self.bill.location, None)
+        self.bill.set_location(TEST_ROOM)
+        self.assertEqual(self.bill.location, TEST_ROOM)
+
+        # bill should be in normal parsing mode
+        self.bill.command("oops")
+        self.assertEqual(self.bill.msgs.pop(), "Command 'oops' not recognized.")
+        # new player should also be in normal parsing mode
+        self.new_player.command("oops")
+        self.assertEqual(self.new_player.msgs.pop(), "Command 'oops' not recognized.")
+
+        self.new_player.spawn(TEST_ROOM)
+        # new player should not be moved yet
+        self.assertEqual(self.new_player.location, TEST_ROOM)
+        self.assertEqual(TEST_ROOM.characters, [self.bill])
+        self.assertEqual(self.new_player.msgs, [
+            "Welcome to MuddySwamp! You are a Human",
+            "What should we call you?"
+        ])
+        self.new_player.msgs.clear()
+        self.assertEqual(self.bill.msgs, [])
+        self.assertTrue(self.new_player._parser == self.new_player._greeter)
+
+        # test the different error messages
+        self.new_player.command("name with spaces")
+        self.assertEqual(self.new_player.msgs.pop(), "Names must be alphanumeric.")
+        self.new_player.command("name_with_underscores")
+        self.assertEqual(self.new_player.msgs.pop(), "Names must be alphanumeric.")
+        self.new_player.command("43243-2144;")
+        self.assertEqual(self.new_player.msgs.pop(), "Names must be alphanumeric.")
+        self.new_player.command("")
+        self.assertEqual(self.new_player.msgs.pop(), "Names must have at least 2 characters.")
+        self.new_player.command("a")
+        self.assertEqual(self.new_player.msgs.pop(), "Names must have at least 2 characters.")
+        self.new_player.command("Tim") # finally, a valid name
+        self.assertEqual(self.new_player.msgs, [])
+
+        # player should be added to location
+        self.assertEqual(TEST_ROOM.characters, [self.bill, self.new_player])
+
+        self.assertEqual(self.bill.msgs, [])
+        self.assertEqual(self.new_player.msgs, [])
+
+        # new player should switch to default parser
+        self.new_player.command("tim")
+        self.assertEqual(self.new_player.msgs.pop(), "Command 'tim' not recognized.")

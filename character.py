@@ -141,7 +141,20 @@ class Character(metaclass=CharacterClass):
         print(f"[{self}] received update")
         pass
 
-    def greeter(self, new_name: str):
+    def spawn(self, spawn_location):
+        """Send a greeting to the character, put them in name-entering mode
+        [spawn_location]: where the character should spawn
+        """
+        self.message(f"Welcome to MuddySwamp! You are a {type(self)}")
+        self.message(f"What should we call you?")
+
+        # set player location to spawn_location, but do not MOVE them
+        # thus, player will not be available to attack
+        self.location = spawn_location
+
+        self._parser = self._greeter
+
+    def _greeter(self, new_name: str):
         """parser for a player who has just joined, used for selecting a name"""
         if len(new_name) < 2:
             self.message("Names must have at least 2 characters.")
@@ -150,11 +163,14 @@ class Character(metaclass=CharacterClass):
             self.message("Names must be alphanumeric.")
             return
         # TODO: perform some kind of check to prevent players having same name?
-        self.name = new_name
-        # TODO: put player in safe location first, then swap back to actual location
-        # TODO: message all players once name is decided?
-        self._parser = self.parse_command
+        self._name = new_name
 
+        # move the player to the actual location they should be in
+        loc = self.location
+        self.location = None
+        self.set_location(loc)
+
+        self._parser = self.parse_command
 
     def parse_command(self, line: str = None, args=None):
         """parses a command, raises AttributeError if command cannot be found"""
@@ -210,13 +226,13 @@ class Character(metaclass=CharacterClass):
         return "%s the %s" % (self._name, type(self))
 
     # these methods need heavy refinement
-    def die(self, msg="%s died."):
+    def die(self):
         """method executed when a player dies"""
-        if msg is not None:
-            if "%s" in msg:
-                msg = msg % self
-            self.location.message_chars(msg)
-        self.location.remove_char(self)
+        try:
+            self.location.message_chars(f"{self} died.")
+            self.location.remove_char(self)
+        except AttributeError:
+            pass
         self.location = None
         self.is_alive = False
         # TODO: make a custom parser for dead people
@@ -248,7 +264,7 @@ class Character(metaclass=CharacterClass):
                   show_leave=True, leave_via=None,
                   show_enter=True, enter_via=None):
         """
-        high-level function for characters to leave 
+        high-level function for characters to change rooms
         [exit]: exit taken by the player
         [show_leave]: if True, characters in the current location are notified
         of this character leaving
