@@ -111,12 +111,12 @@ class MudServerWorker(threading.Thread):
             while self.mud.server_queue:
                 event = self.mud.server_queue.popleft()
                 logging.info(event)
-                id = event.id
-                if event.type is EventType.PLAYER_JOIN:
-                    logging.info("Player %s joined." % event.id)
+                etype, pid, content = event
+                if etype is EventType.PLAYER_JOIN:
+                    logging.info("Player %s joined." % pid)
                     # create a new character and map it to the ID
                     character = self.mud.get_player_class()()
-                    self.mud.players[id] = character
+                    self.mud.players[pid] = character
 
                     # TODO: make all location changes silent!
                     # set the character location
@@ -131,29 +131,27 @@ class MudServerWorker(threading.Thread):
                         try:
                             loc = next(iter(self.mud.world.locations.values()))
                         except StopIteration:
-                            logging.critical(f"Could not spawn {id}, server has no locations")
+                            logging.critical(f"Could not spawn {pid}, server has no locations")
                             continue
                         logging.warning(f"{type(character)} has no default location, "
-                                        f"so {id} will be spawned in {loc}")
+                                        f"so {pid} will be spawned in {loc}")
 
                     # put the character in "greet" mode
                     character._parser = character.greeter
 
-                elif event.type is EventType.MESSAGE_RECEIVED:
-                    # log the message
-                    logging.debug("Event message: " + event.message)
+                elif etype is EventType.MESSAGE_RECEIVED:
                     try:
-                        self.mud.players[id].command(event.message)
+                        self.mud.players[pid].command(content)
                     except Exception:
                         logging.error(traceback.format_exc())
 
-                elif event.type is EventType.PLAYER_DISCONNECT:
+                elif etype is EventType.PLAYER_DISCONNECT:
                     # logging data of the player
-                    logging.info("%s left" % id)
+                    logging.info("%s left" % pid)
                     try:
-                        character = self.mud.players[id]
+                        character = self.mud.players[pid]
                         self.mud.send_message_to_all(f"{character} quit the game")
-                        del self.mud.players[id]
+                        del self.mud.players[pid]
                     except KeyError:
                         pass
 

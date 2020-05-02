@@ -12,7 +12,7 @@ import time
 import sys
 import enum
 import logging
-from collections import deque
+from collections import deque, namedtuple
 from numbers import Number
 
 #creating an Enum for EventTypes
@@ -21,20 +21,8 @@ class EventType(enum.Enum):
     MESSAGE_RECEIVED = 1
     PLAYER_DISCONNECT = 2
 
-#possibly change this to a dict, it might be more pythonic that way
-class Event:
-    '''class representing Events for the server code to handle
-    type: an EventType
-    id: corresponding playerID
-    message: a string message 
-    '''
-    def __init__(self, eventType, id, message):
-        self.type = eventType
-        self.id = id
-        self.message = message
 
-    def __str__(self):
-        return "%s\t%s\t\"%s\"" % (self.type, self.id, self.message)
+Event = namedtuple("Event", ["etype", "pid", "content"])
 
 
 class MudServer(object):
