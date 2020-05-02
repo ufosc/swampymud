@@ -1,7 +1,6 @@
 """Module defining the CharacterClass metaclass, and Character base class"""
 import enum
 import util
-import control
 import inventory as inv
 import item as item_mod
 from command import Command, CommandDict
@@ -88,7 +87,7 @@ class CharacterClass(type):
         """overriding str to return classname"""
         return cls.classname
 
-class Character(control.Monoreceiver, metaclass=CharacterClass):
+class Character(metaclass=CharacterClass):
     """Base class for all other CharacterClasses"""
 
     # Name for this class
@@ -104,7 +103,7 @@ class Character(control.Monoreceiver, metaclass=CharacterClass):
         super().__init__()
         self._name = name
         self.location = None
-        self.last_msg = None
+        self.msgs = []
         self.inv = inv.Inventory()
         self.cmd_dict = CommandDict()
 
@@ -123,22 +122,41 @@ class Character(control.Monoreceiver, metaclass=CharacterClass):
 
     def message(self, msg):
         """send a message to the controller of this character"""
-        if self.controller:
-            self.controller.write_msg(msg)
+        self.msgs.append(msg)
         # store this last message for convenience
+        # TODO: remove this
         self.last_msg = msg
 
-    def update(self):
-        while self.is_alive and self.controller.has_cmd():
-            line = self.controller.read_cmd().strip()
-            if line == "":
-                continue
-            try:
-                self._parser(line)
-            except CharException as cex:
-                self.message(str(cex))
+    def command(self, msg):
+        """issue 'msg' to character"""
+        #TODO: untangle this with 'parse_command' and 'update'
+        # once we switch to asynchronous programming
+        try:
+            self._parser(msg)
+        except CharException as ex:
+            self.message(str(ex))
 
-    def parse_command(self, line=None, args=None):
+    def update(self):
+        """periodically called method that updates character state"""
+        print(f"[{self}] received update")
+        pass
+
+    def greeter(self, new_name: str):
+        """parser for a player who has just joined, used for selecting a name"""
+        if len(new_name) < 2:
+            self.message("Names must have at least 2 characters.")
+            return
+        if not new_name.isalnum():
+            self.message("Names must be alphanumeric.")
+            return
+        # TODO: perform some kind of check to prevent players having same name?
+        self.name = new_name
+        # TODO: put player in safe location first, then swap back to actual location
+        # TODO: message all players once name is decided?
+        self._parser = self.parse_command
+
+
+    def parse_command(self, line: str = None, args=None):
         """parses a command, raises AttributeError if command cannot be found"""
         if args is None and line is None:
             return
@@ -155,8 +173,6 @@ class Character(control.Monoreceiver, metaclass=CharacterClass):
             cmd(args)
         except AmbiguityError as amb:
             self._parser = AmbiguityResolver(self, args, amb)
-        except CharException as ex:
-            self.message(str(ex))
 
     def _check_ambiguity(self, indices, phrase, options):
         """wraps function outputs to handle ambiguity
@@ -202,8 +218,8 @@ class Character(control.Monoreceiver, metaclass=CharacterClass):
             self.location.message_chars(msg)
         self.location.remove_char(self)
         self.location = None
-        self.detach()
         self.is_alive = False
+        # TODO: make a custom parser for dead people
 
 
     #location manipulation methods

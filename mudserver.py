@@ -14,7 +14,6 @@ import enum
 import logging
 from collections import deque
 from numbers import Number
-from location import Location
 
 #creating an Enum for EventTypes
 class EventType(enum.Enum):

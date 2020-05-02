@@ -1,7 +1,6 @@
 """module testing the Character class"""
 import unittest
 import item
-from control import EntryPlug
 import character as char
 import location as loc
 import inventory as inv
@@ -425,13 +424,10 @@ class TestDefaultCommands(unittest.TestCase):
         self.room = loc.Location("Room", "This is just a room for testing.")
         self.bill = Human("Bill")
         self.bill.set_location(TEST_ROOM)
-        self.billcon = EntryPlug(self.bill)
         self.phil = char.Character("Phil")
         self.phil.set_location(TEST_ROOM)
-        self.philcon = EntryPlug(self.phil)
         self.dana = char.Character("Dana")
         self.dana.set_location(TEST_OUT)
-        self.danacon = EntryPlug(self.dana)
 
     def tearDown(self):
         self.bill.die()
@@ -444,94 +440,94 @@ class TestDefaultCommands(unittest.TestCase):
     def test_help(self):
         """test for the help command"""
         # using help by itself should produce a list of commands
-        self.billcon.command("help")
-        self.assertEqual(self.billcon.msgs.pop(), self.bill.cmd_dict.help())
+        self.bill.command("help")
+        self.assertEqual(self.bill.msgs.pop(), self.bill.cmd_dict.help())
 
         # using help with other commands should produce their docstring
-        self.billcon.command("help help")
-        help_msg = self.billcon.msgs.pop()
+        self.bill.command("help help")
+        help_msg = self.bill.msgs.pop()
         # check that help message agrees with the CommandDict
         self.assertEqual(help_msg, self.bill.cmd_dict.get_cmd("help").help())
         self.assertEqual(help_msg,
                          "Show relevant help information for a particular command.\n"
                          "usage: help [command]\n"
                          "If no command is supplied, a list of all commands is shown.")
-        self.billcon.command("help say")
-        help_msg = self.billcon.msgs.pop()
+        self.bill.command("help say")
+        help_msg = self.bill.msgs.pop()
         self.assertEqual(help_msg,
                          "Say a message aloud, sent to all players in your "
                          "current locaton.\nusage: say [msg]")
         # invalid command should cause an error
-        self.billcon.command("help invalid_cmd")
-        help_msg = self.billcon.msgs.pop()
+        self.bill.command("help invalid_cmd")
+        help_msg = self.bill.msgs.pop()
         self.assertEqual(help_msg, "Command 'invalid_cmd' not recognized.")
 
     def test_say(self):
         """test that the say command works properly"""
         # test with a simple message
-        self.billcon.command("say hey, what's up?")
-        self.assertEqual(self.billcon.msgs,
+        self.bill.command("say hey, what's up?")
+        self.assertEqual(self.bill.msgs,
                          ["Bill the Human: hey, what's up?"])
-        self.assertEqual(self.philcon.msgs,
+        self.assertEqual(self.phil.msgs,
                          ["Bill the Human: hey, what's up?"])
-        self.billcon.msgs.clear()
-        self.philcon.msgs.clear()
-        self.billcon.command("say spam")
-        self.billcon.command("say spam")
-        self.billcon.command("say spam")
-        self.assertEqual(self.billcon.msgs,
+        self.bill.msgs.clear()
+        self.phil.msgs.clear()
+        self.bill.command("say spam")
+        self.bill.command("say spam")
+        self.bill.command("say spam")
+        self.assertEqual(self.bill.msgs,
                          ["Bill the Human: spam"] * 3)
-        self.assertEqual(self.philcon.msgs,
+        self.assertEqual(self.phil.msgs,
                          ["Bill the Human: spam"] * 3)
-        self.billcon.msgs.clear()
-        self.philcon.msgs.clear()
+        self.bill.msgs.clear()
+        self.phil.msgs.clear()
         # empty messages should not be sent
-        self.billcon.command("say")
-        self.assertEqual(self.billcon.msgs, [])
-        self.assertEqual(self.philcon.msgs, [])
-        self.billcon.command("say      ")
-        self.assertEqual(self.billcon.msgs, [])
-        self.assertEqual(self.philcon.msgs, [])
+        self.bill.command("say")
+        self.assertEqual(self.bill.msgs, [])
+        self.assertEqual(self.phil.msgs, [])
+        self.bill.command("say      ")
+        self.assertEqual(self.bill.msgs, [])
+        self.assertEqual(self.phil.msgs, [])
         # consecutive spaces will be treated as one separator
-        self.billcon.command("say  whoops   extra  spaces")
-        self.assertEqual(self.billcon.msgs,
+        self.bill.command("say  whoops   extra  spaces")
+        self.assertEqual(self.bill.msgs,
                          ["Bill the Human: whoops extra spaces"])
-        self.assertEqual(self.philcon.msgs,
+        self.assertEqual(self.phil.msgs,
                          ["Bill the Human: whoops extra spaces"])
 
     def test_go_err(self):
         """test that the 'go' sends an error with a bad exit name"""
-        self.billcon.command("go")
-        self.assertEqual(self.billcon.msgs, ["No exit with name ''."])
-        self.billcon.msgs.clear()
+        self.bill.command("go")
+        self.assertEqual(self.bill.msgs, ["No exit with name ''."])
+        self.bill.msgs.clear()
         self.assertTrue(self.bill.location is TEST_ROOM)
-        self.billcon.command("go foobar")
-        self.assertEqual(self.billcon.msgs, ["No exit with name 'foobar'."])
+        self.bill.command("go foobar")
+        self.assertEqual(self.bill.msgs, ["No exit with name 'foobar'."])
         self.assertTrue(self.bill.location is TEST_ROOM)
 
     def test_go_basic(self):
         """test that basic use of the 'go' command works properly"""
-        self.billcon.command("go outside")
-        self.assertEqual(self.billcon.msgs, [])
-        self.assertEqual(self.philcon.msgs,
+        self.bill.command("go outside")
+        self.assertEqual(self.bill.msgs, [])
+        self.assertEqual(self.phil.msgs,
                          ["Bill left through exit 'outside'."])
-        self.assertEqual(self.danacon.msgs, ["Bill entered."])
+        self.assertEqual(self.dana.msgs, ["Bill entered."])
         self.assertTrue(self.bill.location is TEST_OUT)
         self.tearDown()
         self.setUp()
-        self.billcon.command("go out")
-        self.assertEqual(self.billcon.msgs, [])
-        self.assertEqual(self.philcon.msgs,
+        self.bill.command("go out")
+        self.assertEqual(self.bill.msgs, [])
+        self.assertEqual(self.phil.msgs,
                          ["Bill left through exit 'out'."])
-        self.assertEqual(self.danacon.msgs, ["Bill entered."])
+        self.assertEqual(self.dana.msgs, ["Bill entered."])
         self.assertTrue(self.bill.location is TEST_OUT)
         self.tearDown()
         self.setUp()
-        self.billcon.command("go test  out")
-        self.assertEqual(self.billcon.msgs, [])
-        self.assertEqual(self.philcon.msgs,
+        self.bill.command("go test  out")
+        self.assertEqual(self.bill.msgs, [])
+        self.assertEqual(self.phil.msgs,
                          ["Bill left through exit 'test out'."])
-        self.assertEqual(self.danacon.msgs, ["Bill entered."])
+        self.assertEqual(self.dana.msgs, ["Bill entered."])
         self.assertTrue(self.bill.location is TEST_OUT)
 
     def test_go_filtered(self):
@@ -539,30 +535,30 @@ class TestDefaultCommands(unittest.TestCase):
         # set access for exit to an empty whitelist
         # i.e. nobody is allowed through
         TEST_EXIT.access = char.CharFilter(mode=True)
-        self.billcon.command("go outside")
-        self.assertEqual(self.billcon.msgs, ["Exit 'outside' is unaccessible to you."])
-        self.assertEqual(self.philcon.msgs, [])
-        self.assertEqual(self.danacon.msgs, [])
+        self.bill.command("go outside")
+        self.assertEqual(self.bill.msgs, ["Exit 'outside' is unaccessible to you."])
+        self.assertEqual(self.phil.msgs, [])
+        self.assertEqual(self.dana.msgs, [])
         self.assertTrue(self.bill.location is TEST_ROOM)
-        self.billcon.msgs.clear()
+        self.bill.msgs.clear()
         # set visibility for exit to an empty whitelist
         # i.e. nobody can see this exit or go through now
         # so Bill should not be informed that this exit even exists
         TEST_EXIT.visibility = char.CharFilter(mode=True)
-        self.billcon.command("go outside")
-        self.assertEqual(self.billcon.msgs, ["No exit with name 'outside'."])
-        self.assertEqual(self.philcon.msgs, [])
-        self.assertEqual(self.danacon.msgs, [])
+        self.bill.command("go outside")
+        self.assertEqual(self.bill.msgs, ["No exit with name 'outside'."])
+        self.assertEqual(self.phil.msgs, [])
+        self.assertEqual(self.dana.msgs, [])
         self.assertTrue(self.bill.location is TEST_ROOM)
-        self.billcon.msgs.clear()
+        self.bill.msgs.clear()
         # BUT, if we set access to empty blacklist (allowing anyone in)
         # Bill should be allowed through, even though he can't see the exit
         TEST_EXIT.access = char.CharFilter(mode=False)
-        self.billcon.command("go outside")
-        self.assertEqual(self.billcon.msgs, [])
-        self.assertEqual(self.philcon.msgs,
+        self.bill.command("go outside")
+        self.assertEqual(self.bill.msgs, [])
+        self.assertEqual(self.phil.msgs,
                          ["Bill left through exit 'outside'."])
-        self.assertEqual(self.danacon.msgs, ["Bill entered."])
+        self.assertEqual(self.dana.msgs, ["Bill entered."])
         self.assertTrue(self.bill.location is TEST_OUT)
 
     def test_cmd_equip(self):
@@ -570,43 +566,43 @@ class TestDefaultCommands(unittest.TestCase):
         self.bill.inv.add_item(Mace())
         self.bill.inv.add_item(Sword())
         # try a nonexistant item
-        self.billcon.command("equip fwwrsd")
-        self.assertEqual(self.billcon.msgs.pop(),
+        self.bill.command("equip fwwrsd")
+        self.assertEqual(self.bill.msgs.pop(),
                         "Could not find item 'fwwrsd'.")
-        self.billcon.command("equip mace")
+        self.bill.command("equip mace")
         # mace should be equipped
-        self.assertEqual(self.billcon.msgs.pop(),
+        self.assertEqual(self.bill.msgs.pop(),
                          "equip Mace")
         mace, from_inv = self.bill.equip_dict[item.EquipTarget("Right Hand")]
         self.assertTrue(isinstance(mace, Mace))
         self.assertTrue(from_inv)
         # now we cannot equip the mace again, because it cannot be found
-        self.billcon.command("equip mace")
-        self.assertEqual(self.billcon.msgs.pop(),
+        self.bill.command("equip mace")
+        self.assertEqual(self.bill.msgs.pop(),
                          "Could not find item 'mace'.")
         # mace should still be equipped
         mace, from_inv = self.bill.equip_dict[item.EquipTarget("Right Hand")]
         self.assertTrue(isinstance(mace, Mace))
         self.assertTrue(from_inv)
         # try equipping a sword
-        self.billcon.command("equip sword")
-        self.assertEqual(self.billcon.msgs, [
+        self.bill.command("equip sword")
+        self.assertEqual(self.bill.msgs, [
             "unequip Mace",
             "equip Sword"
         ])
-        self.billcon.msgs.clear()
+        self.bill.msgs.clear()
         sword, from_inv = self.bill.equip_dict[item.EquipTarget("Right Hand")]
         self.assertTrue(isinstance(sword, Sword))
         self.assertTrue(from_inv)
         # we should be messaged if we equip an item we don't have a slot for
         self.bill.inv.add_item(Bow())
-        self.billcon.command("equip Bow")
-        self.assertEqual(self.billcon.msgs.pop(),
+        self.bill.command("equip Bow")
+        self.assertEqual(self.bill.msgs.pop(),
                          "Cannot equip item Bow to Left hand.")
         # equipping an un-equippable item should give us a message
         self.bill.inv.add_item(Coin())
-        self.billcon.command("equip Coin")
-        self.assertEqual(self.billcon.msgs.pop(),
+        self.bill.command("equip Coin")
+        self.assertEqual(self.bill.msgs.pop(),
                          "Coin cannot be equipped.")
         # TODO: test ambiguity handling once added
 
@@ -618,18 +614,18 @@ class TestDefaultCommands(unittest.TestCase):
         self.bill.equip(Sword(), from_inv=True)
         self.bill.equip(Hat(), from_inv=True)
         # purge the equip messages
-        self.billcon.msgs.clear()
+        self.bill.msgs.clear()
         # create a reference copy of the equip_dict for testing
         ref = self.bill.equip_dict.copy()
         # try to unequip a non-existent item
-        self.billcon.command("unequip flesh")
-        self.assertEqual(self.billcon.msgs.pop(),
+        self.bill.command("unequip flesh")
+        self.assertEqual(self.bill.msgs.pop(),
                          "Could not find equipped item 'flesh'.")
         # equipped items should be unaffected
         self.assertEqual(ref, self.bill.equip_dict)
         # now try unequipping the hat
-        self.billcon.command("unequip hat")
-        self.assertEqual(self.billcon.msgs.pop(),
+        self.bill.command("unequip hat")
+        self.assertEqual(self.bill.msgs.pop(),
                          "unequip Hat")
         # hat should be removed from our equip_dict
         ref[item.EquipTarget("head")] = None
@@ -638,14 +634,14 @@ class TestDefaultCommands(unittest.TestCase):
         self.assertEqual(self.bill.inv, inv.Inventory((Hat(), 1)))
 
         # now try unequipping the hat again
-        self.billcon.command("unequip hat")
-        self.assertEqual(self.billcon.msgs.pop(),
+        self.bill.command("unequip hat")
+        self.assertEqual(self.bill.msgs.pop(),
                          "Could not find equipped item 'hat'.")
         self.assertEqual(ref, self.bill.equip_dict)
 
         # try unequipping the sword (should be case-insensitive)
-        self.billcon.command("unequip SwOrD")
-        self.assertEqual(self.billcon.msgs.pop(),
+        self.bill.command("unequip SwOrD")
+        self.assertEqual(self.bill.msgs.pop(),
                          "unequip Sword")
         # sword should be removed from our equip_dict
         ref[item.EquipTarget("right hand")] = None
@@ -656,41 +652,41 @@ class TestDefaultCommands(unittest.TestCase):
 
     def test_cmd_inv(self):
         """test that the 'inv' command works properly"""
-        self.billcon.command("inv")
-        self.assertEqual(self.billcon.msgs.pop(),
+        self.bill.command("inv")
+        self.assertEqual(self.bill.msgs.pop(),
                          "Head: none\nRight hand: none")
         # add some stuff to the inventory
         self.bill.add_item(Coin(), 30)
         self.bill.add_item(Sword(), 2)
-        self.billcon.command("inv")
-        self.assertEqual(self.billcon.msgs, [
+        self.bill.command("inv")
+        self.assertEqual(self.bill.msgs, [
             "Head: none\nRight hand: none",
             self.bill.inv.readable()
         ])
-        self.billcon.msgs.clear()
+        self.bill.msgs.clear()
         # add more items
         self.bill.add_item(Mace(), 2)
         self.bill.add_item(Bow(), 2)
         self.bill.add_item(Hat(), 1)
-        self.billcon.command("inv")
-        self.assertEqual(self.billcon.msgs, [
+        self.bill.command("inv")
+        self.assertEqual(self.bill.msgs, [
             "Head: none\nRight hand: none",
             self.bill.inv.readable()
         ])
-        self.billcon.msgs.clear()
+        self.bill.msgs.clear()
         # equip some items
         self.bill.equip(Hat(), from_inv=False)
-        self.billcon.command("inv")
-        self.assertEqual(self.billcon.msgs, [
+        self.bill.command("inv")
+        self.assertEqual(self.bill.msgs, [
             "equip Hat",
             "Head: Hat\nRight hand: none",
             self.bill.inv.readable()
         ])
-        self.billcon.msgs.clear()
+        self.bill.msgs.clear()
         # equip more items
         self.bill.equip(Sword(), from_inv=False)
-        self.billcon.command("inv")
-        self.assertEqual(self.billcon.msgs, [
+        self.bill.command("inv")
+        self.assertEqual(self.bill.msgs, [
             "equip Sword",
             "Head: Hat\nRight hand: Sword",
             self.bill.inv.readable()
@@ -699,8 +695,8 @@ class TestDefaultCommands(unittest.TestCase):
     def test_cmd_pickup(self):
         """test that the 'pickup' command works properly"""
         # try to pickup an item when there are none available
-        self.billcon.command("pickup coin")
-        self.assertEqual(self.billcon.msgs.pop(),
+        self.bill.command("pickup coin")
+        self.assertEqual(self.bill.msgs.pop(),
                          "Could not find item 'coin' to pick up.")
         # now add a coin and some swords
         TEST_ROOM.add_item(Coin(), 5)
@@ -710,12 +706,12 @@ class TestDefaultCommands(unittest.TestCase):
         # create a copy of Bill's inv for reference
         bill_ref = inv.Inventory(*self.bill.inv)
         # try to pickup an item with a bad name
-        self.billcon.command("pickup foo")
-        self.assertEqual(self.billcon.msgs.pop(),
+        self.bill.command("pickup foo")
+        self.assertEqual(self.bill.msgs.pop(),
                          "Could not find item 'foo' to pick up.")
         # try looting a coin
-        self.billcon.command("pickup coin")
-        self.assertEqual(self.billcon.msgs, [])
+        self.bill.command("pickup coin")
+        self.assertEqual(self.bill.msgs, [])
         # coin should be removed from location
         loc_ref.remove_item(Coin())
         self.assertEqual(TEST_ROOM.inv, loc_ref)
@@ -724,8 +720,8 @@ class TestDefaultCommands(unittest.TestCase):
         self.assertEqual(self.bill.inv, bill_ref)
 
         # try looting a sword
-        self.billcon.command("pickup sword")
-        self.assertEqual(self.billcon.msgs, [])
+        self.bill.command("pickup sword")
+        self.assertEqual(self.bill.msgs, [])
         # coin should be removed from location
         loc_ref.remove_item(Sword())
         self.assertEqual(TEST_ROOM.inv, loc_ref)
@@ -736,8 +732,8 @@ class TestDefaultCommands(unittest.TestCase):
     def test_cmd_drop(self):
         """test that the 'drop' command works properly"""
         # try to drop an item when inventory is empty
-        self.billcon.command("drop coin")
-        self.assertEqual(self.billcon.msgs.pop(),
+        self.bill.command("drop coin")
+        self.assertEqual(self.bill.msgs.pop(),
                          "Could not find item 'coin' to drop.")
         # now add a coin and some swords to bill's inventory
         self.bill.add_item(Coin(), 5)
@@ -748,8 +744,8 @@ class TestDefaultCommands(unittest.TestCase):
         bill_ref = inv.Inventory(*self.bill.inv)
 
         # try dropping a coin
-        self.billcon.command("drop coin")
-        self.assertEqual(self.billcon.msgs, [])
+        self.bill.command("drop coin")
+        self.assertEqual(self.bill.msgs, [])
         # coin should be added to location's inventory
         loc_ref.add_item(Coin())
         self.assertEqual(TEST_ROOM.inv, loc_ref)
@@ -758,8 +754,8 @@ class TestDefaultCommands(unittest.TestCase):
         self.assertEqual(self.bill.inv, bill_ref)
 
         # try dropping a sword
-        self.billcon.command("drop sWORD")
-        self.assertEqual(self.billcon.msgs, [])
+        self.bill.command("drop sWORD")
+        self.assertEqual(self.bill.msgs, [])
         # sword should be added to the location's inventory
         loc_ref.add_item(Sword())
         self.assertEqual(TEST_ROOM.inv, loc_ref)
@@ -768,6 +764,6 @@ class TestDefaultCommands(unittest.TestCase):
         self.assertEqual(self.bill.inv, bill_ref)
 
         # try dropping a sword (when none are left)
-        self.billcon.command("drop Sword")
-        self.assertEqual(self.billcon.msgs.pop(),
+        self.bill.command("drop Sword")
+        self.assertEqual(self.bill.msgs.pop(),
                          "Could not find item 'sword' to drop.")

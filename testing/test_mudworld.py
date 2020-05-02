@@ -2,7 +2,6 @@
 import unittest
 import importlib
 import mudworld
-from control import EntryPlug
 from character import CharacterClass
 from item import Item
 from location import Location
@@ -442,26 +441,22 @@ class TestLocationScripts(unittest.TestCase):
         human1, human2 = tuple(world.locations["Tavern"].characters)
         # get our evil dark_lord
         dark_lord = world.locations["tower"].characters[0]
-        # set up controllers for each character
-        human_con1 = EntryPlug(human1)
-        human_con2 = EntryPlug(human2)
-        dark_lord_con = EntryPlug(dark_lord)
 
         # move dark lord to the tavern
         dark_lord.set_location(world.locations["Tavern"])
 
         # now return to the castle
         dark_lord.cmd_retreat([])
-        self.assertEqual(human_con1.msgs.pop(),
+        self.assertEqual(human1.msgs.pop(),
                          "Vennicule disappeared in a plume of smoke!")
-        self.assertEqual(human_con2.msgs.pop(),
+        self.assertEqual(human2.msgs.pop(),
                          "Vennicule disappeared in a plume of smoke!")
         self.assertTrue(dark_lord in world.locations["tower"].characters)
 
         # now test the 'capture' command
         dark_lord.set_location(world.locations["Tavern"])
         dark_lord.cmd_capture(["capture", str(human1)])
-        self.assertEqual(human_con1.msgs.pop(),
+        self.assertEqual(human1.msgs.pop(),
                          "You have been captured!")
         self.assertTrue(human1 in world.locations["dungeon"].characters)
 

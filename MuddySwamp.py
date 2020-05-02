@@ -13,7 +13,6 @@ from mudserver import MudServer, Event, EventType
 # import modules from the MuddySwamp engine
 import mudworld
 import mudscript
-import control
 
 # better names welcome
 class MainServer(MudServer):
@@ -22,6 +21,7 @@ class MainServer(MudServer):
         self.world = world
         self.default_class = None
         self.default_location = None
+        self.players = {} # dict mapping socket IDs to characters
         super().__init__(port)
 
     def set_default_class(self, cls_name):
@@ -48,59 +48,6 @@ class MainServer(MudServer):
             return self.default_class
         else:
             return self.world.random_cls()
-
-
-class Greeter(control.Monoreceiver):
-    '''Class responsible for greeting the player
-    and handing them a Character to control'''
-
-    GREETING = '''Welcome to MuddySwamp!'''
-
-    def __init__(self, server):
-        self.server = server
-        self.player_cls = server.get_player_class()
-        super().__init__()
-
-    def attach(self, controller):
-        '''attach to [controller], greeting it as appropriate'''
-        super().attach(controller)
-        self.controller.write_msg(self.GREETING)
-        self.controller.write_msg("You are a(n) %s" % self.player_cls)
-        self.controller.write_msg("What is your name?")
-
-
-    def update(self):
-        while self.controller.has_cmd():
-            new_name = self.controller.read_cmd().strip()
-            if new_name == "":
-                continue
-            if not new_name.isalnum():
-                self.controller.write_msg("Names must be alphanumeric.")
-                continue
-            # TODO: perform check to prevent users from having the same name
-            else:
-                # first, find the location we are putting them in
-                if self.server.default_location is not None:
-                    loc = self.server.default_location
-                elif self.player_cls.starting_location is not None:
-                    loc = self.player_cls.starting_location
-                else:
-                    try:
-                        loc = next(iter(self.server.world.locations.values()))
-                    except StopIteration:
-                        logging.critical("Could not spawn %s, server has no locations", new_name)
-                        continue
-                    logging.warning("%s has no default location, "
-                                    "so %s will be spawned in %s",
-                                    self.player_cls, new_name, loc)
-
-                # create the character and give it to the player
-                new_char = self.player_cls(new_name)
-                self.controller.assume_control(new_char)
-                # put new character in location
-                new_char.set_location(loc)
-                self.server.send_message_to_all(f"Welcome, {new_char}, to the server!")
-                break
 
 
 # Setup the logger
@@ -150,7 +97,7 @@ class MudServerWorker(threading.Thread):
                         self.mud.send_message_to_all(server_command.params)
                     elif server_command.command_type == ServerCommandEnum.GET_PLAYERS:
                         logging.info("Players: ")
-                        for player in control.Player.player_ids.values():
+                        for player in self.mud.players.values():
                             logging.info(str(player))
 
             except Exception:
@@ -167,32 +114,54 @@ class MudServerWorker(threading.Thread):
                 id = event.id
                 if event.type is EventType.PLAYER_JOIN:
                     logging.info("Player %s joined." % event.id)
-                    # create a controller (a 'Player')
-                    new_player = control.Player(event.id)
+                    # create a new character and map it to the ID
+                    character = self.mud.get_player_class()()
+                    self.mud.players[id] = character
 
-                    # give player a greeter
-                    new_player.assume_control(Greeter(self.mud))
+                    # TODO: make all location changes silent!
+                    # set the character location
+                    # set to server default if present
+                    if self.mud.default_location is not None:
+                        character.set_location(self.mud.default_location)
+                    # otherwise, try default player class
+                    elif character.starting_location is not None:
+                        character.set_location(character.starting_location)
+                    # finally, just try the first location possible
+                    else:
+                        try:
+                            loc = next(iter(self.mud.world.locations.values()))
+                        except StopIteration:
+                            logging.critical(f"Could not spawn {id}, server has no locations")
+                            continue
+                        logging.warning(f"{type(character)} has no default location, "
+                                        f"so {id} will be spawned in {loc}")
+
+                    # put the character in "greet" mode
+                    character._parser = character.greeter
 
                 elif event.type is EventType.MESSAGE_RECEIVED:
                     # log the message
                     logging.debug("Event message: " + event.message)
                     try:
-                        control.Player.send_command(id, event.message)
+                        self.mud.players[id].command(event.message)
                     except Exception:
                         logging.error(traceback.format_exc())
 
                 elif event.type is EventType.PLAYER_DISCONNECT:
                     # logging data of the player
-                    player = control.Player.player_ids[id]
-                    logging.info("%s left" % player)
-                    if player.receiver is not None:
+                    logging.info("%s left" % id)
+                    try:
+                        character = self.mud.players[id]
+                        self.mud.send_message_to_all(f"{character} quit the game")
+                        del self.mud.players[id]
+                    except KeyError:
                         pass
-                        #self.mud.send_message_to_all("%s quit the game" % player.receiver)
-                    control.Player.remove_player(id)
 
             # temporary: move this to a better place later
-            for id, msg in control.Player.receive_messages():
-                self.mud.send_message(id, msg)
+            for socket, character in self.mud.players.items():
+                for msg in character.msgs:
+                    self.mud.send_message(socket, msg)
+                character.msgs.clear()
         # Shut down the mud instance after the while loop finishes
         self.mud.shutdown()
 
