@@ -129,6 +129,12 @@ class Inventory:
     def __repr__(self):
         return "Inventory(%s)" % (", ".join(map(repr, self)))
 
+    def __bool__(self):
+        """returns True if the inventory contains any items"""
+        for _ in self:
+            return True
+        return False
+
     def add_item(self, item, amount=1):
         """add [quantity] of [item] to this inventory
         raises ValueError if quantity < 1"""

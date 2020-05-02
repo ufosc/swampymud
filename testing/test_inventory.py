@@ -300,6 +300,30 @@ class TestInventory(unittest.TestCase):
         expected = "Inventory((SilverCoin(), 15), (HealthPotion(10), 5), (Sword(15, 'steel'), 2))"
         self.assertEqual(repr(self.rich), expected)
 
+    def test_bool(self):
+        """testing the __bool__ method"""
+        self.assertFalse(bool(self.empty))
+        self.assertTrue(bool(self.coins))
+        self.assertTrue(bool(self.rich))
+        self.assertTrue(bool(self.potion_seller))
+        
+        # create a dumb, destructive function to count items with bool
+        def count_items(inventory):
+            count = 0
+            while inventory:
+                count += 1
+                try:
+                    item, amount = tuple(inventory.find())[0]
+                except Exception:
+                    continue
+                inventory.remove_item(item, amount)
+            return count
+
+        self.assertEqual(count_items(self.empty), 0)
+        self.assertEqual(count_items(self.coins), 1)
+        self.assertEqual(count_items(self.rich), 3)
+        self.assertEqual(count_items(self.potion_seller), 5)
+
     def test_eq(self):
         """testing the __eq__ method (mostly used for testing)"""
         # test equality with an empty list
