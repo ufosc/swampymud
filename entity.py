@@ -118,7 +118,7 @@ class Entity(metaclass=EntityClass):
     def set_location(self, new_location):
         '''sets location, updating previous location as appropriate'''
         try:
-            self.location.remove_entity(self)
+            self.location.entities.remove(self)
             # remove this entity's commands from all the 
             # characters in the current location
             for char in self.location.characters:

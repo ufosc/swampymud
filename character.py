@@ -228,11 +228,12 @@ class Character(metaclass=CharacterClass):
     # these methods need heavy refinement
     def die(self):
         """method executed when a player dies"""
-        try:
+        if self.location is not None:
             self.location.message_chars(f"{self} died.")
-            self.location.remove_char(self)
-        except AttributeError:
-            pass
+            try:
+                self.location.characters.remove(self)
+            except ValueError:
+                pass
         self.location = None
         self.is_alive = False
         # TODO: make a custom parser for dead people
@@ -245,7 +246,7 @@ class Character(metaclass=CharacterClass):
         will be notified of which location he is going to
         """
         try:
-            self.location.remove_char(self)
+            self.location.characters.remove(self)
             # remove commands from all the entities
             # in the current location
             for entity in self.location.entities:
@@ -658,7 +659,7 @@ class Character(metaclass=CharacterClass):
         #TODO: handle items here
 
 
-#TODO: clean this up, provide documentation
+#TODO: replace all of this with asynchronous calls
 class AmbiguityResolver:
     def __init__(self, char, args, amb):
         self._char = char

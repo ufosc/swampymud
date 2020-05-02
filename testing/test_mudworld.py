@@ -151,14 +151,14 @@ class TestPersonae(unittest.TestCase):
         self.assertEqual(boring_house.description, "A house with four walls and a roof.")
         self.assertTrue(isinstance(boring_house, Location))
         # exits are not loaded in when the locations are skimmed
-        self.assertEqual(len(boring_house.exits), 0)
+        self.assertEqual(len(boring_house._exit_list), 0)
 
         interior = locations["Boring House Interior"]
         self.assertEqual(interior.name, "Boring House Interior")
         self.assertEqual(interior.description, "There is a chair. The walls are brown.")
         self.assertTrue(isinstance(interior, Location))
         # exits are not loaded in when the locations are skimmed
-        self.assertEqual(len(interior.exits), 0)
+        self.assertEqual(len(interior._exit_list), 0)
 
     def test_load_simple(self):
         """test loading in the 'simple' personae example"""
@@ -188,13 +188,13 @@ class TestPersonae(unittest.TestCase):
         self.assertTrue(isinstance(interior, Location))
 
         # locations should be fully loaded, so they should have exits now
-        self.assertEqual(len(boring_house.exits), 1)
-        inside = boring_house.exits[0]
+        self.assertEqual(len(boring_house._exit_list), 1)
+        inside = boring_house._exit_list[0]
         self.assertTrue(inside.destination is interior)
         self.assertEqual(set(inside), set(("inside",)))
 
-        self.assertEqual(len(interior.exits), 1)
-        outside = interior.exits[0]
+        self.assertEqual(len(interior._exit_list), 1)
+        outside = interior._exit_list[0]
         self.assertTrue(outside.destination is boring_house)
         self.assertEqual(set(outside), set(("outside", "out")))
 
@@ -237,14 +237,14 @@ class TestPersonae(unittest.TestCase):
         self.assertTrue(isinstance(interior, Location))
 
         # locations should be fully loaded, so they should have exits now
-        self.assertEqual(len(boring_house.exits), 1)
-        inside = boring_house.exits[0]
+        self.assertEqual(len(boring_house._exit_list), 1)
+        inside = boring_house._exit_list[0]
         self.assertTrue(inside.destination is interior)
         self.assertEqual(set(inside), set(("inside",)))
         self.assertEqual(str(inside), "inside -> Boring House Interior")
 
-        self.assertEqual(len(interior.exits), 1)
-        outside = interior.exits[0]
+        self.assertEqual(len(interior._exit_list), 1)
+        outside = interior._exit_list[0]
         self.assertTrue(outside.destination is boring_house)
         self.assertEqual(set(outside), set(("outside", "out")))
 

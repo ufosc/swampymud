@@ -62,7 +62,7 @@ class Exit:
     def __repr__(self):
         '''Return an a representation of the exit'''
         other_names = list(set(self._nameset - set((self._name,))))
-        return ("Exit(%r, %r, other_names=%r, access=%r, visibility=%r)" 
+        return ("Exit(%r, %r, other_names=%r, access=%r, visibility=%r)"
                % (self._destination, self._name,
                   other_names,
                   self.access, self.visibility))
@@ -119,46 +119,23 @@ class Location:
     '''
 
     def __init__(self, name, description):
-        self._character_list = []
-        self._entity_list = []
+        self.characters = []
+        self.entities = []
         self._exit_list = []
         self.inv = inv.Inventory()
         self.name = name
         self.description = description
         self._symbol = "%s#%s" % (self.name.replace(" ", ""),
-                                      util.to_base(id(self), 62))
-
-    def add_char(self, char):
-        self._character_list.append(char)
-
-    def remove_char(self, char):
-        self._character_list.remove(char)
-
-    @property
-    def characters(self):
-        # TODO: make this an iterator?
-        return self._character_list.copy()
-
-    def add_entity(self, entity):
-        self._entity_list.append(entity)
-
-    def remove_entity(self, entity):
-        self._entity_list.remove(entity)
-
-    @property
-    def entities(self):
-        # TODO: make this an iterator?
-        return self._entity_list.copy()
+                                  util.to_base(id(self), 62))
 
     def message_chars(self, msg):
         '''send message to all characters currently in location'''
-        for char in self._character_list:
+        for char in self.characters:
             char.message(msg)
 
     @property
     def exits(self):
-        # TODO: make this an iterator?
-        return self._exit_list.copy()
+        yield from self._exit_list.copy()
 
     def add_exit(self, exit_to_add):
         '''adds an exit, while performing a check for any ambigious names'''
@@ -168,18 +145,7 @@ class Location:
                 "Location '%s' already has exit with name '%s'" % (self.name, exit_name)
         self._exit_list.append(exit_to_add)
 
-    # TODO: scrap this method
-    def exit_list(self):
-        '''returns a copy of private exit list'''
-        return list(self._exit_list)
-
     # inventory-related methods
-    def add_item(self, item, quantity=1):     
-        self.inv.add_item(item, quantity)
-
-    def remove_item(self, item, quantity=1):
-        return self.inv.remove_item(item, quantity)
-
     def all_items(self):
         return list(self.inv)
 
@@ -205,17 +171,17 @@ class Location:
                              % type(other))
 
     def find(self, query):
-        str_char_list = list(map(str, self._character_list))
-        for char in str_char_list:
-            if query == char:
-                return self._character_list[str_char_list.index(char)]
-        for exit_name in self._exit_list:
-            if exit_name == query:
-                return exit_name
+        for char in self.characters:
+            if str(char) == query:
+                return char
+        for loc_exit in self.exits:
+            # TODO: change this once you fix the __str__ issue
+            if loc_exit._name == query:
+                return loc_exit
         item_result = self.inv.find(name=query)
         if item_result:
             return item_result
-        for entity in self._entity_list:
+        for entity in self.entities:
             if str(entity) == query:
                 return entity
 
@@ -282,3 +248,14 @@ class Location:
         for entity in self.entities:
             yield entity
         #TODO: add items
+
+    # these methods are redundant, but necessary for when World Tree
+    # is traversed during serialization
+    def add_char(self, char):
+        self.characters.append(char)
+
+    def add_entity(self, entity):
+        self.entities.append(entity)
+
+    def add_item(self, item, quantity=1):     
+        self.inv.add_item(item, quantity)
