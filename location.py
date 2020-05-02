@@ -77,14 +77,16 @@ class Exit:
         for name in self._nameset:
             yield name
 
-    #TODO replace this with a .info method
-    # reclaim string as a simple function to return the name
     def __str__(self):
-        '''overriding str() function'''
-        if not self.hide_des:
-            return "%s -> %s" % (self._name, self._destination.name)
+        '''return the primary name of this exit'''
+        return self._name
+
+    def view(self):
+        '''return a more informative image of this exit'''
+        if self.hide_des:
+            return str(self)
         else:
-            return self._name
+            return f"{self} -> {self._destination}"
 
     @staticmethod
     def from_dict(ex_dict):
@@ -135,7 +137,7 @@ class Location:
 
     @property
     def exits(self):
-        yield from self._exit_list.copy()
+        yield from self._exit_list
 
     def add_exit(self, exit_to_add):
         '''adds an exit, while performing a check for any ambigious names'''
@@ -144,31 +146,6 @@ class Location:
                 assert exit_name not in already_added, \
                 "Location '%s' already has exit with name '%s'" % (self.name, exit_name)
         self._exit_list.append(exit_to_add)
-
-    # inventory-related methods
-    def all_items(self):
-        return list(self.inv)
-
-    # TODO: scrap this method
-    def __contains__(self, other):
-        '''Overriding in operator
-        Returns True where
-            other is an exit or string:
-                and there exists an exit in _exit_list that matches
-            other is a Character:
-                and there exists a character in _character_list that matches
-            other is an item:
-                the item is present in the location's inventory
-        '''
-        if isinstance(other, Exit):
-            return other in self._exit_list
-        elif isinstance(other, Character):
-            return other in self._character_list
-        elif isinstance(other, item.Item):
-            return other in self.inv
-        else:
-            raise ValueError("Received %s, expected Exit, Character, or Item"
-                             % type(other))
 
     def find(self, query):
         for char in self.characters:
@@ -192,27 +169,41 @@ class Location:
             if exit_name == exit:
                 return exit
 
-    def describe(self, character=None):
-        '''Describes the location '''
-        return self.description
+    # TODO: add indefinite articles, oxford comma, etc.
+    def view(self, viewer=None):
+        '''return an information-rich, user-focused view of this location
+        If [perspective] is supplied, then that character will be filtered out.'''
+        output = [str(self), self.description]
 
-    def info(self):
-        '''return a string containing detailed information'''
-        #TODO: make the output more pythonic
-        output = "Name:\t%s\n" % self.name
-        output += "Desc:\t%s\n" % self.description
-        output += "Chars:\t%s\n" % self._character_list
-        output += "Exits:\t%s\n" % self._exit_list
-        output += "Items:\t%s\n" % list(self.inv)
-        return output
+        transition = "You see "
+
+        # remove any exist that character cannot see
+        exit_list = self._exit_list
+        if viewer is not None:
+            exit_list = [ex for ex in self._exit_list if ex.visibility.permits(char)]
+
+        if exit_list:
+            output.append("Exits:")
+            output.extend([ex.view() for ex in exit_list])
+
+        if self.characters:
+            output.append(f"""{transition} {', '.join(
+                [char.view() for char in self.characters if char is not viewer]
+            )}""")
+            transition = "You also see"
+        if self.entities:
+            output.append(f"""{transition} {', '.join(
+                [ent.view() in self.entities]
+            )}""")
+        if self.inventory:
+            output.append("Items available:")
+            output.append(util.group_and_count(list(self.inventory)))
 
     def __repr__(self):
-        return "Location(%r, %r)" % (self.name, self.description)
+        return f"Location{repr((self.name, self.description))}"
 
     def __str__(self):
-        '''supplies a string
-        if verbose is selected, description also supplied
-        '''
+        '''return the name of the location'''
         return self.name
 
     # serialization-related methods

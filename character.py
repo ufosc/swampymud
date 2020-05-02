@@ -116,7 +116,7 @@ class Character(metaclass=CharacterClass):
                 self.cmd_dict.add_cmd(cmd)
 
         self.equip_dict = item_mod.EquipTarget.make_dict(*self.equip_slots)
-        self._parser = lambda line: self.parse_command(line)
+        self._parser = self.parse_command
         #TODO: make this a property
         self.is_alive = True
 
@@ -205,24 +205,17 @@ class Character(metaclass=CharacterClass):
     def __repr__(self):
         """return a representation of the player"""
         if self._name is None:
-            return "%s()" % type(self).__name__
-        return "%s(name=%s)" % (type(self).__name__, self._name)
+            return f"{type(self).__name__}()"
+        return f"{type(self).__name__}(name={self})"
 
     def __str__(self):
-        """return the player's name"""
-        if self._name is None:
-            return self.info()
-        else:
-            return self._name
+        """return the Character's name"""
+        return self._name
 
-    def describe(self):
-        """ Describes the character """
-        return self.info()
-
-    def info(self):
-        """return the player's name"""
+    def view(self):
+        """return a more lengthy, user-focused description of the Character"""
         if self._name is None:
-            return "A nameless %s" % type(self)
+            return f"A nameless {type(self)}"
         return "%s the %s" % (self._name, type(self))
 
     # these methods need heavy refinement
@@ -382,77 +375,12 @@ class Character(metaclass=CharacterClass):
         else:
             self.message(f"Command '{name}' not recognized.")
 
-    def cmd_look(self, args, verbose=True):
-        """Gives description of current location, or looks at a certain object/character
-        in your location and/or inventory when called with arguments
+    def cmd_look(self, args):
+        """Gives a description of your current location.
         usage: look
-        OR
-        usage: look [item/character/entity name]
         """
-        #TODO: move much of this functionality into the Location.info method
-        # (replace the ugly formatting in that function)
-        # add an optional char_class parameter so we can filter it
-        if len(args) == 1:
-            msg =  []
-            msg.append(self.location.describe())
-            exit_msg = []
-            for exit_name in self.location.exits:
-                exit_msg.append(str(exit_name))
-            msg.append("\n".join(exit_msg))
-            if verbose:
-                char_list = self.location.characters
-                try:
-                        char_list.remove(self)
-                except ValueError:
-                    pass
-                # Convert all chars in list to their strings
-                char_list = list(map(str,char_list))
-                entity_list = self.location.entities
-                # The following moves all NPC entities from the entity list to the character list
-                for entity in entity_list:
-                    if entity.isNPC:
-                        char_list.append(str(entity))
-                        entity_list.remove(entity)
-                if char_list:
-                    char_msg = ["You see"]
-                    # The function call from eng (util/english.py) formats the list to a gramatically correct english list
-                    char_msg.append(eng.english_list_no_article(char_list))
-                    msg.append(" ".join(char_msg))
-                # Convert all entities in list to their strings
-                entity_list = list(map(str,entity_list))
-                if entity_list:
-                    entity_msg = ["You also see"]
-                    # The function call from eng formats the list to a gramatically correct english list
-                    entity_msg.append(eng.english_list_indefinite_article(entity_list))
-                    msg.append(" ".join(entity_msg))
-                # Creates list of items in location as strings
-                item_list = list(map(str,self.location.all_items()))
-                if item_list:
-                    item_msg = ["Items available:"]
-                    item_msg.append(util.group_and_count(item_list))
-                    msg.append("\n".join(item_msg))
-            self.message("\n".join(msg))
-        else:
-            query =  " ".join(args[1:])
-            location_result = self.location.find(query)
-            if(location_result):
-                try:
-                    self.message(location_result.describe())
-                    return
-                except:
-                    # Change this message later
-                    self.message("You weren't able to look at that!")
-                    return
-            inv_result = self.inv.find(query)
-            if(inv_result):
-                try:
-                    self.message(inv_result.describe())
-                    return
-                except:
-                    # Change this message later
-                    self.message("You weren't able to look at that!")
-                    return
-            self.message("You couldn't find anything by that name.")
+        # TODO: update to allow players to 'inspect' certain objects in detail
+        self.message(self.location.view())
 
     def cmd_say(self, args):
         """Say a message aloud, sent to all players in your current locaton.
@@ -460,7 +388,7 @@ class Character(metaclass=CharacterClass):
         """
         msg = ' '.join(args[1:])
         if msg:
-            self.location.message_chars(f"{self.info()}: {msg}")
+            self.location.message_chars(f"{self.view()}: {msg}")
 
     def cmd_go(self, args):
         """Go to an accessible location.

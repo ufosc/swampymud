@@ -241,7 +241,8 @@ class TestPersonae(unittest.TestCase):
         inside = boring_house._exit_list[0]
         self.assertTrue(inside.destination is interior)
         self.assertEqual(set(inside), set(("inside",)))
-        self.assertEqual(str(inside), "inside -> Boring House Interior")
+        self.assertEqual(str(inside), "inside")
+        self.assertEqual(inside.view(), "inside -> Boring House Interior")
 
         self.assertEqual(len(interior._exit_list), 1)
         outside = interior._exit_list[0]
