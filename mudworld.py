@@ -18,7 +18,7 @@ def read_worldfile(save_name):
     #TODO: add a 'gzip' layer to this
     with open(save_name) as save_file:
         save_data = save_file.read()
-    save_data = yaml.load(save_data)
+    save_data = yaml.safe_load(save_data)
     # check that only the following sections appear in the world tree
     valid_sections = set(("prelude", "personae", "tree"))
     for section in save_data:
@@ -35,7 +35,6 @@ def write_worldfile(save_name, save_data):
     save_data = yaml.dump(save_data, default_flow_style=False)
     with open(save_name, 'w') as save_file:
         save_file.write(save_data)
-
 
 
 def load_prelude(prelude_data):
