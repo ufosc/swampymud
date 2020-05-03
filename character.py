@@ -154,6 +154,19 @@ class Character(metaclass=CharacterClass):
 
         self._parser = self._greeter
 
+    def despawn(self):
+        """method executed when a player dies"""
+        if self.location is not None:
+            self.location.message_chars(f"{self} died.")
+            try:
+                self.location.characters.remove(self)
+            except ValueError:
+                pass
+        self.location = None
+        self.is_alive = False
+        # TODO: make a custom parser for dead people
+
+    # default user-input parsers
     def _greeter(self, new_name: str):
         """parser for a player who has just joined, used for selecting a name"""
         if len(new_name) < 2:
@@ -202,6 +215,7 @@ class Character(metaclass=CharacterClass):
         else:
             raise AmbiguityError(indices, phrase, options)
 
+    # string-formatting methods
     def __repr__(self):
         """return a representation of the player"""
         if self._name is None:
@@ -217,20 +231,6 @@ class Character(metaclass=CharacterClass):
         if self._name is None:
             return f"A nameless {type(self)}"
         return "%s the %s" % (self._name, type(self))
-
-    # these methods need heavy refinement
-    def die(self):
-        """method executed when a player dies"""
-        if self.location is not None:
-            self.location.message_chars(f"{self} died.")
-            try:
-                self.location.characters.remove(self)
-            except ValueError:
-                pass
-        self.location = None
-        self.is_alive = False
-        # TODO: make a custom parser for dead people
-
 
     #location manipulation methods
     def set_location(self, new_location):

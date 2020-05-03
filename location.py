@@ -127,8 +127,6 @@ class Location:
         self.inv = inv.Inventory()
         self.name = name
         self.description = description
-        self._symbol = "%s#%s" % (self.name.replace(" ", ""),
-                                  util.to_base(id(self), 62))
 
     def message_chars(self, msg):
         '''send message to all characters currently in location'''
@@ -152,8 +150,7 @@ class Location:
             if str(char) == query:
                 return char
         for loc_exit in self.exits:
-            # TODO: change this once you fix the __str__ issue
-            if loc_exit._name == query:
+            if str(loc_exit) == query:
                 return loc_exit
         item_result = self.inv.find(name=query)
         if item_result:
@@ -210,13 +207,12 @@ class Location:
     @property
     def symbol(self):
         '''return a guaranteed unique symbol for this location'''
-        return self._symbol
-
+        return f'{self.name.replace(" ", "")}#{util.to_base(id(self), 62)}'
 
     @classmethod
     def load(self, data):
         '''load in a location with data in the following form:
-{ 'name' : [name of location], 'description': [description]'''
+        { 'name' : [name of location], 'description': [description]'''
         return Location(data["name"], data["description"])
 
     def post_load(self, data):

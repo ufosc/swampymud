@@ -430,9 +430,9 @@ class TestDefaultCommands(unittest.TestCase):
         self.dana.set_location(TEST_OUT)
 
     def tearDown(self):
-        self.bill.die()
-        self.phil.die()
-        self.dana.die()
+        self.bill.despawn()
+        self.phil.despawn()
+        self.dana.despawn()
         # clear the inventories for TEST_ROOM and TEST_EXIT
         TEST_ROOM.inv = inv.Inventory()
         TEST_OUT.inv = inv.Inventory()
@@ -776,13 +776,13 @@ class TestSpawn(unittest.TestCase):
         self.bill = Human("Bill")
 
     def tearDown(self):
-        self.bill.die()
-        self.new_player.die()
+        self.bill.despawn()
+        self.new_player.despawn()
 
     def test_name_at_spawn(self):
         self.assertEqual(self.new_player._name, None)
         self.assertEqual(self.bill._name, "Bill")
- 
+
     def test_spawn(self):
         self.assertEqual(self.new_player.msgs, [])
         self.assertEqual(self.bill.msgs, [])
