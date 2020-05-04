@@ -2,22 +2,140 @@
 import unittest
 import item
 import character as char
+from character import Command
 import location as loc
 import inventory as inv
+
+class TestCommand(unittest.TestCase):
+    """testing the Command class and associated functions"""
+
+    def setUp(self):
+
+        # simple testing function
+        def hi(person, greeter):
+            return f"Hi {person}, I'm {greeter}"
+
+        self.hi = hi
+        self.hi_bill = Command(hi, "bill")
+        self.hi_bill_kw = Command(hi, person="bill")
+        self.hi_by_tom = Command(hi, greeter="tom")
+        self.hi_bill_by_tom = Command(hi, "bill", "tom")
+        self.hi_bill_by_tom_kw = Command(hi, person="bill", greeter="tom")
+        self.hi_bill2 = Command(hi, "bill")
+
+    def test_eq(self):
+        """testing == operator"""
+        # only equal if function, arguments, and keywords are equal
+        self.assertEqual(self.hi_bill, self.hi_bill2)
+        self.assertEqual(self.hi_bill2, self.hi_bill)
+        self.assertNotEqual(self.hi_bill_by_tom, self.hi_bill)
+        self.assertNotEqual(self.hi_by_tom, self.hi_bill)
+        self.assertNotEqual(self.hi_bill, self.hi_bill_by_tom)
+        self.assertNotEqual(self.hi_bill_by_tom, self.hi_bill_by_tom_kw)
+
+        # can we apply the rest of the arguments?
+        self.assertEqual(self.hi_bill("matt"), "Hi bill, I'm matt")
+        self.assertEqual(self.hi_bill_kw(greeter="matt"), "Hi bill, I'm matt")
+        self.assertEqual(self.hi_by_tom("matt"), "Hi matt, I'm tom")
+        self.assertEqual(self.hi_by_tom(person="matt"), "Hi matt, I'm tom")
+        self.assertEqual(self.hi_bill_by_tom(), "Hi bill, I'm tom")
+
+        # no more arguments to apply to this function
+        with self.assertRaises(TypeError):
+            self.hi_bill_by_tom("matt")
+
+    def test_hash(self):
+        """indirectly testing __hash__ of Command using a set"""
+        commands = set()
+        commands.add(self.hi_bill)
+        self.assertTrue(self.hi_bill in commands)
+        self.assertTrue(self.hi_bill2 in commands)
+        self.assertFalse(self.hi_bill_kw in commands)
+        self.assertFalse(self.hi_bill_by_tom in commands)
+
+        commands.add(Command(self.hi, "bill"))
+        self.assertEqual(len(commands), 1)
+
+        commands.add(Command(self.hi, greeter="tom"))
+        self.assertTrue(self.hi_bill in commands)
+        self.assertTrue(self.hi_bill2 in commands)
+        self.assertFalse(self.hi_bill_kw in commands)
+        self.assertTrue(self.hi_by_tom in commands)
+        self.assertFalse(self.hi_bill_by_tom in commands)
+
+    def test_specify(self):
+        base = Command(self.hi)
+        self.assertEqual(base.specify("bill"), self.hi_bill)
+        self.assertNotEqual(base.specify("bill"), self.hi_bill_kw)
+        self.assertNotEqual(base.specify(person="bill"), self.hi_bill)
+        self.assertEqual(base.specify(person="bill"), self.hi_bill_kw)
+        self.assertEqual(base.specify(greeter="tom"), self.hi_by_tom)
+
+        # we can specify repeatedly with multiple arguments at once...
+        self.assertEqual(base.specify("bill", "tom"), self.hi_bill_by_tom)
+        self.assertNotEqual(base.specify("bill", "tom"), self.hi_bill_by_tom_kw)
+        self.assertNotEqual(base.specify(person="bill", greeter="tom"),
+                            self.hi_bill_by_tom)
+        self.assertEqual(base.specify(person="bill", greeter="tom"),
+                         self.hi_bill_by_tom_kw)
+
+        # ...or repeatedly chain the method if necessary
+        self.assertEqual(base.specify("bill").specify("tom"), self.hi_bill_by_tom)
+        self.assertEqual(base.specify(person="bill").specify(greeter="tom"),
+                         self.hi_bill_by_tom_kw)
+        # keyword arguments can be supplied in any order
+        self.assertEqual(base.specify(greeter="tom").specify(person="bill"),
+                         self.hi_bill_by_tom_kw)
+
+        # applying a keyword argument again will override the argument
+        hi_by_matt = self.hi_by_tom.specify(greeter="matt")
+        self.assertNotEqual(hi_by_matt, self.hi_by_tom)
+        self.assertEqual(hi_by_matt, Command(self.hi, greeter="matt"))
 
 # defining some test CharacterClasses
 class Human(char.Character):
     """base class for all humans"""
     equip_slots = ["Head", "Right Hand"]
 
+    # some commands for testing
+    # this comman will be overriden in base classes
+    @Command
+    def hit(self, args):
+        """hit an enemy"""
+        self.message("You hit an enemy")
+
 class Soldier(Human):
     """a soldier class"""
+
+    command_label = "Soldier Abilities"
+    # overriding Human.hit
+    @Command
+    def hit(self, args):
+        """hit an enemy"""
+        self.message("You punch an enemy")
+
+    @Command
+    def call(self, args):
+        """call to a friend"""
+        self.message("You call to your friend")
 
 class Bureaucrat(Human):
     """a different kind of human class"""
 
+    # overriding Human.hit
+    @Command
+    def hit(self, args):
+        """strike an enemy"""
+        self.message("You raise an enemy's taxes")
+
 class Commander(Soldier, Bureaucrat):
     """inherits from both soldier and bureaucrat"""
+
+    # overriding Human.call
+    @Command
+    def call(self, args):
+        """epic battle cry"""
+        self.message("Hold the line!")
 
 class Slug(char.Character):
     """a non-human base class"""
@@ -418,6 +536,137 @@ class TestCharacterInventory(unittest.TestCase):
             self.finn.unequip(item.EquipTarget("hEAD"))
 
 
+class Scout(Soldier):
+    """a class for Command inheritance testing"""
+
+    # the method names are different, but the Command
+    # names are the same... method should be overriden
+    @Command.with_name("hit")
+    def do_hit(self, args):
+        """poison an enemy"""
+        self.message("You poison an enemy")
+
+
+    # this should NOT override the previous command
+    # since the Command decorator was not used
+    def call(self, args):
+        """this should not be the help message"""
+        self.message("You should not see this message")
+
+
+class TestCommandInheritance(unittest.TestCase):
+    """test that characters are initialized with proper commands"""
+
+    def setUp(self):
+        self.default = char.Character("default")
+        self.human = Human("tim")
+        self.soldier = Soldier("max")
+        self.bureaucrat = Bureaucrat("thaddeus")
+        self.commander = Commander("george")
+        self.scout = Scout("edward")
+
+    def tearDown(self):
+        self.default.despawn()
+        self.human.despawn()
+        self.soldier.despawn()
+        self.bureaucrat.despawn()
+        self.commander.despawn()
+        self.scout.despawn()
+
+    def test_cmd(self):
+        """test that all inherited commands work as expected"""
+        # default Character should not have access to hit
+        self.default.command("hit")
+        self.assertEqual(self.default.msgs.pop(),
+                         "Command 'hit' not recognized.")
+        with self.assertRaises(AttributeError):
+            self.default.hit(["hit"])
+        # all other CharacterClasses should have some form of hit available
+        self.human.command("hit")
+        self.assertEqual(self.human.msgs.pop(), "You hit an enemy")
+        self.human.hit(["hit"])
+        self.assertEqual(self.human.msgs.pop(), "You hit an enemy")
+        self.soldier.command("hit")
+        self.assertEqual(self.soldier.msgs.pop(), "You punch an enemy")
+        self.soldier.hit(["hit"])
+        self.assertEqual(self.soldier.msgs.pop(), "You punch an enemy")
+        self.bureaucrat.command("hit")
+        self.assertEqual(self.bureaucrat.msgs.pop(),
+                         "You raise an enemy's taxes")
+        self.bureaucrat.hit(["hit"])
+        self.assertEqual(self.bureaucrat.msgs.pop(),
+                         "You raise an enemy's taxes")
+        # commander should inherit from soldier, which is earlier in MRO
+        self.commander.command("hit")
+        self.assertEqual(self.commander.msgs.pop(), "You punch an enemy")
+        self.commander.hit(["hit"])
+        self.assertEqual(self.commander.msgs.pop(), "You punch an enemy")
+        self.scout.command("hit")
+        self.assertEqual(self.scout.msgs.pop(), "You poison an enemy")
+        self.scout.do_hit(["hit"])
+        self.assertEqual(self.scout.msgs.pop(), "You poison an enemy")
+
+        # default Character, Human, and Bureaucrat should not have access to call
+        self.default.command("call")
+        self.assertEqual(self.default.msgs.pop(),
+                         "Command 'call' not recognized.")
+        with self.assertRaises(AttributeError):
+            self.default.call(["call"])
+        self.human.command("call")
+        self.assertEqual(self.human.msgs.pop(),
+                         "Command 'call' not recognized.")
+        with self.assertRaises(AttributeError):
+            self.human.call(["call"])
+        self.bureaucrat.command("call")
+        self.assertEqual(self.bureaucrat.msgs.pop(),
+                         "Command 'call' not recognized.")
+        with self.assertRaises(AttributeError):
+            self.bureaucrat.call(["call"])
+        # all other CharacterClasses should have some form of 'hit' available
+        self.soldier.command("call")
+        self.assertEqual(self.soldier.msgs.pop(), "You call to your friend")
+        self.soldier.call(["call"])
+        self.assertEqual(self.soldier.msgs.pop(), "You call to your friend")
+        self.commander.command("call")
+        self.assertEqual(self.commander.msgs.pop(), "Hold the line!")
+        self.commander.call(["call"])
+        self.assertEqual(self.commander.msgs.pop(), "Hold the line!")
+        self.scout.command("call")
+        self.assertEqual(self.scout.msgs.pop(), "You call to your friend")
+        self.scout.call(["call"])
+        self.assertEqual(self.scout.msgs.pop(), "You should not see this message")
+
+    def test_cmd_help(self):
+        """test that help entries are generated properly"""
+        self.assertEqual(self.human.hit.help_entry(),
+                         "hit [from Human Commands]:\nhit an enemy")
+        self.assertEqual(self.soldier.hit.help_entry(),
+                         "hit [from Soldier Abilities]:\nhit an enemy")
+        # try from the command dict, just to be safe
+        self.assertEqual(self.soldier.new_cmd_dict["hit"].help_entry(),
+                         "hit [from Soldier Abilities]:\nhit an enemy")
+        self.assertEqual(self.bureaucrat.hit.help_entry(),
+                         "hit [from Bureaucrat Commands]:\nstrike an enemy")
+        self.assertEqual(self.commander.hit.help_entry(),
+                         "hit [from Soldier Abilities]:\nhit an enemy")
+        self.assertEqual(self.scout.do_hit.help_entry(),
+                         "hit [from Scout Commands]:\npoison an enemy")
+        self.assertEqual(self.scout.new_cmd_dict["hit"].help_entry(),
+                         "hit [from Scout Commands]:\npoison an enemy")
+
+        self.assertEqual(self.soldier.call.help_entry(),
+                         "call [from Soldier Abilities]:\ncall to a friend")
+        # try from the command dict, just to be safe
+        self.assertEqual(self.soldier.new_cmd_dict["call"].help_entry(),
+                         "call [from Soldier Abilities]:\ncall to a friend")
+        self.assertEqual(self.commander.call.help_entry(),
+                         "call [from Commander Commands]:\nepic battle cry")
+        with self.assertRaises(AttributeError):
+            self.scout.call.help_entry() # call method is not a Command
+        self.assertEqual(self.scout.new_cmd_dict["call"].help_entry(),
+                         "call [from Soldier Abilities]:\ncall to a friend")
+
+
 class TestDefaultCommands(unittest.TestCase):
     """test that all the default Character commands work properly"""
     def setUp(self):
@@ -440,26 +689,30 @@ class TestDefaultCommands(unittest.TestCase):
     def test_help(self):
         """test for the help command"""
         # using help by itself should produce a list of commands
-        self.bill.command("help")
-        self.assertEqual(self.bill.msgs.pop(), self.bill.cmd_dict.help())
+        self.phil.command("help")
+        self.assertEqual(self.phil.msgs.pop(),
+                         "---Default Commands---\n"
+                         "help look say go equip unequip pickup drop inv")
 
         # using help with other commands should produce their docstring
-        self.bill.command("help help")
-        help_msg = self.bill.msgs.pop()
+        self.phil.command("help help")
+        help_msg = self.phil.msgs.pop()
         # check that help message agrees with the CommandDict
-        self.assertEqual(help_msg, self.bill.cmd_dict.get_cmd("help").help())
+        self.assertEqual(help_msg, self.phil.new_cmd_dict["help"].help_entry())
         self.assertEqual(help_msg,
+                         "help [from Default Commands]:\n"
                          "Show relevant help information for a particular command.\n"
                          "usage: help [command]\n"
                          "If no command is supplied, a list of all commands is shown.")
-        self.bill.command("help say")
-        help_msg = self.bill.msgs.pop()
+        self.phil.command("help say")
+        help_msg = self.phil.msgs.pop()
         self.assertEqual(help_msg,
+                         "say [from Default Commands]:\n"
                          "Say a message aloud, sent to all players in your "
                          "current locaton.\nusage: say [msg]")
         # invalid command should cause an error
-        self.bill.command("help invalid_cmd")
-        help_msg = self.bill.msgs.pop()
+        self.phil.command("help invalid_cmd")
+        help_msg = self.phil.msgs.pop()
         self.assertEqual(help_msg, "Command 'invalid_cmd' not recognized.")
 
     def test_say(self):

@@ -8,7 +8,6 @@ MiscItemBase
     items with no methods requirements
 '''
 from util import camel_to_space
-from command import SpecificCommand
 import character
 from abc import ABC
 
@@ -43,28 +42,6 @@ class Item(ABC):
             return NotImplemented
 
 
-class EquipCommand(SpecificCommand):
-    """SpecificCommand with the type set to 'Equipped'"""
-    def __init__(self, name, func, type_name="Equipped", filter=None, 
-                 source=None, char=None):
-        if filter is None:
-            # if no filter is provided, use an empty blacklist 
-            # to let everyone use it
-            filter = character.CharFilter("blacklist")
-        super().__init__(name, func, type_name, filter, source, char)
-
-
-def filtered_command(filt):
-    '''decorator to convert a method into an EquipCommand with a CharFilter'''
-    def inner(func):
-        return EquipCommand(func.__name__, func, filter=filt)
-    return inner
-
-
-def equip_command(func):
-    '''decorator to convert a method into an EquipCommand'''
-    return EquipCommand(func.__name__, func)
-
 #TODO: add pickup and equip CharFilters??
 class EquippableClass(ItemClass):
     '''Metaclass for all items that can be equipped'''
@@ -76,8 +53,8 @@ class EquippableClass(ItemClass):
             assert "target" in namespace or any([hasattr(base, "target") for base in bases])
         self._commands = {}
         for obj in namespace.values():
-            if isinstance(obj, EquipCommand):
-                self._commands[obj.name] = obj
+            if isinstance(obj, character.Command):
+                self._commands[str(obj)] = obj
 
 
 class Equippable(metaclass=EquippableClass):
@@ -123,7 +100,7 @@ class Equippable(metaclass=EquippableClass):
 
     def save(self):
         '''return a pythonic representation of this object
-this base class has no fields, so no data is returned'''
+        this base class has no fields, so no data is returned'''
         return {}
 
 class EquipTarget:

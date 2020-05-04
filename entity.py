@@ -1,7 +1,6 @@
 '''Method defining an entity'''
 import character
 from util import camel_to_space
-from command import SpecificCommand
 
 class EntityClass(type):
     '''metaclass controlling entity types'''
@@ -16,7 +15,7 @@ class EntityClass(type):
         self._nextid = 0
         self._commands = {}
         for item in namespace.values():
-            if isinstance(item, EntityCommand):
+            if isinstance(item, character.Command):
                 self._commands[item.name] = item
 
         entity_bases = list(filter(lambda x: isinstance(x, EntityClass),
@@ -71,28 +70,6 @@ class EntityClass(type):
         names = cls.cmd_name_set(char)
         other_names = other_entity.cmd_name_set(char)
         return names & other_names
-
-
-class EntityCommand(SpecificCommand):
-    def __init__(self, name, func, type_name="Environmental", filter=None, 
-                 source=None, char=None):
-        if filter is None:
-            # if no filter is provided, use an empty blacklist 
-            # to let everyone use it
-            filter = character.CharFilter("blacklist")
-        super().__init__(name, func, type_name, filter, source, char)
-
-
-def filtered_command(filt):
-    '''decorator for methods with CharFilters'''
-    def inner(func):
-        return EntityCommand(func.__name__, func, filter=filt)
-    return inner
-
-
-def entity_command(func):
-    '''decorator for methods without CharFilters'''
-    return EntityCommand(func.__name__, func)
 
 
 class Entity(metaclass=EntityClass):
@@ -163,13 +140,13 @@ class Entity(metaclass=EntityClass):
     @property
     def isNPC(self):
         return self._isNPC
-    
+
     @classmethod
     def load(cls, data):
         proper_name = None
         if "proper_name" in data:
             proper_name = data["proper_name"]
         return cls(proper_name)
-    
+
     def postload(self, data, obj_symbols, cls_symbols):
         pass

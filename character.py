@@ -1,10 +1,11 @@
 """Module defining the CharacterClass metaclass, and Character base class"""
 import enum
-import util
+import functools
+import inspect
 import inventory as inv
 import item as item_mod
-from command import Command, CommandDict
 import util
+from util.shadowdict import ShadowDict
 import util.english as eng
 
 class CharException(Exception):
@@ -42,6 +43,99 @@ class AmbiguityError(CharException):
         self.query = query
 
 
+class Command(functools.partial):
+    """A subclass of functools.partial that supports equality.
+    The default implementation of functools.partial does not normally support
+    equality for mathematically sound reasons:
+    https://bugs.python.org/issue3564
+
+    With this class's equality operators, we aren't trying to solve an
+    undecidable problem, but just confirm that two partially-applied functions
+    have the same arguments and underlying functions.
+
+    Optional fields, "name" and "label" are also provided. These fields store
+    player-relevant information that are NOT factored into comparisons.
+
+    In addition, this class has a convenience method, '.specify' to create
+    a new Command derived from one by simply adding additional arguments.
+    All other information (base function, names, etc.) will be propagated.
+
+    While you can update Command.keywords, avoid doing so.
+    All comparisons are based on the INITIAL keywords, so changing keywords
+    after initialization is unsupported.
+    """
+
+    def __init__(self, *args, **kwargs):
+        """initialize a Command as you would a functools.partial object"""
+        super().__init__()
+        # creating an immutable set of keywords for comparisons
+        self._keys = frozenset(self.keywords.items())
+        # propagate the name and doc from the base function
+        self.__name__ = self.func.__name__
+        self.__doc__ = self.func.__doc__
+        # try to clean the docstring, if one was provided
+        try:
+            self.__doc__ = inspect.cleandoc(self.__doc__)
+        except AttributeError:
+            pass
+        # initialize satellite data
+        self.name = None
+        self.label = None
+
+    def __eq__(self, other):
+        """Two commands are equal iff the base functions are equal,
+        the args are equal, and the (initial) keywords are equal"""
+        try:
+            return (self.func, self.args, self._keys) == \
+                   (other.func, other.args, other._keys)
+        except AttributeError:
+            # other is not a Command
+            return False
+
+    def __hash__(self):
+        """overriding hash"""
+        return hash((self.func, self.args, self._keys))
+
+    def specify(self, *newargs, **new_keywords) -> 'Command':
+        """Derive a new version of this function by applying additional
+        arguments.
+
+        If a provided keyword argument conflicts with a prior argument,
+        the prior argument will be overriden.
+        """
+        args = self.args + tuple(newargs)
+        keywords = self.keywords.copy()
+        keywords.update(new_keywords)
+        new_cmd = Command(self.func, *args, **keywords)
+        # propagate the name and source
+        new_cmd.name = self.name
+        new_cmd.label = self.label
+        return new_cmd
+
+    def __str__(self):
+        """returns the name of this command
+        if no name is provided, func.__name__ is used
+        """
+        if self.name is None:
+            return self.func.__name__
+        return self.name
+
+    def help_entry(self) -> str:
+        if self.label is not None:
+            return f"{self} [from {self.label}]:\n{self.__doc__}"
+        return f"{self}:\n{self.__doc__}"
+
+    @staticmethod
+    def with_name(name=None, source=None):
+        """decorator to easily wrap a function and add a name / source"""
+        def decorator(func):
+            cmd = Command(func)
+            cmd.name = name
+            cmd.label = source
+            return cmd
+        return decorator
+
+
 class CharacterClass(type):
     """The metaclass for all Character class
     key features:
@@ -50,35 +144,31 @@ class CharacterClass(type):
         command_class: a list of commands not found in base classes
     """
     def __init__(self, cls, bases, namespace):
-        # creating the proper name, if one is not provided
+        # add the proper name, if not already provided
         if "classname" not in namespace:
             self.classname = util.camel_to_space(cls)
-        # adding a frequency field, if not already provided
+        # add a frequency field, if not already provided
         if "frequency" not in namespace:
             self.frequency = 1
-        # creating a dictionary of commands
-        # all functions starting with cmd_ are command
+        # add a "command_label", if not already provided
+        # this field is used in creating help menus
+        if "command_label" not in namespace:
+            self.command_label = f"{self} Commands"
 
-        # get a list of all character base classes
-        char_bases = list(filter(lambda x: isinstance(x, CharacterClass),
-                                 self.__mro__))
-        self._unique_cmds = []
-        # build list of unique commands
-        for cmd_name in namespace:
-            # check that the commands start wtih cmd_ and that it is callable
-            # TODO: use a decorator instead
-            # also check that the command is not defined in an ancestor class
-            if (cmd_name.startswith("cmd_") and callable(namespace[cmd_name])
-                and not (any(cmd_name in base._unique_cmds for base in char_bases))):
-                self._unique_cmds.append(cmd_name)
+        # commands that were implemented for this class
+        self._local_commands = {}
+        for value in namespace.values():
+            if isinstance(value, Command):
+                value.label = self.command_label
+                self._local_commands[str(value)] = value
 
-        self.cmd_classes = {}
-        for base in char_bases + [self]:
-            if base._unique_cmds:
-                if base.classname == "Default Character":
-                    self.cmd_classes["Default"] = base._unique_cmds
-                else:
-                    self.cmd_classes[base.classname] = base._unique_cmds
+        # all commands, with the most recent commands exposed
+        self._commands = {}
+        for base in reversed(self.__mro__):
+            if not isinstance(base, CharacterClass):
+                continue
+            self._commands.update(base._local_commands)
+        self._commands.update(self._local_commands)
 
         # calling the super init
         super().__init__(cls, bases, namespace)
@@ -87,36 +177,46 @@ class CharacterClass(type):
         """overriding str to return classname"""
         return cls.classname
 
+
 class Character(metaclass=CharacterClass):
     """Base class for all other CharacterClasses"""
 
-    # Name for this class
+    # How this class appears to players
     classname = "Default Character"
 
-    # Starting location for this player
+    # Starting location for this class
     starting_location = None
+
+    # Commands from this class will be labeled "Default Commands"
+    command_label = "Default Commands"
+
     # Valid equip slots for characters of this class
     equip_slots = []
 
-    #TODO: remove the name argument?
     def __init__(self, name=None):
         super().__init__()
         self._name = name
         self.location = None
         self.msgs = []
+
+        # build dict from Commands collected by CharacterClass
+        self.new_cmd_dict = ShadowDict()
+        for (name, cmd) in self._commands.items():
+            cmd = cmd.specify(self)
+            self.new_cmd_dict[name] = cmd
+            # because NewCommands are not bound properly like a normal method
+            # we must manually bind the methods
+            # TODO: override getattribute__ to solve the super() issue?
+            if isinstance(getattr(self, cmd.func.__name__), Command):
+                setattr(self, cmd.func.__name__, cmd)
+
+        # set up inventory and equipping items
         self.inv = inv.Inventory()
-        self.cmd_dict = CommandDict()
-
-        # add all the commands from this class
-        for cmd_class, cmd_names in self.cmd_classes.items():
-            for cmd_name in cmd_names:
-                # create the command
-                cmd = Command(cmd_name[4:], getattr(self, cmd_name), cmd_class)
-                # add the command to the command dict
-                self.cmd_dict.add_cmd(cmd)
-
         self.equip_dict = item_mod.EquipTarget.make_dict(*self.equip_slots)
+
+        # put character in default command parsing mode
         self._parser = self.parse_command
+
         #TODO: make this a property
         self.is_alive = True
 
@@ -193,11 +293,12 @@ class Character(metaclass=CharacterClass):
             args = line.split()
         # TODO: match the beginning of the line with one of the cmds
         # to allow for multi-word commands
+        # TODO: match the longest command
         cmd_name = args[0]
-        if not self.cmd_dict.has_name(cmd_name):
+        if not cmd_name in self.new_cmd_dict:
             self.message("Command \'%s\' not recognized." % cmd_name)
             return
-        cmd = self.cmd_dict.get_cmd(cmd_name)
+        cmd = self.new_cmd_dict[cmd_name]
         try:
             cmd(args)
         except AmbiguityError as amb:
@@ -361,36 +462,42 @@ class Character(metaclass=CharacterClass):
             self.inv.add_item(equipped)
 
     # default commands
-    def cmd_help(self, args):
+    @Command
+    def help(self, args):
         """Show relevant help information for a particular command.
         usage: help [command]
         If no command is supplied, a list of all commands is shown.
         """
         if len(args) < 2:
-            self.message(self.cmd_dict.help())
-            return
-        name = args[1]
-        if self.cmd_dict.has_name(name):
-            self.message(self.cmd_dict.get_cmd(name).help())
+            # TODO: cache this or something
+            menu = self.help_menu()
+            self.message(menu)
         else:
-            self.message(f"Command '{name}' not recognized.")
+            name = args[1]
+            try:
+                self.message(self.new_cmd_dict[name].help_entry())
+            except KeyError:
+                self.message(f"Command '{name}' not recognized.")
 
-    def cmd_look(self, args):
+    @Command
+    def look(self, args):
         """Gives a description of your current location.
         usage: look
         """
         # TODO: update to allow players to 'inspect' certain objects in detail
         self.message(self.location.view())
 
-    def cmd_say(self, args):
+    @Command
+    def say(self, args):
         """Say a message aloud, sent to all players in your current locaton.
         usage: say [msg]
         """
         msg = ' '.join(args[1:])
-        if msg:
+        if msg and self.location is not None:
             self.location.message_chars(f"{self.view()}: {msg}")
 
-    def cmd_go(self, args):
+    @Command
+    def go(self, args):
         """Go to an accessible location.
         usage: go [exit name]
         """
@@ -410,6 +517,7 @@ class Character(metaclass=CharacterClass):
         else:
             self.message(f"No exit with name '{ex_name}'.")
 
+    @Command.with_name("equip")
     def cmd_equip(self, args):
         """Equip an equippable item from your inventory."""
         if len(args) < 2:
@@ -425,6 +533,7 @@ class Character(metaclass=CharacterClass):
         else:
             self.message(f"Could not find item '{item_name}'.")
 
+    @Command.with_name("unequip")
     def cmd_unequip(self, args):
         """Unequip an equipped item.
         Usage: unequip [item]"""
@@ -448,7 +557,8 @@ class Character(metaclass=CharacterClass):
         else:
             self.message(f"Could not find equipped item '{item_name}'.")
 
-    def cmd_pickup(self, args):
+    @Command
+    def pickup(self, args):
         """Pick up item from the environment."""
         if len(args) < 2:
             self.message("Provide an item to pick up.")
@@ -465,7 +575,8 @@ class Character(metaclass=CharacterClass):
         else:
             self.message(f"Could not find item '{item_name}' to pick up.")
 
-    def cmd_drop(self, args):
+    @Command
+    def drop(self, args):
         """Drop an item into the environment"""
         if len(args) < 2:
             self.message("Provide an item to drop.")
@@ -482,6 +593,7 @@ class Character(metaclass=CharacterClass):
         else:
             self.message(f"Could not find item '{item_name}' to drop.")
 
+    @Command.with_name("inv")
     def cmd_inv(self, args):
         """Show your inventory.
         usage: inv"""
@@ -556,6 +668,27 @@ class Character(metaclass=CharacterClass):
                     self.message("You are unable to use that item on yourself.")
             else:
                 self.message("You do not have an item with that name.")
+
+    # miscellaneous methods
+    def help_menu(self) -> str:
+        sources = {}
+        # walk the mro, to get the list of CharacterClasses in order
+        for cls in reversed(type(self).__mro__):
+            if isinstance(cls, CharacterClass):
+                sources[cls.command_label] = []
+        for name, cmd in self.new_cmd_dict.items():
+            try:
+                sources[cmd.label].append(name)
+            except KeyError:
+                sources[cmd.label] = [name]
+        # unpack the dictionary in reverse order
+        output = []
+        while sources:
+            source, names = sources.popitem()
+            output.append(f"---{source}---")
+            output.append(" ".join(names))
+        return "\n".join(output)
+
 
     # serialization-related methods
     @property
