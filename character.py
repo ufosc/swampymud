@@ -137,11 +137,11 @@ class Command(functools.partial):
 
 
 class CharacterClass(type):
-    """The metaclass for all Character class
-    key features:
-        name: how the class appears to the players
-        _unique_cmds: a list of commands not found in base classes
-        command_class: a list of commands not found in base classes
+    """metaclass establishing basic Character behaviors
+    CharacterClasses include the following important attributes:
+    - classname: how the class appears to the players
+    - frequency: how often will new players spawn as this class
+    - command_label: how will commands from this class appear in the help menu
     """
     def __init__(self, cls, bases, namespace):
         # add the proper name, if not already provided
