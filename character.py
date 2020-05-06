@@ -342,7 +342,7 @@ class Character(metaclass=CharacterClass):
         character will parse 'msg' using its current parser."""
         if msg:
             self._parser(msg)
-        
+
     def update(self):
         """periodically called method that updates character state"""
         print(f"[{self}] received update")
@@ -503,9 +503,9 @@ class Character(metaclass=CharacterClass):
         [from_inv]: if True, [item] should be removed from inventory first
         if False, [item] is not removed from inventory and returned on unequip
 
-        sends character an error message if [item] if not Equippable or if [self] 
+        sends character an error message if [item] if not Equippable or if [self]
         lacks the proper slots to equip this item
-        sends character an error message if [from_inv] is True 
+        sends character an error message if [from_inv] is True
         but this character does not have a copy of [item] in its inventory
         """
         # duck test that the item is even equippable
@@ -709,63 +709,29 @@ class Character(metaclass=CharacterClass):
         if inv_msg:
             self.message(inv_msg)
 
-    #TODO: streamline this method
-    def cmd_use(self,args):
-        """ Use an item
-        Using an item on someone else:
-        use [item_name] on [target's name]
-        Using an item on yourself:
-        use [item_name]
+    @Command.with_traits(name="use")
+    def cmd_use(self, args):
+        """ Use an item.
+        usage: use [item] [options for item]
+        Options may vary per item.
         """
+        # TODO: allow players to use accessible items in location?
         if len(args) < 2:
-            self.message("Provide an item to be used.")
-        elif args[-1] == "on":
-            if len(args) == 2:
-                self.message("Provide an item to be used and a target to use it on.")
-            else:
-                self.message("Provide a target to use this item on.")
-        elif "on" in args:
-            i = args.index("on")
-            item_name = " ".join(args[1:i])
-            target_name = " ".join(args[i+1:])
-            used_item = self.inv.find(item_name)
-            target = self.location.find(target_name)
-            if target and used_item:
-                # This needs to be done more elegantly; perhaps there is a way to extract
-                # information from the attribute error itself?
-                if not isinstance(used_item, item.Usable):
-                    self.message("This item is not of type usable.")
-                try:
-                    used_item.use(target,self)
-                    self.inv.remove_item(used_item)
-                except AttributeError:
-                    # if item caused attribute error:
-                    #      tell user that item is not of type usable
-                    # if target caused attribute error:
-                    self.message("You are unable to use that item on that target.")
-                except:
-                    self.message("You are unable to use that item on that target.")
-            else:
-                if not target:
-                    self.message("An entity or character with that name could not be found.")
-                if not used_item:
-                    self.message("You do not have an item with that name.")
+            self.message("Please specify an item.")
+            return
+        item_name = args[1]
+        found_items = list(self.inv.find(name=item_name))
+        if len(found_items) == 1:
+            item = found_items[0][0]
+            self.inv.remove_item(item)
+            item.on_use(self, args[2:])
+            # replace the item
+            self.inv.add_item(item)
+        elif len(found_items) > 1:
+            #TODO handle ambiguity
+            self.message(f"Ambigious item name. Results={found_items}")
         else:
-            item_name = " ".join(args[1:])
-            used_item = self.inv.find(item_name)
-            if used_item:
-                if not isinstance(used_item, item.Usable):
-                    self.message("This item is not of type usable.")
-                try:
-                    used_item.use(self,self)
-                    self.inv.remove_item(used_item)
-                except AttributeError as e:
-                    # This needs to be changed later
-                    print(e)
-                except:
-                    self.message("You are unable to use that item on yourself.")
-            else:
-                self.message("You do not have an item with that name.")
+            self.message(f"Could not find item '{item_name}' to use.")
 
     # miscellaneous methods
     def help_menu(self) -> str:

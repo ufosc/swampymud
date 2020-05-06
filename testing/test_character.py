@@ -372,6 +372,13 @@ class HealthPotion(item.Item):
         return {"hp": 5}
 
 
+class Potion(item.Item):
+    """simple Usable item"""
+
+    def on_use(self, char, args):
+        char.message(f"used potion")
+
+
 class TestApparel(item.Equippable):
     """a base class for other test equippables"""
 
@@ -452,7 +459,7 @@ class TestCharacterInventory(unittest.TestCase):
         self.finn.equip(Bow(), False)
         self.assertEqual(self.finn.msgs[-1],
                          "Cannot equip item Bow to Left hand.")
-            
+
 
         # try to equip a hat, but this time pull it from the inventory
         hat = Hat()
@@ -508,7 +515,7 @@ class TestCharacterInventory(unittest.TestCase):
 
         # try unequipping a slot that does not exist
         self.finn.unequip(inv.EquipTarget("Foo"))
-        self.assertEqual(self.finn.msgs.pop(), 
+        self.assertEqual(self.finn.msgs.pop(),
                          "Human does not possess equip slot 'Foo'.")
 
         # unequip the item in the "Head" slot
@@ -693,7 +700,7 @@ class TestDefaultCommands(unittest.TestCase):
         self.phil.command("help")
         self.assertEqual(self.phil.msgs.pop(),
                          "---Default Commands---\n"
-                         "help look say go equip unequip pickup drop inv")
+                         "help look say go equip unequip pickup drop inv use")
 
         # using help with other commands should produce their docstring
         self.phil.command("help help")
@@ -1021,6 +1028,15 @@ class TestDefaultCommands(unittest.TestCase):
         self.bill.command("drop Sword")
         self.assertEqual(self.bill.msgs.pop(),
                          "Could not find item 'sword' to drop.")
+
+    def test_cmd_use(self):
+        self.bill.command("use potion")
+        self.assertEqual(self.bill.msgs.pop(),
+                         "Could not find item 'potion' to use.")
+        self.bill.add_item(Potion())
+        self.bill.command("use potion")
+        self.assertEqual(self.bill.msgs.pop(),
+                         "used potion")
 
 
 class TestSpawn(unittest.TestCase):
