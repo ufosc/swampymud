@@ -10,39 +10,6 @@ import util.english as eng
 class CharException(Exception):
     pass
 
-
-class AmbiguityError(CharException):
-    """Error representing some sort of ambiguity
-    This error should be thrown if a user's input
-    could refer to multiple in-game options
-    For instance:
-        Suppose the user has two swords, both named "Epic Sword"
-        One was created statically, and looted from a dungeon.
-        The other was created dynamically by the user through
-        some enchating process.
-        If the user types "Epic Sword" we cannot assume which one
-        should be used. Hence, we should use raise an error of
-        this class.
-    """
-    def __init__(self, indices, query, options):
-        """
-        indices = the indices of the offending words
-                [May be a slice or int]
-        phrase = the offending phrase
-        options = list containing the available options
-        Example:
-        > equip epic sword
-        indices = slice(1,2)
-        query = "epic sword"
-        options = [list of results from inventory.get_item()]
-        """
-        super().__init__()
-        self.indices = indices
-        self.options = options
-        self.query = query
-
-
-
 class FilterMode(enum.Enum):
     WHITELIST = True
     BLACKLIST = False
@@ -363,9 +330,6 @@ class Character(metaclass=CharacterClass):
         # put character in default command parsing mode
         self._parser = self.parse_command
 
-        #TODO: make this a property
-        self.is_alive = True
-
     def message(self, msg):
         """send a message to the controller of this character"""
         self.msgs.append(msg)
@@ -374,14 +338,11 @@ class Character(metaclass=CharacterClass):
         self.last_msg = msg
 
     def command(self, msg):
-        """issue 'msg' to character"""
-        #TODO: untangle this with 'parse_command' and 'update'
-        # once we switch to asynchronous programming
-        try:
+        """issue 'msg' to character.
+        character will parse 'msg' using its current parser."""
+        if msg:
             self._parser(msg)
-        except CharException as ex:
-            self.message(str(ex))
-
+        
     def update(self):
         """periodically called method that updates character state"""
         print(f"[{self}] received update")
@@ -409,7 +370,6 @@ class Character(metaclass=CharacterClass):
             except ValueError:
                 pass
         self.location = None
-        self.is_alive = False
         # TODO: make a custom parser for dead people
 
     # default user-input parsers
@@ -432,7 +392,7 @@ class Character(metaclass=CharacterClass):
         self._parser = self.parse_command
 
     def parse_command(self, line: str = None, args=None):
-        """parses a command, raises AttributeError if command cannot be found"""
+        """The default parser for parses a command, raises AttributeError if command cannot be found"""
         if args is None and line is None:
             return
         if args is None:
@@ -445,22 +405,7 @@ class Character(metaclass=CharacterClass):
             self.message("Command \'%s\' not recognized." % cmd_name)
             return
         cmd = self.new_cmd_dict[cmd_name]
-        try:
-            cmd(args)
-        except AmbiguityError as amb:
-            self._parser = AmbiguityResolver(self, args, amb)
-
-    def _check_ambiguity(self, indices, phrase, options):
-        """wraps function outputs to handle ambiguity
-        if no option is returned, then raise an error
-        if multiple options are found, raise an ambiguity error
-        """
-        if len(options) == 1:
-            return options[0]
-        elif len(options) == 0:
-            raise CharException("Error: '%s' not found." % (phrase))
-        else:
-            raise AmbiguityError(indices, phrase, options)
+        cmd(args)
 
     # string-formatting methods
     def __repr__(self):
@@ -471,13 +416,15 @@ class Character(metaclass=CharacterClass):
 
     def __str__(self):
         """return the Character's name"""
-        return self._name
+        if self._name:
+            return self._name
+        return "[nameless character]"
 
     def view(self):
         """return a more lengthy, user-focused description of the Character"""
         if self._name is None:
             return f"A nameless {type(self)}"
-        return "%s the %s" % (self._name, type(self))
+        return f"{self._name} the {type(self)}"
 
     #location manipulation methods
     def set_location(self, new_location):
@@ -556,16 +503,17 @@ class Character(metaclass=CharacterClass):
         [from_inv]: if True, [item] should be removed from inventory first
         if False, [item] is not removed from inventory and returned on unequip
 
-        raises CharException if [item] if not Equippable or if [self] lacks the
-        proper slots to equip this item
-        raises CharException if [from_inv] is True but this character does not
-        have a copy of [item] in its inventory
+        sends character an error message if [item] if not Equippable or if [self] 
+        lacks the proper slots to equip this item
+        sends character an error message if [from_inv] is True 
+        but this character does not have a copy of [item] in its inventory
         """
         # duck test that the item is even equippable
         try:
             target = item.target
         except AttributeError:
-            raise CharException(f"{item} cannot be equipped.")
+            self.message(f"{item} cannot be equipped.")
+            return
         if target in self.equip_dict:
             # check remove_inv, if true, remove item from inventory
             # this avoids duplication
@@ -574,8 +522,9 @@ class Character(metaclass=CharacterClass):
                     self.inv.remove_item(item)
                 # item not found
                 except KeyError:
-                    raise CharException(f"Cannot equip {item}-"
-                                        "not found in inventory.")
+                    self.message(f"Cannot equip {item}-"
+                                 "not found in inventory.")
+                    return
             # check for an already equipped weapon, unequip it
             if self.equip_dict[target] is not None:
                 self.unequip(target)
@@ -584,7 +533,8 @@ class Character(metaclass=CharacterClass):
             self.equip_dict[item.target] = item, from_inv
         # class doesn't have an equip target for this item, cannot equip
         else:
-            raise CharException(f"Cannot equip item {item} to {target}.")
+            self.message(f"Cannot equip item {item} to {target}.")
+            return
 
     def unequip(self, target):
         """updates this character's equip_dict such that the [target]
@@ -595,10 +545,12 @@ class Character(metaclass=CharacterClass):
         # in its equip slots
         try:
             if self.equip_dict[target] is None:
-                raise CharException(f"No item not equipped on {target}.")
+                self.message(f"No item equipped on target {target}.")
+                return
         except KeyError:
-            raise CharException(f"{type(self)} does not possess"
-                                " equip slot '{target}'.")
+            self.message(f"{type(self)} does not possess"
+                         f" equip slot '{target}'.")
+            return
         equipped, from_inv = self.equip_dict[target]
         equipped.on_unequip(self)
         equipped.remove_cmds(self)
@@ -843,8 +795,8 @@ class Character(metaclass=CharacterClass):
         # failsafe to ensure that Character always has a symbol
         # even if someone forgets to set self._symbol in the __init__
         if not hasattr(self, "_symbol"):
-            symbol = "%s#%s" % (type(self).__name__,
-                                util.to_base(id(self), 62))
+            symbol = "{}#{}".format(type(self).__name__,
+                                    util.to_base(id(self), 62))
             setattr(self, "_symbol", symbol)
         return self._symbol
 
@@ -864,39 +816,4 @@ class Character(metaclass=CharacterClass):
         """pass"""
         return []
         #TODO: handle items here
-
-
-#TODO: replace all of this with asynchronous calls
-class AmbiguityResolver:
-    def __init__(self, char, args, amb):
-        self._char = char
-        self._old_args = args
-        self._amb = amb
-        # send the char the ambiguity message
-        self._char.message(str(self))
-
-    def __call__(self, inp):
-        try:
-            inp = int(inp)
-        except ValueError:
-            self._char.message("Please enter an integer.")
-            return
-        if inp not in range(len(self._amb.options)):
-            self._char.message("Provided integer out of range.")
-            return
-        choice = self._amb.options[inp]
-        # delete the invalid options
-        del self._old_args[self._amb.indices]
-        if type(self._amb.indices) is slice:
-            self._old_args.insert(self._amb.indices.start + 1, choice)
-        else:
-            self._old_args.insert(self._amb.indices + 1, choice)
-        self._char._parser = lambda line: Character.parse_command(self._char, line)
-        self._char.parse_command(args=self._old_args)
-
-    def __str__(self):
-        string = "Multiple options for %s:\n" % self._amb.query
-        string += "\n".join(["\t%s) %s" % (index, repr(option)) for index, option in enumerate(self._amb.options)])
-        string += "\nEnter a number to resolve it:"
-        return string
 

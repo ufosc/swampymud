@@ -401,7 +401,7 @@ class Mace(TestApparel):
 
 
 class Bow(TestApparel):
-    target = inv.EquipTarget("left Hand")
+    target = inv.EquipTarget("Left hand")
 
 
 class TestCharacterInventory(unittest.TestCase):
@@ -444,20 +444,21 @@ class TestCharacterInventory(unittest.TestCase):
         self.assertEqual(self.finn.msgs[-1], "equip Sword")
 
         # try to equip an item that cannot be equipped
-        with self.assertRaises(char.CharException,
-                               msg="Health Potion cannot be equipped."):
-            self.finn.equip(HealthPotion(5), False)
+        self.finn.equip(HealthPotion(5), False)
+        self.assertEqual(self.finn.msgs.pop(),
+                         "Health Potion cannot be equipped.")
 
         # try to equip an item for which we don't have proper slots
-        with self.assertRaises(char.CharException,
-                               msg="Cannot equip Bow to Left Hand."):
-            self.finn.equip(Bow(), False)
+        self.finn.equip(Bow(), False)
+        self.assertEqual(self.finn.msgs[-1],
+                         "Cannot equip item Bow to Left hand.")
+            
 
         # try to equip a hat, but this time pull it from the inventory
         hat = Hat()
-        with self.assertRaises(char.CharException,
-                               msg="Cannot equip Hat-not found in inventory."):
-            self.finn.equip(hat, True)
+        self.finn.equip(hat, True)
+        self.assertEqual(self.finn.msgs.pop(),
+                         "Cannot equip Hat-not found in inventory.")
         # give finn a hat and try again
         self.finn.add_item(Hat())
         self.finn.equip(hat)
@@ -506,9 +507,9 @@ class TestCharacterInventory(unittest.TestCase):
         self.finn.inv = inv.Inventory()
 
         # try unequipping a slot that does not exist
-        with self.assertRaises(char.CharException,
-                               msg="Human does not possess equip slot 'Foo'."):
-            self.finn.unequip(inv.EquipTarget("Foo"))
+        self.finn.unequip(inv.EquipTarget("Foo"))
+        self.assertEqual(self.finn.msgs.pop(), 
+                         "Human does not possess equip slot 'Foo'.")
 
         # unequip the item in the "Head" slot
         self.finn.unequip(inv.EquipTarget("head"))
@@ -531,9 +532,9 @@ class TestCharacterInventory(unittest.TestCase):
         self.assertEqual(self.finn.msgs[-1], "unequip Mace")
 
         # try to unequip from an empty slot
-        with self.assertRaises(char.CharException,
-                               msg="No item equipped on target 'Head'."):
-            self.finn.unequip(inv.EquipTarget("hEAD"))
+        self.finn.unequip(inv.EquipTarget("hEAD"))
+        self.assertEqual(self.finn.msgs.pop(),
+                         "No item equipped on target Head.")
 
 
 class Scout(Soldier):
@@ -1071,7 +1072,7 @@ class TestSpawn(unittest.TestCase):
         self.new_player.command("43243-2144;")
         self.assertEqual(self.new_player.msgs.pop(), "Names must be alphanumeric.")
         self.new_player.command("")
-        self.assertEqual(self.new_player.msgs.pop(), "Names must have at least 2 characters.")
+        self.assertEqual(self.new_player.msgs, [])
         self.new_player.command("a")
         self.assertEqual(self.new_player.msgs.pop(), "Names must have at least 2 characters.")
         self.new_player.command("Tim") # finally, a valid name
