@@ -377,10 +377,10 @@ class TestApparel(item.Equippable):
 
     target = inv.EquipTarget("Head")
 
-    def equip(self, char):
+    def on_equip(self, char):
         char.message(f"equip {self}")
 
-    def unequip(self, char):
+    def on_unequip(self, char):
         char.message(f"unequip {self}")
 
 
@@ -441,7 +441,7 @@ class TestCharacterInventory(unittest.TestCase):
         self.ref[inv.EquipTarget("Right Hand")] = sword, False
         self.assertEqual(self.finn.equip_dict, self.ref)
         # item's equip method should be called
-        self.assertEqual(self.finn.last_msg, "equip Sword")
+        self.assertEqual(self.finn.msgs[-1], "equip Sword")
 
         # try to equip an item that cannot be equipped
         with self.assertRaises(char.CharException,
@@ -471,7 +471,7 @@ class TestCharacterInventory(unittest.TestCase):
         self.ref[inv.EquipTarget("Head")] = hat, True
         self.assertEqual(self.finn.equip_dict, self.ref)
         # item's equip method should be called
-        self.assertEqual(self.finn.last_msg, "equip Hat")
+        self.assertEqual(self.finn.msgs[-1], "equip Hat")
 
         # try to equip a Mace, which implicitly unequips the Sword
         mace = Mace()
@@ -487,7 +487,7 @@ class TestCharacterInventory(unittest.TestCase):
         self.ref[inv.EquipTarget("Right Hand")] = mace, False
         self.assertEqual(self.finn.equip_dict, self.ref)
         # item's equip method should be called
-        self.assertEqual(self.finn.last_msg, "equip Mace")
+        self.assertEqual(self.finn.msgs[-1], "equip Mace")
 
     def test_unequip(self):
         """test that the Character.unequip method performs proper error
@@ -518,7 +518,7 @@ class TestCharacterInventory(unittest.TestCase):
         ref[inv.EquipTarget("head")] = None
         self.assertEqual(self.finn.equip_dict, ref)
         # item's equip method should be called
-        self.assertEqual(self.finn.last_msg, "unequip Hat")
+        self.assertEqual(self.finn.msgs[-1], "unequip Hat")
 
         # unequip the item in the "Right Hand" slot
         self.finn.unequip(inv.EquipTarget("right hand"))
@@ -528,7 +528,7 @@ class TestCharacterInventory(unittest.TestCase):
         ref[inv.EquipTarget("right hand")] = None
         self.assertEqual(self.finn.equip_dict, ref)
         # item's equip method should be called
-        self.assertEqual(self.finn.last_msg, "unequip Mace")
+        self.assertEqual(self.finn.msgs[-1], "unequip Mace")
 
         # try to unequip from an empty slot
         with self.assertRaises(char.CharException,

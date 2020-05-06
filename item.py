@@ -1,14 +1,18 @@
 '''
-This module provides several base classes for items
-EquippableBase:
-    base class for items with "equip" and "unequip" methods
-UsableBase
-    base class for items with a "use" methods
-MiscItemBase
-    items with no methods requirements
+This module provides base classes for Items.
+item.Item acts as a base class for all items. Besides providing a few
+skeletal methods to help with serialization and user interaction, this
+class is relatively straightforward.
+
+item.Usable is an abstract class used for checking ItemClasses. A
+developer may create a 'Usable' class by simply providing an 'on_use'
+method.
+
+item.Equippable is a subclass of Item that provides additional features,
+including support for character.Command methods.
 '''
 import inspect
-from abc import ABC
+import abc
 from typing import List
 from util import camel_to_space
 from character import Command, Character, CharFilter
@@ -86,11 +90,22 @@ class EquippableClass(ItemClass):
             if not isinstance(self.target, inv.EquipTarget):
                 raise TypeError(f"When defining Euippable '{cls}' a target was"
                                 " provided, but it wasn't an EquipTarget.")
-        # collect all of the commands
+
+        # note that this is essentially the same as CharacterClass
+        # first gather the Commands defined in this class
+        self._local_commands = {}
+        for value in namespace.values():
+            if isinstance(value, Command):
+                value.label = "Equipped"
+                self._local_commands[str(value)] = value
+
+        # now gather all commands, with the most recent commands exposed
         self._commands = {}
-        for obj in namespace.values():
-            if isinstance(obj, Command):
-                self._commands[str(obj)] = obj
+        for base in reversed(self.__mro__):
+            if not isinstance(base, EquippableClass):
+                continue
+            self._commands.update(base._local_commands)
+        self._commands.update(self._local_commands)
 
 
 class Equippable(Item, metaclass=EquippableClass):
@@ -103,29 +118,37 @@ class Equippable(Item, metaclass=EquippableClass):
     added to the player's equip_dict when equipped.
     '''
 
-    def on_equip(self, char: Character):
-        pass
-
-    def on_unequip(self, char: Character):
-        pass
-
     def add_cmds(self, char: Character):
-        '''add all the commands from this item to the char
-        any conflicting commands are simply shadowed'''
+        '''Add all the commands from this item to the char.
+        Any conflicting commands are simply shadowed'''
         for cmd in self._commands.values():
             if cmd.filter.permits(char):
                 cmd = cmd.specify(self, char)
-                char.cmd_dict.add_cmd(cmd)
+                char.new_cmd_dict[str(cmd)] = cmd
 
     def remove_cmds(self, char: Character):
         '''remove all the commands from this item from char'''
         for cmd in self._commands.values():
             cmd = cmd.specify(self, char)
-            if char.cmd_dict.has_cmd(cmd):
-                char.cmd_dict.remove_cmd(cmd)
+            try:
+                char.new_cmd_dict.remove_value(str(cmd), cmd)
+            # command was not in cmd_dict
+            except KeyError:
+                pass
+            except ValueError:
+                pass
+
+    # these methods can be overriden
+    def on_equip(self, char: Character):
+        """override to trigger effects when this item is equipped"""
+        pass
+
+    def on_unequip(self, char: Character):
+        """override to trigger effects when this item is unequipped"""
+        pass
 
 
-class Usable(ABC):
+class Usable(abc.ABC):
     '''Use to Check if an item implements 'on_use' in a Pythonic way.
         isinstance(item_obj, Usable)
     is roughly equivalent to

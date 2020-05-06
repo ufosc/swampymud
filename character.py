@@ -140,7 +140,7 @@ class CharacterClass(type):
     CharacterClasses include the following important attributes:
     - classname: how the class appears to the players
     - frequency: how often will new players spawn as this class
-    - command_label: how will commands from this class appear in the help menu
+    - command_label: how  commands from this class appear in help menu
     """
     def __init__(self, cls, bases, namespace):
         # add the proper name, if not already provided
@@ -432,7 +432,7 @@ class Character(metaclass=CharacterClass):
             # check for an already equipped weapon, unequip it
             if self.equip_dict[target] is not None:
                 self.unequip(target)
-            item.equip(self)
+            item.on_equip(self)
             item.add_cmds(self)
             self.equip_dict[item.target] = item, from_inv
         # class doesn't have an equip target for this item, cannot equip
@@ -453,7 +453,7 @@ class Character(metaclass=CharacterClass):
             raise CharException(f"{type(self)} does not possess"
                                 " equip slot '{target}'.")
         equipped, from_inv = self.equip_dict[target]
-        equipped.unequip(self)
+        equipped.on_unequip(self)
         equipped.remove_cmds(self)
         self.equip_dict[target] = None
         # if item was from character's inventory, return it

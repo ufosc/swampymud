@@ -2,6 +2,7 @@
 import unittest
 import item
 import inventory as inv
+import character as char
 
 class TestItemMetas(unittest.TestCase):
     """testcase for the basic guarantees of the item metaclasses"""
@@ -122,21 +123,18 @@ class TestItemMetas(unittest.TestCase):
 
 
 class TestEquippableItem(unittest.TestCase):
-
-    def test_commands(self):
-        """test that character.Commands are added"""
-        pass
+    """testcases for item.Equippable"""
 
     def test_target_check(self):
         """test that new Equippable classes are checked for a target"""
         # failing to provide a target raises an attribute error
         with self.assertRaises(AttributeError):
-            class Helmet(item.Equippable):
+            class Cuirass(item.Equippable):
                 """whoops I forgot the target"""
 
         # providing a target with the wrong type raises an error
         with self.assertRaises(TypeError):
-            class Helmet(item.Equippable):
+            class Greaves(item.Equippable):
                 target = "whoops not proper target"
 
         # inheriting from a class with a valid EquipTarget is sufficient
@@ -151,3 +149,60 @@ class TestEquippableItem(unittest.TestCase):
         with self.assertRaises(TypeError):
             class Helmet(item.Equippable):
                 target = "whoops not a proper target"
+
+    def test_commands(self):
+        """test that character.Commands are added"""
+        # creating a class with two commands
+        class Sword(item.Equippable):
+            target = inv.EquipTarget("right")
+
+            @char.Command
+            def swing(self, char, args):
+                pass
+
+            @char.Command
+            def poke(self, char, args):
+                pass
+
+        # now test that these two commands were gathered as expected
+        sword_dict = {"swing": Sword.swing, "poke": Sword.poke}
+        self.assertEqual(Sword._local_commands, sword_dict)
+        self.assertEqual(Sword._commands, sword_dict)
+
+        # derived class should inherit Sword's commands
+        class IronSword(Sword):
+            pass
+
+        self.assertEqual(IronSword._local_commands, {})
+        self.assertEqual(IronSword._commands, sword_dict)
+
+        # derived class that supplements base class's methods
+        class Katana(Sword):
+            @char.Command
+            def slash(self, char, args):
+                pass
+
+        self.assertEqual(Katana._local_commands, {"slash": Katana.slash})
+        self.assertEqual(
+            Katana._commands,
+            {"swing": Katana.swing, "poke": Katana.poke, "slash": Katana.slash}
+        )
+
+        # now test overriding commands
+        class Mace(Sword):
+
+            @char.Command
+            def swing(self, char, args):
+                pass
+
+            # should still override Sword.poke, despite different name
+            @char.Command.with_name("poke")
+            def smash(self, char, args):
+                pass
+
+        mace_cmds = {"swing": Mace.swing, "poke": Mace.smash}
+        self.assertEqual(Mace._local_commands, mace_cmds)
+        self.assertEqual(Mace._commands, mace_cmds)
+        # make sure we're dealing with a different swing
+        self.assertNotEqual(Mace._commands["swing"],
+                            Sword._commands["swing"])
