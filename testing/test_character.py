@@ -355,11 +355,11 @@ TEST_EXIT = loc.Exit(TEST_OUT, "out", ["outside", "test out"])
 TEST_ROOM.add_exit(TEST_EXIT)
 
 # some test items
-class Coin(item.MiscItem):
+class Coin(item.Item):
     """a simple coin"""
 
 
-class HealthPotion(item.MiscItem):
+class HealthPotion(item.Item):
     """a health potion with vary strength"""
     def __init__(self, hp):
         self.hp = 5
@@ -375,7 +375,7 @@ class HealthPotion(item.MiscItem):
 class TestApparel(item.Equippable):
     """a base class for other test equippables"""
 
-    target = item.EquipTarget("Head")
+    target = inv.EquipTarget("Head")
 
     def equip(self, char):
         char.message(f"equip {self}")
@@ -385,23 +385,23 @@ class TestApparel(item.Equippable):
 
 
 class Hat(TestApparel):
-    target = item.EquipTarget("Head")
+    target = inv.EquipTarget("Head")
 
 
 class Helmet(TestApparel):
-    target = item.EquipTarget("Head")
+    target = inv.EquipTarget("Head")
 
 
 class Sword(TestApparel):
-    target = item.EquipTarget("Right Hand")
+    target = inv.EquipTarget("Right Hand")
 
 
 class Mace(TestApparel):
-    target = item.EquipTarget("Right Hand")
+    target = inv.EquipTarget("Right Hand")
 
 
 class Bow(TestApparel):
-    target = item.EquipTarget("left Hand")
+    target = inv.EquipTarget("left Hand")
 
 
 class TestCharacterInventory(unittest.TestCase):
@@ -415,7 +415,7 @@ class TestCharacterInventory(unittest.TestCase):
         self.finn.add_item(Coin(), 5)
         self.finn.add_item(HealthPotion(10), 3)
         # create an EquipDict for comparison
-        self.ref = item.EquipTarget.make_dict(*Human.equip_slots)
+        self.ref = inv.EquipTarget.make_dict(*Human.equip_slots)
 
     def add_item_stack(self):
         """test that either items or ItemStacks can be given to players"""
@@ -438,7 +438,7 @@ class TestCharacterInventory(unittest.TestCase):
             (HealthPotion(10), 3)
         ))
         # equip dict should be updated
-        self.ref[item.EquipTarget("Right Hand")] = sword, False
+        self.ref[inv.EquipTarget("Right Hand")] = sword, False
         self.assertEqual(self.finn.equip_dict, self.ref)
         # item's equip method should be called
         self.assertEqual(self.finn.last_msg, "equip Sword")
@@ -468,7 +468,7 @@ class TestCharacterInventory(unittest.TestCase):
             (HealthPotion(10), 3)
         ))
         # equip dict should be updated
-        self.ref[item.EquipTarget("Head")] = hat, True
+        self.ref[inv.EquipTarget("Head")] = hat, True
         self.assertEqual(self.finn.equip_dict, self.ref)
         # item's equip method should be called
         self.assertEqual(self.finn.last_msg, "equip Hat")
@@ -484,7 +484,7 @@ class TestCharacterInventory(unittest.TestCase):
             (HealthPotion(10), 3)
         ))
         # equip dict should be updated
-        self.ref[item.EquipTarget("Right Hand")] = mace, False
+        self.ref[inv.EquipTarget("Right Hand")] = mace, False
         self.assertEqual(self.finn.equip_dict, self.ref)
         # item's equip method should be called
         self.assertEqual(self.finn.last_msg, "equip Mace")
@@ -508,24 +508,24 @@ class TestCharacterInventory(unittest.TestCase):
         # try unequipping a slot that does not exist
         with self.assertRaises(char.CharException,
                                msg="Human does not possess equip slot 'Foo'."):
-            self.finn.unequip(item.EquipTarget("Foo"))
+            self.finn.unequip(inv.EquipTarget("Foo"))
 
         # unequip the item in the "Head" slot
-        self.finn.unequip(item.EquipTarget("head"))
+        self.finn.unequip(inv.EquipTarget("head"))
         # hat should not be added to inventory since from_inv=False
         self.assertEqual(self.finn.inv, inv.Inventory())
         # equip dict should be updated
-        ref[item.EquipTarget("head")] = None
+        ref[inv.EquipTarget("head")] = None
         self.assertEqual(self.finn.equip_dict, ref)
         # item's equip method should be called
         self.assertEqual(self.finn.last_msg, "unequip Hat")
 
         # unequip the item in the "Right Hand" slot
-        self.finn.unequip(item.EquipTarget("right hand"))
+        self.finn.unequip(inv.EquipTarget("right hand"))
         # mace should be added to inventory since from_inv=False
         self.assertEqual(self.finn.inv, inv.Inventory((Mace(), 1)))
         # equip dict should be updated
-        ref[item.EquipTarget("right hand")] = None
+        ref[inv.EquipTarget("right hand")] = None
         self.assertEqual(self.finn.equip_dict, ref)
         # item's equip method should be called
         self.assertEqual(self.finn.last_msg, "unequip Mace")
@@ -533,7 +533,7 @@ class TestCharacterInventory(unittest.TestCase):
         # try to unequip from an empty slot
         with self.assertRaises(char.CharException,
                                msg="No item equipped on target 'Head'."):
-            self.finn.unequip(item.EquipTarget("hEAD"))
+            self.finn.unequip(inv.EquipTarget("hEAD"))
 
 
 class Scout(Soldier):
@@ -826,7 +826,7 @@ class TestDefaultCommands(unittest.TestCase):
         # mace should be equipped
         self.assertEqual(self.bill.msgs.pop(),
                          "equip Mace")
-        mace, from_inv = self.bill.equip_dict[item.EquipTarget("Right Hand")]
+        mace, from_inv = self.bill.equip_dict[inv.EquipTarget("Right Hand")]
         self.assertTrue(isinstance(mace, Mace))
         self.assertTrue(from_inv)
         # now we cannot equip the mace again, because it cannot be found
@@ -834,7 +834,7 @@ class TestDefaultCommands(unittest.TestCase):
         self.assertEqual(self.bill.msgs.pop(),
                          "Could not find item 'mace'.")
         # mace should still be equipped
-        mace, from_inv = self.bill.equip_dict[item.EquipTarget("Right Hand")]
+        mace, from_inv = self.bill.equip_dict[inv.EquipTarget("Right Hand")]
         self.assertTrue(isinstance(mace, Mace))
         self.assertTrue(from_inv)
         # try equipping a sword
@@ -844,7 +844,7 @@ class TestDefaultCommands(unittest.TestCase):
             "equip Sword"
         ])
         self.bill.msgs.clear()
-        sword, from_inv = self.bill.equip_dict[item.EquipTarget("Right Hand")]
+        sword, from_inv = self.bill.equip_dict[inv.EquipTarget("Right Hand")]
         self.assertTrue(isinstance(sword, Sword))
         self.assertTrue(from_inv)
         # we should be messaged if we equip an item we don't have a slot for
@@ -881,7 +881,7 @@ class TestDefaultCommands(unittest.TestCase):
         self.assertEqual(self.bill.msgs.pop(),
                          "unequip Hat")
         # hat should be removed from our equip_dict
-        ref[item.EquipTarget("head")] = None
+        ref[inv.EquipTarget("head")] = None
         self.assertEqual(self.bill.equip_dict, ref)
         # hat should be added back to inventory
         self.assertEqual(self.bill.inv, inv.Inventory((Hat(), 1)))
@@ -897,7 +897,7 @@ class TestDefaultCommands(unittest.TestCase):
         self.assertEqual(self.bill.msgs.pop(),
                          "unequip Sword")
         # sword should be removed from our equip_dict
-        ref[item.EquipTarget("right hand")] = None
+        ref[inv.EquipTarget("right hand")] = None
         self.assertEqual(self.bill.equip_dict, ref)
         # sword should be added back to inventory
         inv_items = [(Hat(), 1), (Sword(), 1)]

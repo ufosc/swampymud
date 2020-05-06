@@ -3,7 +3,6 @@ import enum
 import functools
 import inspect
 import inventory as inv
-import item as item_mod
 import util
 from util.shadowdict import ShadowDict
 import util.english as eng
@@ -212,7 +211,7 @@ class Character(metaclass=CharacterClass):
 
         # set up inventory and equipping items
         self.inv = inv.Inventory()
-        self.equip_dict = item_mod.EquipTarget.make_dict(*self.equip_slots)
+        self.equip_dict = inv.EquipTarget.make_dict(*self.equip_slots)
 
         # put character in default command parsing mode
         self._parser = self.parse_command

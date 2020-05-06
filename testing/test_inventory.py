@@ -1,19 +1,19 @@
 """module containing testcases for the inventory module"""
 import unittest
 import inventory as inv
-from item import Usable, Equippable, EquipTarget, MiscItem
+from item import Usable, Equippable, Item
 
-class SilverCoin(MiscItem):
+class SilverCoin(Item):
     """example of a Miscellaneous Item"""
     def __repr__(self):
         return "SilverCoin()"
 
 # some testing classes for items
-class HealthPotion(Usable):
+class HealthPotion(Item):
     def __init__(self, hp):
         self.hp = hp
 
-    def use(self, char):
+    def on_use(self, char, args):
         pass
 
     @classmethod
@@ -26,11 +26,11 @@ class HealthPotion(Usable):
     def __repr__(self):
         return "HealthPotion(%s)" % self.hp
 
-class BadPoison(Usable):
+class BadPoison(Item):
     def __init__(self, dmg):
         self.dmg = dmg
 
-    def use(self, char):
+    def on_use(self, char, args):
         pass
 
     @classmethod
@@ -44,7 +44,7 @@ class BadPoison(Usable):
         return "BadPoison(%s)" % self.dmg
 
 class Sword(Equippable):
-    target = EquipTarget("hand")
+    target = inv.EquipTarget("hand")
 
     def __init__(self, dmg, material):
         self.dmg = dmg
@@ -306,7 +306,7 @@ class TestInventory(unittest.TestCase):
         self.assertTrue(bool(self.coins))
         self.assertTrue(bool(self.rich))
         self.assertTrue(bool(self.potion_seller))
-        
+
         # create a dumb, destructive function to count items with bool
         def count_items(inventory):
             count = 0
@@ -481,7 +481,7 @@ this function is inefficient and fragile, do not use outside simple testing"""
         self.assertTrue(isinstance(results[0][0], SilverCoin))
         # checking the quantity
         self.assertEqual(results[0][1], 10)
-        
+
         # test results should be the same if a name is provided
         results = list(self.coins.find(name="Silver Coin"))
         self.assertTrue(isinstance(results[0][0], SilverCoin))
@@ -507,7 +507,7 @@ this function is inefficient and fragile, do not use outside simple testing"""
         self.assertEqual(results, [])
 
         # testing find for potion_seller
-        # first, add a few "BadPoisons" to 
+        # first, add a few "BadPoisons" to
         # calling find with no arguments should yield everything
         results = list(self.potion_seller.find())
         self.assertTrue(self.cmp_contents(results, [
@@ -539,7 +539,7 @@ this function is inefficient and fragile, do not use outside simple testing"""
         self.assertTrue(self.cmp_contents(results, [
             (HealthPotion(hp=10), 5),
         ]))
-        # test with exact data 
+        # test with exact data
         results = list(self.potion_seller.find(exact_data={"hp": 100}))
         self.assertTrue(self.cmp_contents(results, [
             (HealthPotion(hp=100), 2),

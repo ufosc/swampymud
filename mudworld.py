@@ -10,6 +10,7 @@ from item import ItemClass, Item
 from entity import EntityClass, Entity
 from mudscript import LocationExport
 
+# TODO: change these to sets?
 _GAME_OBJS = [Character, Item, Entity, Location]
 _GAME_CLASSES = [CharacterClass, ItemClass, EntityClass]
 
@@ -54,7 +55,8 @@ def load_prelude(prelude_data):
             # if not, raise an exception
             else:
                 #TODO: use a more specific exception
-                raise Exception("Class is wrong type")
+                raise TypeError("{!r} is wrong type, expected one of"
+                                "{}".format(cls, _GAME_CLASSES))
     return cls_dict
 
 

@@ -1,6 +1,7 @@
 '''Defining some basic RPG classes for testing'''
 from character import Character
-from item import Usable, Equippable, EquipTarget
+from item import Item, Equippable
+from inventory import EquipTarget
 from entity import Entity
 from time import time
 import random
@@ -9,7 +10,7 @@ class Humanoid(Character):
     '''Testing class that provides some basic traits'''
     max_health = 100
     heal_rate = 500
-    
+
     equip_slots = ["Head", "Right Hand", "Left Hand"]
 
     def __init__(self, name=None):
@@ -22,11 +23,11 @@ class Humanoid(Character):
             self._last_heal = time()
             self.health += 1
         super().update()
-    
+
     @property
     def health(self):
         return self._health
-    
+
     @health.setter
     def health(self, value):
         self._health = value
@@ -91,7 +92,7 @@ class DarkWizard(Wizard):
             receiver.message("%s : %s" % (sender, " ".join(args[3:])))
         except AttributeError:
             pass
-    
+
     def cmd_heal(self, args):
         '''Attempt to heal [target]. This corrupted spell could hurt the target.
         Usage: heal [target]
@@ -106,7 +107,7 @@ class Warrior(Character):
         super().__init__(name)
         self.damage = self.base_damage
         self.attack_msg = "%s punched %s!"
-    
+
     def cmd_hit(self, args):
         '''Hit a target with your weapon (or bare hands).
         Usage: hit [target]'''
@@ -122,7 +123,7 @@ class Warrior(Character):
                 self.location.message_chars(self.attack_msg % (self, target))
             except AttributeError:
                 pass
-    
+
 
 #TODO: add class filters to this item once they are added
 class BigClub(Equippable):
@@ -131,16 +132,16 @@ class BigClub(Equippable):
     def __init__(self):
         self.old_msg = ""
 
-    def equip(self, char):
+    def on_equip(self, char):
         try:
             char.damage += 2
             # store a copy of the old message
             self.old_msg = char.attack_msg
             char.attack_msg = "%s clubbed %s."
         except AttributeError:
-            pass        
-    
-    def unequip(self, char):
+            pass
+
+    def on_unequip(self, char):
         try:
             char.damage -= 2
             char.attack_msg = self.old_msg
@@ -154,12 +155,12 @@ class Thief(Character):
         [not implemented]
         '''
         pass
-        
+
 
 # a healing potion
-class HealthPotion(Usable):
+class HealthPotion(Item):
 
-    def use(self, char):
+    def on_use(self, char):
         char.message("You drink the potion.")
         try:
             char.health += 10

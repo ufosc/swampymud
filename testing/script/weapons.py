@@ -1,4 +1,5 @@
-from item import Equippable, EquipTarget, MiscItem
+from item import Equippable, Item
+from inventory import EquipTarget
 from .basic_rpg import HealthPotion
 
 #TODO: add CharFilters and make this only accesible to Warriors
@@ -6,7 +7,7 @@ class TalkingSword(Equippable):
     target = EquipTarget("Right Hand")
     def equip(self, char):
         pass
-    
+
     def unequip(self, char):
         pass
 
@@ -14,7 +15,7 @@ class WoodenStaff(Equippable):
     target = EquipTarget("Right Hand")
     def equip(self):
         pass
-    
+
     def unequip(self):
         pass
 
@@ -30,7 +31,7 @@ class CursedRing(Equippable):
             char.message("You feel yourself becoming weaker...")
         except AttributeError:
             pass
-    
+
     def unequip(self, char):
         try:
             char.max_health += 10
@@ -40,5 +41,5 @@ class CursedRing(Equippable):
         except AttributeError:
             pass
 
-class GoldNugget(MiscItem):
+class GoldNugget(Item):
     pass

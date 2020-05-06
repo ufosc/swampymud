@@ -48,12 +48,11 @@ class ItemStack:
     def amount(self, new_amt):
         """set the amount of items in this stack to ["""
         if not isinstance(new_amt, int):
-            raise TypeError("Problem setting ItemStack amount:\
-                              expected type int, received %s" % type(new_amt))
+            raise TypeError("Problem setting ItemStack amount: expected"
+                            f" type int, received {type(new_amt)}")
         if new_amt < 0:
-            raise ValueError("Problem setting ItemStack amount:\
-                              expected non-negative value, received %s"
-                              % type(new_amt))
+            raise ValueError("Problem setting ItemStack amount: expected non-"
+                             f"-negative value, received {new_amt}")
         else:
             self._amount = new_amt
 
@@ -68,13 +67,13 @@ class ItemStack:
     def __eq__(self, other_stack):
         """overriding =="""
         try:
-            return (self._type == other_stack._type
-                    and self.amount == other_stack.amount
-                    and self._data == other_stack._data)
+            return (self._type == other_stack._type and
+                    self.amount == other_stack.amount and
+                    self._data == other_stack._data)
         # if the other_stack isn't really an ItemStack
         except AttributeError:
             return False
-    
+
     def matches(self, item_type=None, exact_data=None, **fields):
         """check that [item_type] and data agree with both arguments are optional"""
         if item_type is not None and self._type is not item_type:
@@ -121,6 +120,9 @@ class ItemStack:
 # make the common case fast
 # this structure is optimized for name-based lookups
 class Inventory:
+    """data structure for storing stacks of in-game objects
+    often accessed using a name"""
+
     def __init__(self, *items):
         self._items = defaultdict(list)
         for (item, amt) in items:
@@ -239,3 +241,57 @@ class Inventory:
         # sort by name
         items.sort(key=lambda x: x[0])
         return "\n".join(items)
+
+
+class EquipTarget:
+    '''Class for identifying specific slots that an equippable item
+    may be equipped to. In some sense, this acts as a second inventory.
+    Each CharacterClass has a field, 'equip_slots', that specifies what
+    types of items they can equip.'''
+    # next id to be used
+    _next_id = 0
+    # all targets mapped by name
+    _targets = {}
+
+    def __new__(cls, name: str):
+        '''Create a new EquipTarget'''
+        name = name.capitalize()
+        # if the target name has already been registered,
+        # return the existing object
+        # this is done to save memory
+        if name in cls._targets:
+            return cls._targets[name]
+        return super().__new__(cls)
+
+    def __init__(self, name: str):
+        '''initialize an equip target with [name]'''
+        name = name.capitalize()
+        if name not in self._targets:
+            '''obtain a new id and and register it under _targets'''
+            self._name = name
+            self._target_id = EquipTarget._next_id
+            EquipTarget._next_id += 1
+            self._targets[name] = self
+
+    def __str__(self):
+        '''Return target's name'''
+        return self._name
+
+    def __hash__(self):
+        '''Return hash based on name and id'''
+        return hash((self._name, self._target_id))
+
+    def __repr__(self):
+        '''Return repr(self)'''
+        return "EquipTarget({!r})".format(self._name)
+
+    @staticmethod
+    def make_dict(*names):
+        '''create an equip_dict containing EquipTargets generated
+        from the list of names. An equip_dict in use might look like:
+        {EquipTarget("Torso") : "Cuirass", EquipTarget("Feet") : "Boots"}
+        '''
+        equip_dict = {}
+        for name in names:
+            equip_dict[EquipTarget(name)] = None
+        return equip_dict

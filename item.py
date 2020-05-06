@@ -7,75 +7,109 @@ UsableBase
 MiscItemBase
     items with no methods requirements
 '''
-from util import camel_to_space
-import character
+import inspect
 from abc import ABC
+from typing import List
+from util import camel_to_space
+from character import Command, Character, CharFilter
+import inventory as inv
 
+#TODO: add access and visibility filters
 class ItemClass(type):
     '''Metaclass establishing behavior for all items'''
+
     def __init__(self, cls, bases, namespace):
-        if "_item_name" not in namespace:
-            self._item_name = camel_to_space(cls)
-        if "_item_type" not in namespace:
-            self.item_type = "Item"
+        if "classname" not in namespace:
+            self.classname = camel_to_space(cls)
+        if "description" not in namespace:
+            if self.__doc__ is not None:
+                self.description = inspect.cleandoc(self.__doc__)
+            else:
+                self.description = "[No description provided.]"
         super().__init__(cls, bases, namespace)
 
     def __str__(self):
-        '''return str(self)'''
-        return self._item_name
+        '''returns a string representation of this class'''
+        return self.classname
 
-class Item(ABC):
-    '''This class is made purely so that we may check items in a pythonic way
-    that is:
-    isinstance(item_obj, Item) 
-    is shorthand for:
-    isinstance(type(item_obj), ItemClass)
-    Do not attempt to derive a new item type from this class!
-    Refer to MiscItem, Usable, and Equippable
+
+class Item(metaclass=ItemClass):
+    '''Base class for all Item classes.
+    Implement 'on_use' to make a Usable item. To trigger certain code
+    when this item is picked up or dropped, override 'on_pickup'
+    or 'on_drop', respectively.
     '''
 
+    # default label, can be overriden
+    label = "Item"
+
+    def __str__(self):
+        """Return a simple representation of this item.
+        By default, str(item) returns the name of the item's class.
+        """
+        return self.classname
+
+    # these methods can be overriden
+    def on_pickup(self, char: Character, args: List[str]):
+        """override to trigger effects when this item is picked up"""
+        pass
+
+    def on_drop(self, char: Character, args: List[str]):
+        """override to trigger effects when this item is dropped"""
+        pass
+
+    # serialization-related methods
     @classmethod
-    def __subclasshook__(cls, subclass):
-        if cls is Item:
-            return isinstance(subclass, ItemClass)
-        else:
-            return NotImplemented
+    def load(cls, data):
+        '''default implementation of load, calls init with no args'''
+        return cls()
+
+    def post_load(self, data):
+        '''no post-load actions required by default implementation'''
+
+    def save(self):
+        '''return a pythonic representation of this object
+        this base class has no fields, so no data is returned'''
+        return {}
 
 
-#TODO: add pickup and equip CharFilters??
 class EquippableClass(ItemClass):
     '''Metaclass for all items that can be equipped'''
+
     def __init__(self, cls, bases, namespace):
         super().__init__(cls, bases, namespace)
-        self.item_type = "Equippable"
-        if cls != "Equippable": 
-            #TODO: assert that target is an EquipTarget
-            assert "target" in namespace or any([hasattr(base, "target") for base in bases])
+        # ensure that developers have added an equip target
+        if cls != "Equippable":
+            if not hasattr(self, "target"):
+                raise AttributeError(f"Attempted to define Equippable '{cls}'"
+                                     " without defining a target.")
+            if not isinstance(self.target, inv.EquipTarget):
+                raise TypeError(f"When defining Euippable '{cls}' a target was"
+                                " provided, but it wasn't an EquipTarget.")
+        # collect all of the commands
         self._commands = {}
         for obj in namespace.values():
-            if isinstance(obj, character.Command):
+            if isinstance(obj, Command):
                 self._commands[str(obj)] = obj
 
 
-class Equippable(metaclass=EquippableClass):
-    '''Base class for all Equippable items
-    You must define your own "target", "equip", and "unequip" methods
+class Equippable(Item, metaclass=EquippableClass):
+    '''Base class for all Equippable items.
+    You must define your own "target" like so:
+        target = inv.EquipTarget("right arm")
+    To trigger effects when the item is equipped or unequipped, override
+    the 'on_equip' or 'on_unequip' methods.
+    By default, any methods decorated with @character.Command will be
+    added to the player's equip_dict when equipped.
     '''
-    _description = "An equippable item"
-    @property
-    def name(self):
-        '''Creating a readonly "name" property'''
-        return self._item_name
 
-    def describe(self):
-        return self._description
+    def on_equip(self, char: Character):
+        pass
 
-    def __str__(self):
-        '''Return a string representing the object
-        this will be how the item appears to the player'''
-        return self._item_name
+    def on_unequip(self, char: Character):
+        pass
 
-    def add_cmds(self, char):
+    def add_cmds(self, char: Character):
         '''add all the commands from this item to the char
         any conflicting commands are simply shadowed'''
         for cmd in self._commands.values():
@@ -83,152 +117,29 @@ class Equippable(metaclass=EquippableClass):
                 cmd = cmd.specify(self, char)
                 char.cmd_dict.add_cmd(cmd)
 
-    def remove_cmds(self, char):
-        '''remove all the commands from this char that belong to the item'''
+    def remove_cmds(self, char: Character):
+        '''remove all the commands from this item from char'''
         for cmd in self._commands.values():
             cmd = cmd.specify(self, char)
             if char.cmd_dict.has_cmd(cmd):
                 char.cmd_dict.remove_cmd(cmd)
 
-    @classmethod
-    def load(cls, data):
-        '''default implementation of load that calls init with no arguments'''
-        return cls()
 
-    def post_load(self, data):
-        '''no post-load actions required by default implementation'''
-
-    def save(self):
-        '''return a pythonic representation of this object
-        this base class has no fields, so no data is returned'''
-        return {}
-
-class EquipTarget:
-    '''Class for identifying specific slots that an equippable item
-    may be equipped to
-    Each CharacterClass has a field, 'equip_slots', that specifies what
-    types of items they can equip'''
-    # next id to be used
-    next_id = 0
-    # all targets mapped by name
-    _targets = {}
-
-    def __new__(cls, name):
-        '''Create a new EquipTarget'''
-        name = name.capitalize()
-        # if the target name has already been registered,
-        # return the existing object
-        # this is done to save memory
-        if name in cls._targets:
-            return cls._targets[name]
-        return super().__new__(cls)
-
-    def __init__(self, name):
-        '''initialize an equip target with [name]'''
-        name = name.capitalize()
-        if name not in self._targets:
-            '''obtain a new id and and register it under _targets'''
-            self.name = name
-            self.target_id = EquipTarget.next_id
-            EquipTarget.next_id += 1
-            self._targets[name] = self
-
-    def __str__(self):
-        '''Return target's name'''
-        return self.name
-
-    def __hash__(self):
-        '''Return hash based on name and id'''
-        return hash((self.name, self.target_id))
-
-    def __repr__(self):
-        '''Return repr(self)'''
-        return "EquipTarget(%r)" % (self.name)
-
-    @staticmethod
-    def make_dict(*names):
-        '''create an equip_dict containing EquipTargets generated
-        from the list of names. An equip_dict in use might look like:
-        {EquipTarget("Torso") : "Cuirass", EquipTarget("Feet") : "Boots"}
-        '''
-        equip_dict = {}
-        for name in names:
-            equip_dict[EquipTarget(name)] = None
-        return equip_dict
-
-
-class UsableClass(ItemClass):
-    def __init__(self, cls, bases, namespace):
-        super().__init__(cls, bases, namespace)
-        self.item_type = "Usable"
-        if cls != "Usable": 
-            #TODO: assert that target is an EquipTarget
-            assert "use" in namespace or any([hasattr(base, "use") for base in bases])
-
-
-class Usable(metaclass=UsableClass):
-    '''Base class for all Usable items
-    You must define your own "use" methods
+class Usable(ABC):
+    '''Use to Check if an item implements 'on_use' in a Pythonic way.
+        isinstance(item_obj, Usable)
+    is roughly equivalent to
+        isinstance(item_obj, Item) and item_obj has an 'on_use' method
+    Do not attempt to derive a new item type from this class!
+    If you want to make a 'Usable' item, simply derive from Item and add
+    an 'on_use' method yourself.
     '''
-    _description = "A usable item"
-
-    @property
-    def name(self):
-        '''Creating a readonly "name" property'''
-        return self._item_name
-
-    def __str__(self):
-        '''Return a string representing the object
-        this will be how the item appears to the player'''
-        return self._item_name
-
-    def describe(self):
-        ''' Describes the object '''
-        return self._description
 
     @classmethod
-    def load(cls, data):
-        '''default implementation of load that calls init with no arguments'''
-        return cls()
-
-    def post_load(self, data):
-        '''no post-load actions required by default implementation'''
-
-    def save(self):
-        '''return a pythonic representation of this object
-        this base class has no fields, so no data is returned'''
-        return {}
-
-class MiscItem(metaclass=ItemClass):
-    '''Base class for all MiscItems
-    These items cannot be used, and will be typically
-    used to store value (e.g. money, gold, building materials)
-    '''
-    _description = "A miscellaneous item"
-
-    @property
-    def name(self):
-        '''Creating a readonly "name" property'''
-        return self._item_name
-
-    def __str__(self):
-        '''Return a string representing the object
-        this will be how the item appears to the player'''
-        return self._item_name
-
-    def describe(self):
-        '''Describes the item '''
-        return self._description
-
-    @classmethod
-    def load(cls, data):
-        '''default implementation of load that calls init with no arguments'''
-        return cls()
-
-    def post_load(self, data):
-        '''no post-load actions required by default implementation'''
-
-    def save(self):
-        '''return a pythonic representation of this object
-        this base class has no fields, so no data is returned'''
-        return {}
+    def __subclasshook__(cls, subclass):
+        if cls is Usable:
+            return (isinstance(subclass, ItemClass) and
+                    hasattr(subclass, "on_use") and
+                    callable(subclass.on_use))
+        else:
+            return NotImplemented
