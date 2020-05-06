@@ -1,10 +1,9 @@
-'''module containing the ShadowDict class
-a ShadowDict functions like a normal dictionary, 
-except each key actually points to a stack, with the most
-recent value being used when __getitem__ is called
-and deleted when __delitem__ is called
+'''Module defining the ShadowDict class.
+A ShadowDict functions like a normal dictionary, except each key
+actually points to a stack, with the most recent value being used when
+__getitem__ is called / deleted when __delitem__ is called.
 
-Thus, a key,value pair will be "shadowed" if you set the same key 
+Thus, a key,value pair will be "shadowed" if you set the same key
 to have two different values.
 
 For example:
@@ -17,36 +16,33 @@ sd["wizard"] # returns "dumbledore"
 del sd["wizard"]
 sd["wizard"] # returns "gandalf"
 
-This data structure was create for command.CommandDict,
-a structure that allows class-based commands to temporarily
-be shadowed by item-based commands
+This data structure is used to store character Commands, thus allowing
+CharacterClass Commands to temporarily be shadowed by Equippable or
+Entity Commands.
 '''
 
-#TODO: consider using a defaultdict
-
 class ShadowDict:
-    '''class representing a ShadowDict,
-    in which multiple values can be stored under one key
-    with only the most recent value being visible'''
+    '''class representing a ShadowDict, in which multiple values can be
+    stored under one key. Only the most recent value will be visible.
+    '''
 
     def __init__(self, start_dict=None):
-        '''start_dict can be provided to 
-        fill the ShadowDict with something
-        otherwise, an empty ShadowDict is created'''
+        '''Create a new ShadowDict. Provide [start_dict] (optional) to
+        to fill the ShadowDict with something.'''
         self._dict = {}
         if start_dict:
             for key, value in start_dict.items():
                 self._dict[key] = [value]
 
     def __getitem__(self, key):
-        '''get the object corresponding to 'key'
-        raises a KeyError if key is not present'''
+        '''Get the object corresponding to [key].
+        Raises a KeyError if key is not present.'''
         lst = self._dict[key]
         return lst[-1]
 
     def __setitem__(self, key, value):
-        '''map 'key' to 'value'
-        if key or value is already in use, the previous value is shadowed'''
+        '''Map 'key' to 'value'.
+        If key is already in use, the previous value gets shadowed.'''
         if key in self._dict:
             self._dict[key].append(value)
         else:
@@ -54,20 +50,20 @@ class ShadowDict:
 
     def __delitem__(self, key):
         '''delete 'key'
-        if a value was shadowed, the key is reverted to that previous value
+        If a value was shadowed, the key is reverted to the previous value
         raises KeyError if key is not in use'''
         lst = self._dict[key]
         lst.pop()
         # if lst is now empty, remove the key altogether
         if not lst:
             del self._dict[key]
-        
+
     def __contains__(self, key):
-        '''returns true if 'key' is in bijection'''
+        '''returns true if 'key' is in ShadowDict'''
         return key in self._dict
 
     def __repr__(self):
-        '''return a representation of the bijection'''
+        '''return a representation of the ShadowDict'''
         if self._dict:
             return "ShadowDict(%r)" % dict(self.items())
         else:
@@ -77,11 +73,11 @@ class ShadowDict:
         '''iterate over the keys of the dict'''
         for k in self._dict.keys():
             yield k
-    
+
     def copy(self):
         '''return a shallow copy of this ShadowDict'''
         return ShadowDict(start_dict=self)
-    
+
     def items(self):
         '''iterate over the current key, value pairs'''
         for k in self._dict:
