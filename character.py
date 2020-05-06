@@ -42,6 +42,144 @@ class AmbiguityError(CharException):
         self.query = query
 
 
+
+class FilterMode(enum.Enum):
+    WHITELIST = True
+    BLACKLIST = False
+
+
+class CharFilter:
+    """Filter for screening out certain CharacterClasses and Characters
+        _classes  - set of CharacterClasses tracked by the filter
+        _include_chars - set characters to be included, regardless of _classes
+        _exclude_chars - set characters to be included, regardless of _classes
+        _mode - FilterMode.WHITELIST or FilterMode.BLACKLIST
+                if WHITELIST is selected, only tracked chars are allowed in
+                if BLACKLIST is selected, tracked chars are excluded
+    """
+
+    def __init__(self, mode, classes=frozenset(),
+                 include_chars=frozenset(),
+                 exclude_chars=frozenset()):
+        """initialize a CharFilter with [mode]
+        if [mode] is True, the CharFilter will act as a whitelist
+        if [mode] is False, the CharFilter will act as a blacklist
+        [classes] are those classes to be whitelisted/blacklisted
+        [include_chars] are specific characters to be included
+        [exclude_chars] are specific characters to be excluded
+        """
+        self._classes = set(classes)
+        for char in include_chars:
+            if char in exclude_chars:
+                raise ValueError("Cannot have character in both include"
+                                 " and exclude")
+        for char in exclude_chars:
+            if char in include_chars:
+                raise ValueError("Cannot have character in both include"
+                                 " and exclude")
+        self._include_chars = set(include_chars)
+        self._exclude_chars = set(exclude_chars)
+        if isinstance(mode, FilterMode):
+            self._mode = mode
+        elif isinstance(mode, bool):
+            if mode:
+                self._mode = FilterMode.WHITELIST
+            else:
+                self._mode = FilterMode.BLACKLIST
+        else:
+            if mode.lower() == "whitelist":
+                self._mode = FilterMode.WHITELIST
+            elif mode.lower() == "blacklist":
+                self._mode = FilterMode.BLACKLIST
+            else:
+                raise ValueError("Unrecognized mode %s" % repr(mode))
+
+
+    def permits(self, other):
+        """returns True if Character/CharacterClass is allowed in
+        the individual Character is evaluated first,
+        then the Character's class, then all the Character's
+        ancestor classes
+        """
+        if isinstance(other, Character):
+            if other in self._include_chars:
+                return True
+            elif other in self._exclude_chars:
+                return False
+            # now try the Character's class
+            other = type(other)
+        if isinstance(other, CharacterClass):
+            # cycle through each ancestor
+            ancestors = filter(lambda x: isinstance(x, CharacterClass),
+                               other.__mro__)
+            for char_class in ancestors:
+                if char_class in self._classes:
+                    return self._mode.value
+        # "other" is neither a CharClass nor Character
+        else:
+            return False
+        # the character / ancestors cannot be found in the list
+        return not self._mode.value
+
+    def include(self, other):
+        """Set the filter to return 'True' if [other] is supplied
+        to permit()"""
+        # check that other is a Character / CharacterClass
+        if isinstance(other, CharacterClass):
+            if self._mode is FilterMode.WHITELIST:
+                self._classes.add(other)
+            else:
+                if other in self._classes:
+                    self._classes.remove(other)
+        elif isinstance(other, Character):
+            if other in self._exclude_chars:
+                self._exclude_chars.remove(other)
+            self._include_chars.add(other)
+        else:
+            raise ValueError("Expected Character/CharacterClass,"
+                             " received %s" % type(other))
+
+    def exclude(self, other):
+        """Set the filter to return 'False' if [other] is supplied
+        to permit()"""
+        # check that other is a Character / CharacterClass
+        if isinstance(other, CharacterClass):
+            if self._mode is FilterMode.WHITELIST:
+                if other in self._classes:
+                    self._classes.remove(other)
+            else:
+                self._classes.add(other)
+        elif isinstance(other, Character):
+            if other in self._include_chars:
+                self._include_chars.remove(other)
+            self._exclude_chars.add(other)
+        else:
+            raise ValueError("Expected Character/CharacterClass,"
+                             " received %s" % type(other))
+
+    def __repr__(self):
+        """overriding repr()"""
+        return ("CharFilter(%r, %r, %r, %r)"
+                % (self._mode.value, self._classes, self._include_chars,
+                   self._exclude_chars))
+
+    @staticmethod
+    def from_dict(filter_dict):
+        """returns a CharFilter pythonic representation [filter_dict]"""
+        return CharFilter(**filter_dict)
+
+    def to_dict(self):
+        """returns a pythonic representation of this CharFilter"""
+        data = {"mode" : self._mode.value}
+        if self._classes:
+            data["classes"] = list(self._classes)
+        if self._include_chars:
+            data["include_chars"] = list(self._include_chars)
+        if self._exclude_chars:
+            data["exclude_chars"] = list(self._exclude_chars)
+        return data
+
+
 class Command(functools.partial):
     """A subclass of functools.partial that supports equality.
     The default implementation of functools.partial does not normally support
@@ -80,6 +218,8 @@ class Command(functools.partial):
         # initialize satellite data
         self.name = None
         self.label = None
+        # by default, add a filter that permits all (empty blacklist)
+        self.filter = CharFilter(FilterMode.BLACKLIST)
 
     def __eq__(self, other):
         """Two commands are equal iff the base functions are equal,
@@ -109,6 +249,9 @@ class Command(functools.partial):
         # propagate the name and source
         new_cmd.name = self.name
         new_cmd.label = self.label
+        # note that a new filter is not created, so any changes to the
+        # old NewCommand will change to the old Command, and visa versa
+        new_cmd.filter = self.filter
         return new_cmd
 
     def __str__(self):
@@ -125,12 +268,14 @@ class Command(functools.partial):
         return f"{self}:\n{self.__doc__}"
 
     @staticmethod
-    def with_name(name=None, source=None):
+    def with_traits(name=None, label=None, filter=None):
         """decorator to easily wrap a function and add a name / source"""
         def decorator(func):
             cmd = Command(func)
             cmd.name = name
-            cmd.label = source
+            cmd.label = label
+            if filter is not None:
+                cmd.filter = filter
             return cmd
         return decorator
 
@@ -202,7 +347,9 @@ class Character(metaclass=CharacterClass):
         self.new_cmd_dict = ShadowDict()
         for (name, cmd) in self._commands.items():
             cmd = cmd.specify(self)
-            self.new_cmd_dict[name] = cmd
+            # add command only if filter permits it
+            if cmd.filter.permits(self):
+                self.new_cmd_dict[name] = cmd
             # because NewCommands are not bound properly like a normal method
             # we must manually bind the methods
             # TODO: override getattribute__ to solve the super() issue?
@@ -516,7 +663,7 @@ class Character(metaclass=CharacterClass):
         else:
             self.message(f"No exit with name '{ex_name}'.")
 
-    @Command.with_name("equip")
+    @Command.with_traits(name="equip")
     def cmd_equip(self, args):
         """Equip an equippable item from your inventory."""
         if len(args) < 2:
@@ -532,7 +679,7 @@ class Character(metaclass=CharacterClass):
         else:
             self.message(f"Could not find item '{item_name}'.")
 
-    @Command.with_name("unequip")
+    @Command.with_traits(name="unequip")
     def cmd_unequip(self, args):
         """Unequip an equipped item.
         Usage: unequip [item]"""
@@ -592,7 +739,7 @@ class Character(metaclass=CharacterClass):
         else:
             self.message(f"Could not find item '{item_name}' to drop.")
 
-    @Command.with_name("inv")
+    @Command.with_traits(name="inv")
     def cmd_inv(self, args):
         """Show your inventory.
         usage: inv"""
@@ -753,139 +900,3 @@ class AmbiguityResolver:
         string += "\nEnter a number to resolve it:"
         return string
 
-
-class FilterMode(enum.Enum):
-    WHITELIST = True
-    BLACKLIST = False
-
-
-class CharFilter:
-    """Filter for screening out certain CharacterClasses and Characters
-        _classes  - set of CharacterClasses tracked by the filter
-        _include_chars - set characters to be included, regardless of _classes
-        _exclude_chars - set characters to be included, regardless of _classes
-        _mode - FilterMode.WHITELIST or FilterMode.BLACKLIST
-                if WHITELIST is selected, only tracked chars are allowed in
-                if BLACKLIST is selected, tracked chars are excluded
-    """
-
-    def __init__(self, mode, classes=frozenset(),
-                 include_chars=frozenset(),
-                 exclude_chars=frozenset()):
-        """initialize a CharFilter with [mode]
-        if [mode] is True, the CharFilter will act as a whitelist
-        if [mode] is False, the CharFilter will act as a blacklist
-        [classes] are those classes to be whitelisted/blacklisted
-        [include_chars] are specific characters to be included
-        [exclude_chars] are specific characters to be excluded
-        """
-        self._classes = set(classes)
-        for char in include_chars:
-            if char in exclude_chars:
-                raise ValueError("Cannot have character in both include"
-                                 " and exclude")
-        for char in exclude_chars:
-            if char in include_chars:
-                raise ValueError("Cannot have character in both include"
-                                 " and exclude")
-        self._include_chars = set(include_chars)
-        self._exclude_chars = set(exclude_chars)
-        if isinstance(mode, FilterMode):
-            self._mode = mode
-        elif isinstance(mode, bool):
-            if mode:
-                self._mode = FilterMode.WHITELIST
-            else:
-                self._mode = FilterMode.BLACKLIST
-        else:
-            if mode.lower() == "whitelist":
-                self._mode = FilterMode.WHITELIST
-            elif mode.lower() == "blacklist":
-                self._mode = FilterMode.BLACKLIST
-            else:
-                raise ValueError("Unrecognized mode %s" % repr(mode))
-
-
-    def permits(self, other):
-        """returns True if Character/CharacterClass is allowed in
-        the individual Character is evaluated first,
-        then the Character's class, then all the Character's
-        ancestor classes
-        """
-        if isinstance(other, Character):
-            if other in self._include_chars:
-                return True
-            elif other in self._exclude_chars:
-                return False
-            # now try the Character's class
-            other = type(other)
-        if isinstance(other, CharacterClass):
-            # cycle through each ancestor
-            ancestors = filter(lambda x: isinstance(x, CharacterClass),
-                               other.__mro__)
-            for char_class in ancestors:
-                if char_class in self._classes:
-                    return self._mode.value
-        # "other" is neither a CharClass nor Character
-        else:
-            return False
-        # the character / ancestors cannot be found in the list
-        return not self._mode.value
-
-    def include(self, other):
-        """Set the filter to return 'True' if [other] is supplied
-        to permit()"""
-        # check that other is a Character / CharacterClass
-        if isinstance(other, CharacterClass):
-            if self._mode is FilterMode.WHITELIST:
-                self._classes.add(other)
-            else:
-                if other in self._classes:
-                    self._classes.remove(other)
-        elif isinstance(other, Character):
-            if other in self._exclude_chars:
-                self._exclude_chars.remove(other)
-            self._include_chars.add(other)
-        else:
-            raise ValueError("Expected Character/CharacterClass,"
-                             " received %s" % type(other))
-
-    def exclude(self, other):
-        """Set the filter to return 'False' if [other] is supplied
-        to permit()"""
-        # check that other is a Character / CharacterClass
-        if isinstance(other, CharacterClass):
-            if self._mode is FilterMode.WHITELIST:
-                if other in self._classes:
-                    self._classes.remove(other)
-            else:
-                self._classes.add(other)
-        elif isinstance(other, Character):
-            if other in self._include_chars:
-                self._include_chars.remove(other)
-            self._exclude_chars.add(other)
-        else:
-            raise ValueError("Expected Character/CharacterClass,"
-                             " received %s" % type(other))
-
-    def __repr__(self):
-        """overriding repr()"""
-        return ("CharFilter(%r, %r, %r, %r)"
-                % (self._mode.value, self._classes, self._include_chars,
-                   self._exclude_chars))
-
-    @staticmethod
-    def from_dict(filter_dict):
-        """returns a CharFilter pythonic representation [filter_dict]"""
-        return CharFilter(**filter_dict)
-
-    def to_dict(self):
-        """returns a pythonic representation of this CharFilter"""
-        data = {"mode" : self._mode.value}
-        if self._classes:
-            data["classes"] = list(self._classes)
-        if self._include_chars:
-            data["include_chars"] = list(self._include_chars)
-        if self._exclude_chars:
-            data["exclude_chars"] = list(self._exclude_chars)
-        return data

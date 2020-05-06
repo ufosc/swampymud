@@ -541,7 +541,7 @@ class Scout(Soldier):
 
     # the method names are different, but the Command
     # names are the same... method should be overriden
-    @Command.with_name("hit")
+    @Command.with_traits("hit")
     def do_hit(self, args):
         """poison an enemy"""
         self.message("You poison an enemy")

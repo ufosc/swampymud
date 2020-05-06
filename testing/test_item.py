@@ -196,7 +196,7 @@ class TestEquippableItem(unittest.TestCase):
                 pass
 
             # should still override Sword.poke, despite different name
-            @char.Command.with_name("poke")
+            @char.Command.with_traits("poke")
             def smash(self, char, args):
                 pass
 
