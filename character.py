@@ -311,12 +311,12 @@ class Character(metaclass=CharacterClass):
         self.msgs = []
 
         # build dict from Commands collected by CharacterClass
-        self.new_cmd_dict = ShadowDict()
+        self.cmd_dict = ShadowDict()
         for (name, cmd) in self._commands.items():
             cmd = cmd.specify(self)
             # add command only if filter permits it
             if cmd.filter.permits(self):
-                self.new_cmd_dict[name] = cmd
+                self.cmd_dict[name] = cmd
             # because NewCommands are not bound properly like a normal method
             # we must manually bind the methods
             # TODO: override getattribute__ to solve the super() issue?
@@ -401,10 +401,10 @@ class Character(metaclass=CharacterClass):
         # to allow for multi-word commands
         # TODO: match the longest command
         cmd_name = args[0]
-        if not cmd_name in self.new_cmd_dict:
+        if not cmd_name in self.cmd_dict:
             self.message("Command \'%s\' not recognized." % cmd_name)
             return
-        cmd = self.new_cmd_dict[cmd_name]
+        cmd = self.cmd_dict[cmd_name]
         cmd(args)
 
     # string-formatting methods
@@ -573,7 +573,7 @@ class Character(metaclass=CharacterClass):
         else:
             name = args[1]
             try:
-                self.message(self.new_cmd_dict[name].help_entry())
+                self.message(self.cmd_dict[name].help_entry())
             except KeyError:
                 self.message(f"Command '{name}' not recognized.")
 
@@ -740,7 +740,7 @@ class Character(metaclass=CharacterClass):
         for cls in reversed(type(self).__mro__):
             if isinstance(cls, CharacterClass):
                 sources[cls.command_label] = []
-        for name, cmd in self.new_cmd_dict.items():
+        for name, cmd in self.cmd_dict.items():
             try:
                 sources[cmd.label].append(name)
             except KeyError:

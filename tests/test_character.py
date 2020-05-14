@@ -651,7 +651,7 @@ class TestCommandInheritance(unittest.TestCase):
         self.assertEqual(self.soldier.hit.help_entry(),
                          "hit [from Soldier Abilities]:\nhit an enemy")
         # try from the command dict, just to be safe
-        self.assertEqual(self.soldier.new_cmd_dict["hit"].help_entry(),
+        self.assertEqual(self.soldier.cmd_dict["hit"].help_entry(),
                          "hit [from Soldier Abilities]:\nhit an enemy")
         self.assertEqual(self.bureaucrat.hit.help_entry(),
                          "hit [from Bureaucrat Commands]:\nstrike an enemy")
@@ -659,19 +659,19 @@ class TestCommandInheritance(unittest.TestCase):
                          "hit [from Soldier Abilities]:\nhit an enemy")
         self.assertEqual(self.scout.do_hit.help_entry(),
                          "hit [from Scout Commands]:\npoison an enemy")
-        self.assertEqual(self.scout.new_cmd_dict["hit"].help_entry(),
+        self.assertEqual(self.scout.cmd_dict["hit"].help_entry(),
                          "hit [from Scout Commands]:\npoison an enemy")
 
         self.assertEqual(self.soldier.call.help_entry(),
                          "call [from Soldier Abilities]:\ncall to a friend")
         # try from the command dict, just to be safe
-        self.assertEqual(self.soldier.new_cmd_dict["call"].help_entry(),
+        self.assertEqual(self.soldier.cmd_dict["call"].help_entry(),
                          "call [from Soldier Abilities]:\ncall to a friend")
         self.assertEqual(self.commander.call.help_entry(),
                          "call [from Commander Commands]:\nepic battle cry")
         with self.assertRaises(AttributeError):
             self.scout.call.help_entry() # call method is not a Command
-        self.assertEqual(self.scout.new_cmd_dict["call"].help_entry(),
+        self.assertEqual(self.scout.cmd_dict["call"].help_entry(),
                          "call [from Soldier Abilities]:\ncall to a friend")
 
 
@@ -706,7 +706,7 @@ class TestDefaultCommands(unittest.TestCase):
         self.phil.command("help help")
         help_msg = self.phil.msgs.pop()
         # check that help message agrees with the CommandDict
-        self.assertEqual(help_msg, self.phil.new_cmd_dict["help"].help_entry())
+        self.assertEqual(help_msg, self.phil.cmd_dict["help"].help_entry())
         self.assertEqual(help_msg,
                          "help [from Default Commands]:\n"
                          "Show relevant help information for a particular command.\n"

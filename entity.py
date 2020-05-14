@@ -72,14 +72,14 @@ class Entity(metaclass=EntityClass):
         for cmd in self._commands.values():
             if cmd.filter.permits(char):
                 cmd = cmd.specify(self, char)
-                char.new_cmd_dict[str(cmd)] = cmd
+                char.cmd_dict[str(cmd)] = cmd
 
     def remove_cmds(self, char):
         '''remove all commands from this char from this entity'''
         for cmd in self._commands.values():
             cmd = cmd.specify(self, char)
             try:
-                char.new_cmd_dict.remove_value(str(cmd), cmd)
+                char.cmd_dict.remove_value(str(cmd), cmd)
             # command was not in cmd_dict
             except KeyError:
                 pass

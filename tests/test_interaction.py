@@ -146,12 +146,12 @@ class TestInteraction(unittest.TestCase):
         self.assertTrue(isinstance(seller.equip_dict[rh][0], FireStaff))
         self.assertTrue(isinstance(wizard.equip_dict[rh][0], FireStaff))
         # now brute and wizard should have updated commands
-        self.assertTrue("hit" in brute.new_cmd_dict and 
-                        "fireball" not in brute.new_cmd_dict)
-        self.assertTrue("hit" not in seller.new_cmd_dict and 
-                        "fireball" not in seller.new_cmd_dict)
-        self.assertTrue("hit" not in wizard.new_cmd_dict and 
-                        "fireball" in wizard.new_cmd_dict)
+        self.assertTrue("hit" in brute.cmd_dict and 
+                        "fireball" not in brute.cmd_dict)
+        self.assertTrue("hit" not in seller.cmd_dict and 
+                        "fireball" not in seller.cmd_dict)
+        self.assertTrue("hit" not in wizard.cmd_dict and 
+                        "fireball" in wizard.cmd_dict)
         # test that the commands can be used
         brute.command("hit adam")
         self.assertEqual(brute.msgs.pop(), 
