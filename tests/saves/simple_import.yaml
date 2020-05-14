@@ -1,10 +1,10 @@
 prelude:
-  testing/script/basic_rpg.py:
+  tests/script/basic_rpg.py:
     - Wizard
     - Warrior
-  testing/script/weapons.py:
+  tests/script/weapons.py:
     - CursedRing
-  testing/script/simple_import.py:
+  tests/script/simple_import.py:
     - Housekeeper
 personae:
   Boring House:

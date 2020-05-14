@@ -2,7 +2,7 @@
 this module expects 'simple.yaml' to be loaded first
 """
 import mudscript
-from testing.script.basic_rpg import Humanoid
+from tests.script.basic_rpg import Humanoid
 
 HOUSE = mudscript.import_location("Boring House")
 INTERIOR = mudscript.import_location("Boring House Interior")

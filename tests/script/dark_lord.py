@@ -1,6 +1,6 @@
 """module with a location-based circular dependency"""
 import mudscript
-from testing.script.basic_rpg import Humanoid
+from tests.script.basic_rpg import Humanoid
 
 # location imports
 DARK_TOWER = mudscript.import_location("Dark Tower")

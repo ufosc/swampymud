@@ -18,21 +18,21 @@ class TestLoad(unittest.TestCase):
     def test_blank(self):
         """completely blank save should fail"""
         with self.assertRaises(Exception):
-            mudworld.read_worldfile('testing/saves/blank.yaml')
+            mudworld.read_worldfile('tests/saves/blank.yaml')
 
     def test_empty(self):
         """test a save file with 3 blank sections"""
-        result = mudworld.read_worldfile('testing/saves/empty.yaml')
+        result = mudworld.read_worldfile('tests/saves/empty.yaml')
         self.assertEqual(result, {"prelude" : None, "tree": None, "personae": None})
 
     def test_simple(self):
         """test loading a simple save"""
         self.maxDiff = 2000
-        result = mudworld.read_worldfile('testing/saves/simple.yaml')
+        result = mudworld.read_worldfile('tests/saves/simple.yaml')
         expected = {
             "prelude": {
-                "testing/script/basic_rpg.py": ["Wizard", "Warrior"],
-                "testing/script/weapons.py": ["CursedRing"]
+                "tests/script/basic_rpg.py": ["Wizard", "Warrior"],
+                "tests/script/weapons.py": ["CursedRing"]
             },
             "personae": {
                 "Boring House" : {
@@ -71,7 +71,7 @@ class TestPrelude(unittest.TestCase):
     def test_basic_import(self):
         """test a basic prelude with one file"""
         basic_prelude = {
-            "testing/script/basic_rpg.py": ["Warrior", "Wizard", "HealthPotion"]
+            "tests/script/basic_rpg.py": ["Warrior", "Wizard", "HealthPotion"]
         }
         results = mudworld.load_prelude(basic_prelude)
 
@@ -80,8 +80,8 @@ class TestPrelude(unittest.TestCase):
     def test_multi_import(self):
         """test an import with multiple files"""
         multi_prelude = {
-            "testing/script/basic_rpg.py": ["HealthPotion", "DarkWizard", "Golem"],
-            "testing/script/weapons.py": ["CursedRing", "WoodenStaff"]
+            "tests/script/basic_rpg.py": ["HealthPotion", "DarkWizard", "Golem"],
+            "tests/script/weapons.py": ["CursedRing", "WoodenStaff"]
         }
         classes = mudworld.load_prelude(multi_prelude)
         self.assertEqual(set(classes), set(["DarkWizard", "CursedRing",
@@ -92,13 +92,13 @@ class TestPrelude(unittest.TestCase):
         """test if prelude fails with a class not one of the first-class types"""
         # note that golem riddle is not an CharClass, ItemClass, or EntityClass
         multi_prelude = {
-            "testing/script/basic_rpg.py": ["HealthPotion", "DarkWizard", "GolemRiddle"],
-            "testing/script/weapons.py": ["CursedRing", "WoodenStaff"]
+            "tests/script/basic_rpg.py": ["HealthPotion", "DarkWizard", "GolemRiddle"],
+            "tests/script/weapons.py": ["CursedRing", "WoodenStaff"]
         }
         with self.assertRaises(Exception):
             mudworld.load_prelude(multi_prelude)
         # prelude with invalid class should raise an exception
-        prelude = {"testing/script/basic_rpg.py": ["HealthPotion", "Foo"]}
+        prelude = {"tests/script/basic_rpg.py": ["HealthPotion", "Foo"]}
         with self.assertRaises(Exception):
             mudworld.load_prelude(prelude)
         #TODO: test loading a prelude with mudscript.get_location
@@ -132,9 +132,9 @@ class TestPersonae(unittest.TestCase):
         }
         self.simple_classes = {
             "Location": Location,
-            "Wizard": import_class("testing.script.basic_rpg", "Wizard"),
-            "Warrior": import_class("testing.script.basic_rpg", "Warrior"),
-            "CursedRing": import_class("testing.script.weapons", "CursedRing")
+            "Wizard": import_class("tests.script.basic_rpg", "Wizard"),
+            "Warrior": import_class("tests.script.basic_rpg", "Warrior"),
+            "CursedRing": import_class("tests.script.weapons", "CursedRing")
         }
 
     def test_skim_empty(self):
@@ -306,9 +306,9 @@ class TestTree(unittest.TestCase):
     maxDiff = 10000
     def setUp(self):
         self.simple_classes = {
-            "Wizard": import_class("testing.script.basic_rpg", "Wizard"),
-            "Warrior": import_class("testing.script.basic_rpg", "Warrior"),
-            "CursedRing": import_class("testing.script.weapons", "CursedRing")
+            "Wizard": import_class("tests.script.basic_rpg", "Wizard"),
+            "Warrior": import_class("tests.script.basic_rpg", "Warrior"),
+            "CursedRing": import_class("tests.script.weapons", "CursedRing")
         }
         self.simple_objs = {
             "Boring House":
@@ -366,13 +366,13 @@ class TestWorld(unittest.TestCase):
     above"""
     maxDiff = 10000
     def setUp(self):
-        self.Warrior = import_class("testing.script.basic_rpg", "Warrior")
-        self.Wizard = import_class("testing.script.basic_rpg", "Wizard")
-        self.CursedRing = import_class("testing.script.weapons", "CursedRing")
+        self.Warrior = import_class("tests.script.basic_rpg", "Warrior")
+        self.Wizard = import_class("tests.script.basic_rpg", "Wizard")
+        self.CursedRing = import_class("tests.script.weapons", "CursedRing")
 
     def test_simple(self):
         """should successfully load in a simple world"""
-        world = mudworld.World.from_file("testing/saves/simple.yaml")
+        world = mudworld.World.from_file("tests/saves/simple.yaml")
 
         self.assertEqual(set(world.locations),
                          set(("Boring House", "Boring House Interior")))
@@ -408,14 +408,14 @@ class TestLocationScripts(unittest.TestCase):
         """bad location imports should produce a KeyError"""
         with self.assertRaises(KeyError, msg="Cannot access location 'Epic Castle'"
                                " (no locations with that name)"):
-            world = mudworld.World.from_file("testing/saves/bad_location_import.yaml")
+            world = mudworld.World.from_file("tests/saves/bad_location_import.yaml")
 
 
     def test_good_location_import(self):
         """a valid location import should work properly"""
-        world = mudworld.World.from_file("testing/saves/simple_import.yaml")
+        world = mudworld.World.from_file("tests/saves/simple_import.yaml")
         # import the dark_lord module
-        mod = importlib.import_module("testing.script.simple_import")
+        mod = importlib.import_module("tests.script.simple_import")
         # the locations in the module should be loaded directly
         # from the world
         self.assertTrue(mod.HOUSE is world.locations["Boring House"])
@@ -426,7 +426,7 @@ class TestLocationScripts(unittest.TestCase):
         # this is because the modules have already been initalized,
         # thus the import_location statements are not called
         # PAY ATTENTION, THIS COULD CAUSE ERRORS
-        world = mudworld.World.from_file("testing/saves/simple_import.yaml")
+        world = mudworld.World.from_file("tests/saves/simple_import.yaml")
         self.assertFalse(mod.HOUSE is world.locations["Boring House"])
         self.assertFalse(mod.INTERIOR is \
                          world.locations["Boring House Interior"])
@@ -437,7 +437,7 @@ class TestLocationScripts(unittest.TestCase):
         """test that the dark lord's abilities work (relies on
         functioning location, control, and character modules)
         """
-        world = mudworld.World.from_file("testing/saves/dark_lord.yaml")
+        world = mudworld.World.from_file("tests/saves/dark_lord.yaml")
         # our two normal humans from the tavern
         human1, human2 = tuple(world.locations["Tavern"].characters)
         # get our evil dark_lord

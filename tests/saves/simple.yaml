@@ -1,8 +1,8 @@
 prelude:
-  testing/script/basic_rpg.py:
+  tests/script/basic_rpg.py:
     - Wizard
     - Warrior
-  testing/script/weapons.py:
+  tests/script/weapons.py:
     - CursedRing
 personae:
   Boring House:

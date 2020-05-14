@@ -1,10 +1,10 @@
 prelude:
-  testing/script/basic_rpg.py:
+  tests/script/basic_rpg.py:
     - Wizard
     - Warrior
     - Thief
     - BigClub
-  testing/script/weapons.py:
+  tests/script/weapons.py:
     - WoodenStaff
     - GoldNugget
     - CursedRing

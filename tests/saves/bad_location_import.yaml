@@ -1,7 +1,7 @@
 prelude:
-  testing/script/dark_lord.py:
+  tests/script/bad_location_import.py:
     - DarkLord
-  testing/script/basic_rpg.py:
+  tests/script/basic_rpg.py:
     - Humanoid
 personae:
   Tavern:
@@ -40,8 +40,4 @@ tree:
     Abra:
       ring
 tree:
-  tower: Vennicule
-  Tavern:
-    - Alan
-    - Mayberry
-  dungeon:
+  tower
