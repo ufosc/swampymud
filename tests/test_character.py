@@ -1078,7 +1078,7 @@ class TestSpawn(unittest.TestCase):
         ])
         self.new_player.msgs.clear()
         self.assertEqual(self.bill.msgs, [])
-        self.assertTrue(self.new_player._parser == self.new_player._greeter)
+        self.assertTrue(self.new_player._parser == self.new_player._join_parser)
 
         # test the different error messages
         self.new_player.command("name with spaces")

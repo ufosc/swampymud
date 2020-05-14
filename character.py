@@ -5,7 +5,6 @@ import inspect
 import inventory as inv
 import util
 from util.shadowdict import ShadowDict
-import util.english as eng
 
 class CharException(Exception):
     pass
@@ -328,14 +327,12 @@ class Character(metaclass=CharacterClass):
         self.equip_dict = inv.EquipTarget.make_dict(*self.equip_slots)
 
         # put character in default command parsing mode
-        self._parser = self.parse_command
+        self._parser = self._command_parser
 
     def message(self, msg):
         """send a message to the controller of this character"""
         self.msgs.append(msg)
         # store this last message for convenience
-        # TODO: remove this
-        self.last_msg = msg
 
     def command(self, msg):
         """issue 'msg' to character.
@@ -359,7 +356,7 @@ class Character(metaclass=CharacterClass):
         # thus, player will not be available to attack
         self.location = spawn_location
 
-        self._parser = self._greeter
+        self._parser = self._join_parser
 
     def despawn(self):
         """method executed when a player dies"""
@@ -370,11 +367,12 @@ class Character(metaclass=CharacterClass):
             except ValueError:
                 pass
         self.location = None
-        # TODO: make a custom parser for dead people
+        self._parser = self._dead_parser
 
     # default user-input parsers
-    def _greeter(self, new_name: str):
-        """parser for a player who has just joined, used for selecting a name"""
+    def _join_parser(self, new_name: str):
+        """Parser for a newly joined player, used for selecting a valid
+        name"""
         if len(new_name) < 2:
             self.message("Names must have at least 2 characters.")
             return
@@ -389,23 +387,23 @@ class Character(metaclass=CharacterClass):
         self.location = None
         self.set_location(loc)
 
-        self._parser = self.parse_command
+        self._parser = self._command_parser
 
-    def parse_command(self, line: str = None, args=None):
-        """The default parser for parses a command, raises AttributeError if command cannot be found"""
-        if args is None and line is None:
-            return
-        if args is None:
-            args = line.split()
-        # TODO: match the beginning of the line with one of the cmds
-        # to allow for multi-word commands
-        # TODO: match the longest command
+    def _command_parser(self, line: str):
+        """The default parser for a player. Parses"""
+        # command is always the first word
+        args = line.split()
         cmd_name = args[0]
         if not cmd_name in self.cmd_dict:
             self.message("Command \'%s\' not recognized." % cmd_name)
             return
         cmd = self.cmd_dict[cmd_name]
         cmd(args)
+
+    def _dead_parser(self, line: str):
+        """Parser used when a character has died"""
+        self.message("You have died. Reconnect to this server to start"
+                     " as a new character.")
 
     # string-formatting methods
     def __repr__(self):
