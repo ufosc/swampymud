@@ -320,7 +320,7 @@ class World:
     @staticmethod
     def test_world():
         """create a barebones world for testing purposes"""
-        prelude = {"character": ["Character"]}
+        prelude = {"swampymud.character": ["Character"]}
         personae = {"tavern":{
             "_type": "^Location",
             "name": "Swampy Tavern",

@@ -11,7 +11,8 @@ import argparse
 # import the MUD server class
 from swampymud.mudserver import MudServer, Event, EventType
 # import modules from the SwampyMud engine
-from swampymud import mudworld, mudscript
+from swampymud import mudworld
+from swampymud import mudscript
 
 # better names welcome
 class MainServer(MudServer):
