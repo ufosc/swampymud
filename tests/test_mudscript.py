@@ -9,9 +9,9 @@ class TestServerExport(unittest.TestCase):
 
     def test_server_export(self):
         '''test that the server export function works'''
-        with self.assertRaises(ms.MuddyException):
+        with self.assertRaises(ms.SwampyException):
             ms.message_all("test!")
-        with self.assertRaises(ms.MuddyException):
+        with self.assertRaises(ms.SwampyException):
             ms.message_all("test!")
         # creating a test server with an uncommon port
         # if for some reason you cannot bind this port, feel free to change it
@@ -22,7 +22,7 @@ class TestServerExport(unittest.TestCase):
         ms.message_all("here's a second message!")
         # exporting 'None' should reset the server
         ms.export_server(None)
-        with self.assertRaises(ms.MuddyException):
+        with self.assertRaises(ms.SwampyException):
             ms.message_all("bye!!")
 
         # close the server
@@ -48,19 +48,19 @@ class TestLocationExport(unittest.TestCase):
         }
 
     def test_import_before_export(self):
-        """test that import_location raises a MuddyException
+        """test that import_location raises a SwampyException
         if no locations have been exported"""
         # importing location before any have been exported
-        # should raise MuddyException
-        with self.assertRaises(ms.MuddyException,
+        # should raise SwampyException
+        with self.assertRaises(ms.SwampyException,
                                msg="Cannot access location "
                                "'Dungeon' (no locations are exported)"):
             ms.import_location("Dungeon")
         # briefly export locations, then return
         with ms.LocationExport(self.test_locations):
             pass
-        # should raise MuddyException after calling __exit__
-        with self.assertRaises(ms.MuddyException,
+        # should raise SwampyException after calling __exit__
+        with self.assertRaises(ms.SwampyException,
                                msg="Cannot access location "
                                "'Dungeon' (no locations are exported)"):
             ms.import_location("Dungeon")

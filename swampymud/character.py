@@ -372,7 +372,7 @@ class Character(metaclass=CharacterClass):
         [spawn_location]: where the character should spawn after a name
             is submitted.
         """
-        self.message(f"Welcome to MuddySwamp! You are a {type(self)}")
+        self.message(f"Welcome to our SwampyMud! You are a {type(self)}")
         self.message(f"What should we call you?")
 
         # set player location to spawn_location, but do not MOVE them

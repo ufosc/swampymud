@@ -1,4 +1,4 @@
 '''Useful classes and functions used elsewhere in the
-MuddySwamp engine'''
+SwampyMud engine'''
 from .misc import *
 TAB = "    "

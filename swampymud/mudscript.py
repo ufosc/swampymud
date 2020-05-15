@@ -1,4 +1,4 @@
-'''module containing useful functions for creating MuddySwamp scripts'''
+'''module containing useful functions for creating SwampyMud scripts'''
 from swampymud.mudserver import MudServer
 
 server = None
@@ -13,7 +13,7 @@ def export_server(inp_server):
     server = inp_server
 
 
-class MuddyException(Exception):
+class SwampyException(Exception):
     '''Exception class made purely to highlight
     mudscript-specific errors'''
     pass
@@ -24,7 +24,7 @@ def server_warning(func, *args, **kwargs):
     def decorated(*args, **kwargs):
         global server
         if not server:
-            raise MuddyException("Must export a server before using mudscript.")
+            raise SwampyException("Must export a server before using mudscript.")
         return func(*args, **kwargs)
     return decorated
 
@@ -68,10 +68,10 @@ class LocationExport:
 def import_location(name):
     """import a location with [name]
     raises KeyError if name is not found in exported locations
-    raises MuddyException if no locations have been exported"""
+    raises SwampyException if no locations have been exported"""
     global _EXPORTED_LOCATIONS
     if _EXPORTED_LOCATIONS is None:
-        raise MuddyException(f"Cannot access location '{name}' "
+        raise SwampyException(f"Cannot access location '{name}' "
                              "(no locations are exported)")
     try:
         return _EXPORTED_LOCATIONS[name]

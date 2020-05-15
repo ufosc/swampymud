@@ -1073,7 +1073,7 @@ class TestSpawn(unittest.TestCase):
         self.assertEqual(self.new_player.location, TEST_ROOM)
         self.assertEqual(TEST_ROOM.characters, [self.bill])
         self.assertEqual(self.new_player.msgs, [
-            "Welcome to MuddySwamp! You are a Human",
+            "Welcome to our SwampyMud! You are a Human",
             "What should we call you?"
         ])
         self.new_player.msgs.clear()

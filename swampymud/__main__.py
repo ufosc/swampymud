@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-'''main script for MuddySwamp'''
+'''main script for creating swampy MUDs'''
 import sys
 import logging
 import threading
@@ -10,7 +10,7 @@ import errno
 import argparse
 # import the MUD server class
 from swampymud.mudserver import MudServer, Event, EventType
-# import modules from the MuddySwamp engine
+# import modules from the SwampyMud engine
 from swampymud import mudworld, mudscript
 
 # better names welcome
@@ -144,7 +144,7 @@ class MudServerWorker(threading.Thread):
         # Shut down the mud instance after the while loop finishes
         self.mud.shutdown()
 
-parser = argparse.ArgumentParser(description="Launch a MuddySwamp server.")
+parser = argparse.ArgumentParser(description="Launch a swampy Multi-User Dungeon.")
 parser.add_argument("-p", "--port", type=int,
                     help="Specify a port. [Default: 1234]", default=1234)
 parser.add_argument("-w", "--world", metavar="FILE",

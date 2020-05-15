@@ -1,4 +1,4 @@
-# Muddy World Files: An Informal Specification
+# Swampy World Files: An Informal Specification
 *Name subject to change.*
 
 ## Purpose
@@ -17,7 +17,7 @@ This format is **not** optimized for performance.
 While we avoid needlessly expensive features, our main goal is not to create a format that is novel and innovative, but rather, one that is straightforward and intuitive.
 Our project is, after all, a Python project.
 
-## Muddy World Files are based on YAML
+## Swampy World Files are based on YAML
 
 With our aims in mind, this format is based on [YAML](https://yaml.org/).
 YAML is a reasonable choice given Objective #1.
@@ -37,7 +37,7 @@ For the remainder of this specification, we can discuss the format using terms l
 Refer to the YAML specification for formal definitions of these terms.
 
 ## File Structure
-MuddySaves contain exactly 3 segments:
+Swampy Worlds contain exactly 3 segments:
 
 ```yaml
 prelude:
@@ -71,7 +71,7 @@ For instance:
 ```yaml
 prelude:
     scripts/magic.py: [Wizard, DarkWizard, Alchemist, WoodenStaff]
-    scripts/jewerly.py: [GoldenRing, SilverRing, EnchantedNecklace]
+    scripts/jewelry.py: [GoldenRing, SilverRing, EnchantedNecklace]
     # add more scripts and classes as appropriate
 ```
 
@@ -79,7 +79,7 @@ The example above equates to the following Python code:
 
 ```python
 from scripts.magic import Wizard, DarkWizard, Alchemist, WoodenStaff
-from scripts.jewerly import GoldenRing, SilverRing, EnchantedNecklace
+from scripts.jewelry import GoldenRing, SilverRing, EnchantedNecklace
 ```
 
 More formally, the mapping in the `prelude` segment should fit the following format:
