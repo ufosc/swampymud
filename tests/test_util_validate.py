@@ -1,5 +1,5 @@
 import unittest
-from util.validate import validate, META_SCHEMA, check_schema, format_error
+from swampymud.util.validate import validate, META_SCHEMA, check_schema, format_error
 
 class TestValidate(unittest.TestCase):
     """test case for the validator function"""

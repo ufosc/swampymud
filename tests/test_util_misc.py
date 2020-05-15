@@ -1,5 +1,5 @@
 import unittest
-import util
+from swampymud import util
 
 class TestMisc(unittest.TestCase):
     '''Test Case for miscelleneous functions in the util module'''
@@ -8,7 +8,7 @@ class TestMisc(unittest.TestCase):
         self.assertEqual(util.camel_to_space("CamelCaseClass"), "Camel Case Class")
         self.assertEqual(util.camel_to_space("Gandalf"), "Gandalf")
         self.assertEqual(util.camel_to_space("frodo"), "frodo")
-    
+
     def test_group_and_count(self):
         self.assertEqual(util.group_and_count(["apple", "apple", "banana", "cap", "cap", "cap"]),
                         "apple\t[2]\nbanana\ncap\t[3]")

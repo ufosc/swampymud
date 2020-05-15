@@ -1,5 +1,5 @@
 '''module containing useful functions for creating MuddySwamp scripts'''
-from mudserver import MudServer
+from swampymud.mudserver import MudServer
 
 server = None
 

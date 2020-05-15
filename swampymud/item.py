@@ -14,9 +14,9 @@ including support for character.Command methods.
 import inspect
 import abc
 from typing import List
-from util import camel_to_space
-from character import Command, Character
-import inventory as inv
+from swampymud.util import camel_to_space
+from swampymud.character import Command, Character
+import swampymud.inventory as inv
 
 #TODO: add interact and perceive filters
 class ItemClass(type):

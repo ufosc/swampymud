@@ -1,8 +1,8 @@
 """unit tests for the mudscript module"""
 import unittest
-from mudserver import MudServer
-import mudscript as ms
-from location import Location
+from swampymud.mudserver import MudServer
+import swampymud.mudscript as ms
+from swampymud.location import Location
 
 class TestServerExport(unittest.TestCase):
     '''testing the server_export related functions'''
@@ -52,7 +52,7 @@ class TestLocationExport(unittest.TestCase):
         if no locations have been exported"""
         # importing location before any have been exported
         # should raise MuddyException
-        with self.assertRaises(ms.MuddyException, 
+        with self.assertRaises(ms.MuddyException,
                                msg="Cannot access location "
                                "'Dungeon' (no locations are exported)"):
             ms.import_location("Dungeon")
@@ -60,7 +60,7 @@ class TestLocationExport(unittest.TestCase):
         with ms.LocationExport(self.test_locations):
             pass
         # should raise MuddyException after calling __exit__
-        with self.assertRaises(ms.MuddyException, 
+        with self.assertRaises(ms.MuddyException,
                                msg="Cannot access location "
                                "'Dungeon' (no locations are exported)"):
             ms.import_location("Dungeon")

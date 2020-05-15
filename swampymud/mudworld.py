@@ -4,11 +4,11 @@ import importlib
 from collections import defaultdict
 from random import choices
 import yaml
-from location import Location
-from character import CharacterClass, Character
-from item import ItemClass, Item
-from entity import EntityClass, Entity
-from mudscript import LocationExport
+from swampymud.location import Location
+from swampymud.character import CharacterClass, Character
+from swampymud.item import ItemClass, Item
+from swampymud.entity import EntityClass, Entity
+from swampymud.mudscript import LocationExport
 
 # TODO: change these to sets?
 _GAME_OBJS = [Character, Item, Entity, Location]

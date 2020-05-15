@@ -1,7 +1,7 @@
 """module containing testcases for the inventory module"""
 import unittest
-import inventory as inv
-from item import Usable, Equippable, Item
+import swampymud.inventory as inv
+from swampymud.item import Usable, Equippable, Item
 
 class SilverCoin(Item):
     """example of a Miscellaneous Item"""

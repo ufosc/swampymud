@@ -1,10 +1,10 @@
 """module with a location-based circular dependency"""
-import mudscript
+import swampymud.mudscript as ms
 from tests.script.basic_rpg import Humanoid
 
 # location imports
-DARK_TOWER = mudscript.import_location("Dark Tower")
-DARK_DUNGEON = mudscript.import_location("Dark Dungeon")
+DARK_TOWER = ms.import_location("Dark Tower")
+DARK_DUNGEON = ms.import_location("Dark Dungeon")
 
 class DarkLord(Humanoid):
     """the most evil, corrupt wizard"""
@@ -31,10 +31,10 @@ class DarkLord(Humanoid):
 
     def cmd_laugh(self, args):
         """laugh maniacally"""
-        mudscript.message_all(f"{self} laughs maniacally.")
+        ms.message_all(f"{self} laughs maniacally.")
 
 # note we have no mechanism of exporting locations
-# all 'static' locations (locations created before the server launches) should be declared using mudscript.import_location
+# all 'static' locations (locations created before the server launches) should be declared using ms.import_location
 # all 'dynamic' locations (locations created programatically) should be connected to an existing Location via an exit
 # this allows the world tree to correctly traverse the plane of exits when serializing the world
 

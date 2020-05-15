@@ -1,7 +1,7 @@
 '''Module defining the entity class'''
-from util import camel_to_space
-import character
 import inspect
+from swampymud.util import camel_to_space
+import swampymud.character as character
 
 
 class EntityClass(type):

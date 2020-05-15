@@ -1,11 +1,11 @@
 """unit tests for the mudworld module"""
 import unittest
 import importlib
-import mudworld
-from character import CharacterClass
-from item import Item
-from location import Location
-import inventory as inv
+from swampymud import mudworld
+from swampymud.character import CharacterClass
+from swampymud.item import Item
+from swampymud.location import Location
+import swampymud.inventory as inv
 
 def import_class(modname, classname):
     """function equivalent to from [mod] import [class]"""

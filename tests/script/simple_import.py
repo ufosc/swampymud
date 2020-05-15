@@ -1,7 +1,7 @@
 """module with a location-based circular dependency
 this module expects 'simple.yaml' to be loaded first
 """
-import mudscript
+from swampymud import mudscript
 from tests.script.basic_rpg import Humanoid
 
 HOUSE = mudscript.import_location("Boring House")

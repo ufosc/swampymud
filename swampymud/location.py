@@ -10,10 +10,9 @@ and items.
 """
 
 from typing import Iterable
-import inventory
-import item
-import character as char
-import util
+import swampymud.inventory
+import swampymud.character as char
+import swampymud
 
 class Exit:
     """Class representing an in-game Exit.
@@ -114,7 +113,7 @@ class Location:
         self.characters = []
         self.entities = []
         self._exit_list = []
-        self.inv = inventory.Inventory()
+        self.inv = swampymud.inventory.Inventory()
         self.name = name
         self.description = description
 
@@ -188,7 +187,7 @@ class Location:
             )}""")
         if self.inv:
             output.append("Items available:")
-            output.append(util.group_and_count(list(self.inv)))
+            output.append(swampymud.util.group_and_count(list(self.inv)))
 
     def __repr__(self):
         return f"Location{repr((self.name, self.description))}"

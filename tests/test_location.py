@@ -1,5 +1,5 @@
 import unittest
-import location as loc
+import swampymud.location as loc
 
 class TestExit(unittest.TestCase):
 

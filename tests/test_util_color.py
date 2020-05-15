@@ -1,6 +1,6 @@
 """unit tests for the color module"""
 import unittest
-import util.color as col
+import swampymud.util.color as col
 
 class TestSGRCommand(unittest.TestCase):
     """test case for basic features of SGRCommand functionality"""

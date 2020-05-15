@@ -1,5 +1,5 @@
 import unittest
-from util.shadowdict import ShadowDict
+from swampymud.util.shadowdict import ShadowDict
 
 class TestShadowdict(unittest.TestCase):
 
@@ -11,7 +11,7 @@ class TestShadowdict(unittest.TestCase):
             "archer": "legolas"
         }
         self.party = ShadowDict(self.starter_dict)
-    
+
     def test_get_set_del_empty(self):
         self.empty["test"] = 1
         self.assertEqual(self.empty["test"], 1)
@@ -24,7 +24,7 @@ class TestShadowdict(unittest.TestCase):
             self.empty["test"]
         with self.assertRaises(KeyError):
             del self.empty["test"]
-    
+
     def test_get_set_del_party(self):
         # check that the party has all the right starting members
         self.assertEqual(self.party["wizard"], "gandalf")
@@ -86,7 +86,7 @@ class TestShadowdict(unittest.TestCase):
         self.assertEqual(len(self.party), 3)
         self.party["thief"] = "madoff"
         self.assertEqual(len(self.party), 3)
-    
+
     def test_iter(self):
         self.assertEqual(list(self.empty), [])
         self.assertEqual(list(self.party), ["wizard", "thief", "archer"])
@@ -102,7 +102,7 @@ class TestShadowdict(unittest.TestCase):
         self.assertEqual(list(self.party.items()), [("wizard", "dumbledore"),
                                                     ("thief", "frodo"),
                                                     ("archer", "legolas")])
-    
+
     def test_copy(self):
         self.copied = self.party.copy()
         self.assertEqual(self.copied._dict, {
@@ -162,7 +162,7 @@ class TestShadowdict(unittest.TestCase):
         # expect a key error if provided a key that does not exist
         with self.assertRaises(KeyError):
             self.party.remove_value("knight", "lancelot")
-        # expect a value error if the value is not in the dict, 
+        # expect a value error if the value is not in the dict,
         # but the key is
         with self.assertRaises(ValueError):
             self.party.remove_value("wizard", "merlin")

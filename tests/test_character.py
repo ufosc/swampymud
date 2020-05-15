@@ -1,10 +1,10 @@
 """module testing the Character class"""
 import unittest
-import item
-import character as char
-from character import Command
-import location as loc
-import inventory as inv
+from swampymud import item
+import swampymud.character as char
+from swampymud.character import Command
+import swampymud.location as loc
+import swampymud.inventory as inv
 
 class TestCommand(unittest.TestCase):
     """testing the Command class and associated functions"""

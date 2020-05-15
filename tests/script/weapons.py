@@ -1,5 +1,5 @@
-from item import Equippable, Item
-from inventory import EquipTarget
+from swampymud.item import Equippable, Item
+from swampymud.inventory import EquipTarget
 from .basic_rpg import HealthPotion
 
 #TODO: add CharFilters and make this only accesible to Warriors

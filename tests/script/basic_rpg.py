@@ -1,8 +1,8 @@
 '''Defining some basic RPG classes for testing'''
-from character import Character
-from item import Item, Equippable
-from inventory import EquipTarget
-from entity import Entity
+from swampymud.character import Character
+from swampymud.item import Item, Equippable
+from swampymud.inventory import EquipTarget
+from swampymud.entity import Entity
 from time import time
 import random
 

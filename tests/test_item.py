@@ -1,8 +1,8 @@
 """testcases for testing the item module"""
 import unittest
-import item
-import inventory as inv
-import character as char
+import swampymud.item as item
+import swampymud.inventory as inv
+import swampymud.character as char
 
 class TestItemMetas(unittest.TestCase):
     """testcase for the basic guarantees of the item metaclasses"""

@@ -1,9 +1,9 @@
 """testcases for interaction between characters, items, and entities"""
 import unittest
-import location
-import character
-import item
-import inventory
+import swampymud.location as location
+import swampymud.character as character
+import swampymud.item as item
+import swampymud.inventory as inventory
 
 # first, some locations
 tavern = location.Location("Tavern", "A scuzzy tavern.")

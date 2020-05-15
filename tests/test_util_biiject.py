@@ -1,5 +1,5 @@
 import unittest
-from util.biject import Biject
+from swampymud.util.biject import Biject
 
 class TestBiject(unittest.TestCase):
     '''test case for bijection'''
@@ -12,7 +12,7 @@ class TestBiject(unittest.TestCase):
         self.greek["alpha"] = "a"
         self.greek["beta"] = "b"
         self.greek["mu"] = "m"
-    
+
     def test_len(self):
         self.assertEqual(len(self.empty), 0)
         self.assertEqual(len(self.greek), 3)
@@ -21,7 +21,7 @@ class TestBiject(unittest.TestCase):
         self.assertEqual(repr(self.empty), "Biject()")
         self.assertEqual(repr(self.hundred_biject),
                          "Biject(%r)" % self.hundred_dict)
-    
+
     def test_get(self):
         self.assertEqual(self.greek["beta"], "b")
         self.assertEqual(self.greek["a"], "alpha")
@@ -42,7 +42,7 @@ class TestBiject(unittest.TestCase):
             self.hundred_biject[100] = 3
         # setting the same value over again should be fine
         self.greek["lambda"] = "l"
-    
+
     def test_del(self):
         del self.greek["mu"]
         # cannot get the value
@@ -59,7 +59,7 @@ class TestBiject(unittest.TestCase):
             del self.greek["mu"]
         # can now set the value
         self.greek["mu"] = "M"
-    
+
     def test_contains(self):
         self.assertFalse("x" in self.empty)
         self.assertTrue("beta" in self.greek)

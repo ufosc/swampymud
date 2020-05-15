@@ -1,7 +1,7 @@
 """testcases for the entity module"""
 import unittest
-import entity
-import character as char
+from swampymud import entity
+import swampymud.character as char
 
 
 class TestEntityMeta(unittest.TestCase):

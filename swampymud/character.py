@@ -8,9 +8,9 @@ commands that can be invoked by characters.
 import enum
 import functools
 import inspect
-import inventory as inv
-import util
-from util.shadowdict import ShadowDict
+import swampymud.inventory as inv
+from swampymud import util
+from swampymud.util.shadowdict import ShadowDict
 
 class Filter:
     """Filter for screening out certain CharacterClasses and Characters

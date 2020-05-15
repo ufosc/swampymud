@@ -9,10 +9,9 @@ import traceback
 import errno
 import argparse
 # import the MUD server class
-from mudserver import MudServer, Event, EventType
+from swampymud.mudserver import MudServer, Event, EventType
 # import modules from the MuddySwamp engine
-import mudworld
-import mudscript
+from swampymud import mudworld, mudscript
 
 # better names welcome
 class MainServer(MudServer):
