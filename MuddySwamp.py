@@ -24,24 +24,6 @@ class MainServer(MudServer):
         self.players = {} # dict mapping socket IDs to characters
         super().__init__(port)
 
-    def set_default_class(self, cls_name):
-        '''set default class to class with name [default_name]
-        throws an error if default_name is not found in server's lib'''
-        self.default_class = server.world.char_classes[cls_name]
-
-    def set_default_location(self, loc_name):
-        '''set default class to class with name [default_name]
-        throws an error if default_name is not found in server's lib'''
-        self.default_location = server.world.locations[loc_name]
-
-    def clear_default_class(self):
-        '''clear the provided default class'''
-        self.default_class = None
-
-    def clear_default_location(self):
-        '''clear the provided default location'''
-        self.default_location = None
-
     def get_player_class(self):
         '''get a player class from the server'''
         if self.default_class is not None:
@@ -80,7 +62,7 @@ class MudServerWorker(threading.Thread):
         super().__init__(*args, **kwargs)
 
 
-    # Cannot call mud.shutdown() here because it will try to call 
+    # Cannot call mud.shutdown() here because it will try to call
     # the sockets in run on the final go through
     def shutdown(self):
         self.keep_running = False
@@ -126,7 +108,7 @@ class MudServerWorker(threading.Thread):
                         start_loc = self.mud.default_location
                     elif character.starting_location is not None:
                         start_loc = character.starting_location
-                    # if no default class 
+                    # if no default class
                     else:
                         try:
                             start_loc = next(iter(self.mud.world.locations.values()))
@@ -198,10 +180,11 @@ if __name__ == "__main__":
     # export server to enable mudscript
     mudscript.export_server(server)
 
-    # set the default class if one was provided
+    # set the default values if provided
     if args.default_class:
         try:
-            server.set_default_class(args.default_class)
+            server.default_class = \
+                server.world.char_classes[args.default_class]
         except KeyError:
             print("Error setting default class.\n"
                   f"Cannot find class '{args.default_class}'",
@@ -210,7 +193,8 @@ if __name__ == "__main__":
 
     if args.default_location:
         try:
-            server.set_default_location(args.default_location)
+            server.default_location = \
+                server.world.locations[args.default_location]
         except KeyError:
             print("Error setting default location.\n"
                   f"Cannot find location '{args.default_location}'",
