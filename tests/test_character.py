@@ -793,28 +793,28 @@ class TestDefaultCommands(unittest.TestCase):
 
     def test_go_filtered(self):
         """test that 'go' command respects Filters"""
-        # set access for exit to an empty whitelist
+        # set interact for exit to an empty whitelist
         # i.e. nobody is allowed through
-        TEST_EXIT.access = char.Filter(mode=True)
+        TEST_EXIT.interact = char.Filter(mode=True)
         self.bill.command("go outside")
-        self.assertEqual(self.bill.msgs, ["Exit 'outside' is unaccessible to you."])
+        self.assertEqual(self.bill.msgs, ["Exit 'outside' is inaccessible to you."])
         self.assertEqual(self.phil.msgs, [])
         self.assertEqual(self.dana.msgs, [])
         self.assertTrue(self.bill.location is TEST_ROOM)
         self.bill.msgs.clear()
-        # set visibility for exit to an empty whitelist
+        # set perceive for exit to an empty whitelist
         # i.e. nobody can see this exit or go through now
         # so Bill should not be informed that this exit even exists
-        TEST_EXIT.visibility = char.Filter(mode=True)
+        TEST_EXIT.perceive = char.Filter(mode=True)
         self.bill.command("go outside")
         self.assertEqual(self.bill.msgs, ["No exit with name 'outside'."])
         self.assertEqual(self.phil.msgs, [])
         self.assertEqual(self.dana.msgs, [])
         self.assertTrue(self.bill.location is TEST_ROOM)
         self.bill.msgs.clear()
-        # BUT, if we set access to empty blacklist (allowing anyone in)
+        # BUT, if we set interact to empty blacklist (allowing anyone in)
         # Bill should be allowed through, even though he can't see the exit
-        TEST_EXIT.access = char.Filter(mode=False)
+        TEST_EXIT.interact = char.Filter(mode=False)
         self.bill.command("go outside")
         self.assertEqual(self.bill.msgs, [])
         self.assertEqual(self.phil.msgs,

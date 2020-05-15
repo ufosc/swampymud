@@ -11,18 +11,13 @@ class TestExit(unittest.TestCase):
                                    other_names=["magic door"],
                                    hide_des=True)
 
-    def test_exit_contains(self):
-        self.assertTrue("magic" in self.magic_portal)
-        self.assertTrue("portal" in self.magic_portal)
-        self.assertFalse("meme" in self.magic_portal)
-
     def test_repr(self):
         # sorting of the other_names is not guaranteed,
         # so we use a regex that can detect either pattern
         regex=r"Exit\(Location\('Wizard World', 'You see magic people.'\), "\
               r"'portal', other_names=\[(('magic portal', 'magic')|('magic', 'magic portal'))\], "\
-              r"access=Filter\(False, set\(\), set\(\), set\(\)\), "\
-              r"visibility=Filter\(False, set\(\), set\(\), set\(\)\)\)"
+              r"interact=Filter\(False, set\(\), set\(\), set\(\)\), "\
+              r"perceive=Filter\(False, set\(\), set\(\), set\(\)\)\)"
         self.assertRegex(repr(self.magic_portal), regex)
 
     def test_exit_str(self):

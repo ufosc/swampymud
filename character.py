@@ -582,7 +582,7 @@ class Character(metaclass=CharacterClass):
         # structural solution might be avoided here
         found_exit = self.location.find_exit(ex_name)
         if found_exit:
-            if found_exit.access.permits(self):
+            if found_exit.interact.permits(self):
                 old_location = self.location
                 new_location = found_exit.destination
                 new_location.message_chars(f"{self} entered.")
@@ -590,10 +590,10 @@ class Character(metaclass=CharacterClass):
                 # TODO: only show the exit if a character can see it?
                 old_location.message_chars(f"{self} left through exit "
                                            f"'{ex_name}'.")
-            elif not found_exit.visibility.permits(self):
+            elif not found_exit.perceive.permits(self):
                 self.message(f"No exit with name '{ex_name}'.")
             else:
-                self.message(f"Exit '{ex_name}' is unaccessible to you.")
+                self.message(f"Exit '{ex_name}' is inaccessible to you.")
         else:
             self.message(f"No exit with name '{ex_name}'.")
 

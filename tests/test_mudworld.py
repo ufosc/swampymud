@@ -191,12 +191,12 @@ class TestPersonae(unittest.TestCase):
         self.assertEqual(len(boring_house._exit_list), 1)
         inside = boring_house._exit_list[0]
         self.assertTrue(inside.destination is interior)
-        self.assertEqual(set(inside), set(("inside",)))
+        self.assertEqual(set(inside.names), set(("inside",)))
 
         self.assertEqual(len(interior._exit_list), 1)
         outside = interior._exit_list[0]
         self.assertTrue(outside.destination is boring_house)
-        self.assertEqual(set(outside), set(("outside", "out")))
+        self.assertEqual(set(outside.names), set(("outside", "out")))
 
     def test_load_after_skim_simple(self):
         locations = {
@@ -240,14 +240,14 @@ class TestPersonae(unittest.TestCase):
         self.assertEqual(len(boring_house._exit_list), 1)
         inside = boring_house._exit_list[0]
         self.assertTrue(inside.destination is interior)
-        self.assertEqual(set(inside), set(("inside",)))
+        self.assertEqual(set(inside.names), set(("inside",)))
         self.assertEqual(str(inside), "inside")
         self.assertEqual(inside.view(), "inside -> Boring House Interior")
 
         self.assertEqual(len(interior._exit_list), 1)
         outside = interior._exit_list[0]
         self.assertTrue(outside.destination is boring_house)
-        self.assertEqual(set(outside), set(("outside", "out")))
+        self.assertEqual(set(outside.names), set(("outside", "out")))
 
     def test_char_filter(self):
         """testing if charfilters are correctly loaded in"""
@@ -263,14 +263,14 @@ class TestPersonae(unittest.TestCase):
             "name": "bookshelf",
             "destination": "$Secret Room",
             "hide_des": True,
-            # adding an access filter that allows only Wizards and MrCool
-            "access": {
+            # adding an interact filter that allows only Wizards and MrCool
+            "interact": {
                 "mode": "whitelist",
                 "classes": ["^Wizard"],
                 "include_chars": ["$MrCool"],
             },
             # forbid warriors from seeing the exit
-            "visibility": {
+            "perceive": {
                 "mode": "blacklist",
                 "classes": ["^Warrior"]
             }
@@ -283,7 +283,7 @@ class TestPersonae(unittest.TestCase):
         symbols = mudworld.load_personae(self.simple, self.simple_classes)
         secret_exit = None
         for loc_exit in symbols["Boring House Interior"].exits:
-            if "bookshelf" in loc_exit:
+            if "bookshelf" in loc_exit.names:
                 secret_exit = loc_exit
         if secret_exit is None:
             raise Exception("Secret Exit not added properly")
@@ -292,12 +292,12 @@ class TestPersonae(unittest.TestCase):
         mrcool = symbols["MrCool"]
         abra = symbols["Abra"]
         # test that the character.Filter is properly working
-        self.assertTrue(secret_exit.access.permits(mrcool))
-        self.assertTrue(secret_exit.access.permits(abra))
-        self.assertFalse(secret_exit.access.permits(grug))
-        self.assertFalse(secret_exit.visibility.permits(mrcool))
-        self.assertTrue(secret_exit.visibility.permits(abra))
-        self.assertFalse(secret_exit.visibility.permits(grug))
+        self.assertTrue(secret_exit.interact.permits(mrcool))
+        self.assertTrue(secret_exit.interact.permits(abra))
+        self.assertFalse(secret_exit.interact.permits(grug))
+        self.assertFalse(secret_exit.perceive.permits(mrcool))
+        self.assertTrue(secret_exit.perceive.permits(abra))
+        self.assertFalse(secret_exit.perceive.permits(grug))
 
 
 class TestTree(unittest.TestCase):

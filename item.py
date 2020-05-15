@@ -18,7 +18,7 @@ from util import camel_to_space
 from character import Command, Character
 import inventory as inv
 
-#TODO: add access and visibility filters
+#TODO: add interact and perceive filters
 class ItemClass(type):
     '''Metaclass establishing behavior for all items'''
 

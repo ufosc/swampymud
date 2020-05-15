@@ -27,7 +27,7 @@ personae:
       visibility:
         mode: whitelist
         classes: [^Thief]
-      access:
+      interact:
         mode: blacklist
         classes: [^Warrior]
         exclude_chars: [$Sneck]
