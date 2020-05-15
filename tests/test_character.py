@@ -143,8 +143,8 @@ class Slug(char.Character):
 class AlphaSlug(Slug):
     """a class derived from Slug"""
 
-class TestCharFilter(unittest.TestCase):
-    """basic testcase for the pervasive CharFilter class"""
+class TestFilter(unittest.TestCase):
+    """basic testcase for the pervasive Filter class"""
 
     # defining several CharacterClasses for testing
 
@@ -189,37 +189,37 @@ class TestCharFilter(unittest.TestCase):
         }
 
     def test_repr(self):
-        """test that repr(CharFilter) works as expected"""
-        filt = char.CharFilter(mode=False)
+        """test that repr(Filter) works as expected"""
+        filt = char.Filter(mode=False)
         self.assertEqual(repr(filt),
-                         "CharFilter(False, set(), set(), set())")
-        filt = char.CharFilter(mode=True)
+                         "Filter(False, set(), set(), set())")
+        filt = char.Filter(mode=True)
         self.assertEqual(repr(filt),
-                         "CharFilter(True, set(), set(), set())")
-        filt = char.CharFilter(False, [Slug, AlphaSlug])
+                         "Filter(True, set(), set(), set())")
+        filt = char.Filter(False, [Slug, AlphaSlug])
         # testing further is difficult due to set order changing
 
     def test_mode(self):
         """test that __init__'s mode keyword works as expected"""
         # creating a whitelist and blacklist with strings
-        whitelist = char.CharFilter(mode="whitelist")
-        blacklist = char.CharFilter(mode="blacklist")
+        whitelist = char.Filter(mode="whitelist")
+        blacklist = char.Filter(mode="blacklist")
         self.assertEqual(self.filter_test(whitelist), self.no_chars)
         self.assertEqual(self.filter_test(blacklist), self.all_chars)
         # creating a whitelist and blacklist with booleans
-        whitelist = char.CharFilter(mode=True)
-        blacklist = char.CharFilter(mode=False)
+        whitelist = char.Filter(mode=True)
+        blacklist = char.Filter(mode=False)
         self.assertEqual(self.filter_test(whitelist), self.no_chars)
         self.assertEqual(self.filter_test(blacklist), self.all_chars)
         # creating a whitelist and blacklist with enum values
-        whitelist = char.CharFilter(char.FilterMode.WHITELIST)
-        blacklist = char.CharFilter(char.FilterMode.BLACKLIST)
+        whitelist = char.Filter(char.Filter.WHITELIST)
+        blacklist = char.Filter(char.Filter.BLACKLIST)
         self.assertEqual(self.filter_test(whitelist), self.no_chars)
         self.assertEqual(self.filter_test(blacklist), self.all_chars)
 
     def test_include_classes(self):
         """test that including CharacterClasses allows them through"""
-        whitelist = char.CharFilter(mode="whitelist")
+        whitelist = char.Filter(mode="whitelist")
         whitelist.include(AlphaSlug)
         # only AlphaSlugs are allowed through
         expected = self.no_chars.copy()
@@ -240,7 +240,7 @@ class TestCharFilter(unittest.TestCase):
         self.assertEqual(whitelist._classes, set([AlphaSlug, Soldier]))
 
         # now test including with a blacklist
-        blacklist = char.CharFilter(mode="blacklist")
+        blacklist = char.Filter(mode="blacklist")
         blacklist.include(AlphaSlug)
         expected = self.all_chars.copy()
         # it's a blacklist, and nobody was excluded, so all are permitted
@@ -250,7 +250,7 @@ class TestCharFilter(unittest.TestCase):
 
     def test_exclude_classes(self):
         """test that excluding CharacterClasses does not allow them through"""
-        whitelist = char.CharFilter(mode="whitelist")
+        whitelist = char.Filter(mode="whitelist")
         # excluding a class from a whitelist should have no effect
         # since whitelists only track included classes
         whitelist.exclude(Human)
@@ -260,7 +260,7 @@ class TestCharFilter(unittest.TestCase):
         self.assertEqual(whitelist._classes, set())
 
         # now testing a blacklist
-        blacklist = char.CharFilter(mode="blacklist")
+        blacklist = char.Filter(mode="blacklist")
         blacklist.exclude(AlphaSlug)
         expected = self.all_chars
         expected[self.vloobuk] = False
@@ -281,7 +281,7 @@ class TestCharFilter(unittest.TestCase):
     def test_whitelist_chars(self):
         """including/excluding Characters should overrides any class
         permissions for whitelists"""
-        whitelist = char.CharFilter(mode="whitelist")
+        whitelist = char.Filter(mode="whitelist")
         whitelist.include(Soldier)
         whitelist.exclude(self.dwight)
         expected = self.no_chars.copy()
@@ -314,7 +314,7 @@ class TestCharFilter(unittest.TestCase):
     def test_blacklist_chars(self):
         """including/excluding Characters should overrides any class
         permissions for blacklists"""
-        blacklist = char.CharFilter(mode="blacklist")
+        blacklist = char.Filter(mode="blacklist")
         # exclude Slug in general, but include bloog
         blacklist.exclude(Slug)
         blacklist.exclude(self.vloobuk)
@@ -716,8 +716,8 @@ class TestDefaultCommands(unittest.TestCase):
         help_msg = self.phil.msgs.pop()
         self.assertEqual(help_msg,
                          "say [from Default Commands]:\n"
-                         "Say a message aloud, sent to all players in your "
-                         "current locaton.\nusage: say [msg]")
+                         "Send a message to all players in your current"
+                         " location.\nusage: say [msg]")
         # invalid command should cause an error
         self.phil.command("help invalid_cmd")
         help_msg = self.phil.msgs.pop()
@@ -792,10 +792,10 @@ class TestDefaultCommands(unittest.TestCase):
         self.assertTrue(self.bill.location is TEST_OUT)
 
     def test_go_filtered(self):
-        """test that 'go' command respects CharFilters"""
+        """test that 'go' command respects Filters"""
         # set access for exit to an empty whitelist
         # i.e. nobody is allowed through
-        TEST_EXIT.access = char.CharFilter(mode=True)
+        TEST_EXIT.access = char.Filter(mode=True)
         self.bill.command("go outside")
         self.assertEqual(self.bill.msgs, ["Exit 'outside' is unaccessible to you."])
         self.assertEqual(self.phil.msgs, [])
@@ -805,7 +805,7 @@ class TestDefaultCommands(unittest.TestCase):
         # set visibility for exit to an empty whitelist
         # i.e. nobody can see this exit or go through now
         # so Bill should not be informed that this exit even exists
-        TEST_EXIT.visibility = char.CharFilter(mode=True)
+        TEST_EXIT.visibility = char.Filter(mode=True)
         self.bill.command("go outside")
         self.assertEqual(self.bill.msgs, ["No exit with name 'outside'."])
         self.assertEqual(self.phil.msgs, [])
@@ -814,7 +814,7 @@ class TestDefaultCommands(unittest.TestCase):
         self.bill.msgs.clear()
         # BUT, if we set access to empty blacklist (allowing anyone in)
         # Bill should be allowed through, even though he can't see the exit
-        TEST_EXIT.access = char.CharFilter(mode=False)
+        TEST_EXIT.access = char.Filter(mode=False)
         self.bill.command("go outside")
         self.assertEqual(self.bill.msgs, [])
         self.assertEqual(self.phil.msgs,

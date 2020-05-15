@@ -21,8 +21,8 @@ class TestExit(unittest.TestCase):
         # so we use a regex that can detect either pattern
         regex=r"Exit\(Location\('Wizard World', 'You see magic people.'\), "\
               r"'portal', other_names=\[(('magic portal', 'magic')|('magic', 'magic portal'))\], "\
-              r"access=CharFilter\(False, set\(\), set\(\), set\(\)\), "\
-              r"visibility=CharFilter\(False, set\(\), set\(\), set\(\)\)\)"
+              r"access=Filter\(False, set\(\), set\(\), set\(\)\), "\
+              r"visibility=Filter\(False, set\(\), set\(\), set\(\)\)\)"
         self.assertRegex(repr(self.magic_portal), regex)
 
     def test_exit_str(self):

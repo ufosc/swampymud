@@ -1,4 +1,10 @@
-"""Module defining the CharacterClass metaclass, and Character base class"""
+"""Module defining the CharacterClass metaclass and Character class,
+which serves as the basis for all in-game characters.
+
+This module also defines the 'Filter', used for CharacterClass-based
+permissions systems, and 'Command', a wrapper that converts methods into
+commands that can be invoked by characters.
+"""
 import enum
 import functools
 import inspect
@@ -6,30 +12,37 @@ import inventory as inv
 import util
 from util.shadowdict import ShadowDict
 
-class CharException(Exception):
-    pass
-
-class FilterMode(enum.Enum):
-    WHITELIST = True
-    BLACKLIST = False
-
-
-class CharFilter:
+class Filter:
     """Filter for screening out certain CharacterClasses and Characters
         _classes  - set of CharacterClasses tracked by the filter
-        _include_chars - set characters to be included, regardless of _classes
-        _exclude_chars - set characters to be included, regardless of _classes
-        _mode - FilterMode.WHITELIST or FilterMode.BLACKLIST
-                if WHITELIST is selected, only tracked chars are allowed in
-                if BLACKLIST is selected, tracked chars are excluded
+        _include_chars - set characters to be included
+        _exclude_chars - set characters to be excluded
+        _mode - Filter.WHITELIST or Filter.BLACKLIST
+            if WHITELIST is selected, only characters whose class is in
+            _classes are allowed through the filter.
+            if BLACKLIST is selected, only characters whose class is NOT
+            in _classes are allowed through the filter.
+        Note that _include_chars / _exclude_chars take precedence over
+        the _classes. That is, if a WHITELIST includes the class
+        Wizard, but Bill the Wizard is in _exclude_chars, Bill will not
+        be permitted through the filter.
     """
+
+    class _FilterMode(enum.Enum):
+        """Enum representing whether a filter includes or excludes the
+        classes that it tracks"""
+        WHITELIST = True
+        BLACKLIST = False
+
+    WHITELIST = _FilterMode.WHITELIST
+    BLACKLIST = _FilterMode.BLACKLIST
 
     def __init__(self, mode, classes=frozenset(),
                  include_chars=frozenset(),
                  exclude_chars=frozenset()):
-        """initialize a CharFilter with [mode]
-        if [mode] is True, the CharFilter will act as a whitelist
-        if [mode] is False, the CharFilter will act as a blacklist
+        """initialize a Filter with [mode]
+        if [mode] is True, the Filter will act as a whitelist
+        if [mode] is False, the Filter will act as a blacklist
         [classes] are those classes to be whitelisted/blacklisted
         [include_chars] are specific characters to be included
         [exclude_chars] are specific characters to be excluded
@@ -45,18 +58,18 @@ class CharFilter:
                                  " and exclude")
         self._include_chars = set(include_chars)
         self._exclude_chars = set(exclude_chars)
-        if isinstance(mode, FilterMode):
+        if isinstance(mode, self._FilterMode):
             self._mode = mode
         elif isinstance(mode, bool):
             if mode:
-                self._mode = FilterMode.WHITELIST
+                self._mode = Filter.WHITELIST
             else:
-                self._mode = FilterMode.BLACKLIST
+                self._mode = Filter.BLACKLIST
         else:
             if mode.lower() == "whitelist":
-                self._mode = FilterMode.WHITELIST
+                self._mode = Filter.WHITELIST
             elif mode.lower() == "blacklist":
-                self._mode = FilterMode.BLACKLIST
+                self._mode = Filter.BLACKLIST
             else:
                 raise ValueError("Unrecognized mode %s" % repr(mode))
 
@@ -92,7 +105,7 @@ class CharFilter:
         to permit()"""
         # check that other is a Character / CharacterClass
         if isinstance(other, CharacterClass):
-            if self._mode is FilterMode.WHITELIST:
+            if self._mode is Filter.WHITELIST:
                 self._classes.add(other)
             else:
                 if other in self._classes:
@@ -110,7 +123,7 @@ class CharFilter:
         to permit()"""
         # check that other is a Character / CharacterClass
         if isinstance(other, CharacterClass):
-            if self._mode is FilterMode.WHITELIST:
+            if self._mode == Filter.WHITELIST:
                 if other in self._classes:
                     self._classes.remove(other)
             else:
@@ -121,21 +134,21 @@ class CharFilter:
             self._exclude_chars.add(other)
         else:
             raise ValueError("Expected Character/CharacterClass,"
-                             " received %s" % type(other))
+                             f" received {type(other)}")
 
     def __repr__(self):
         """overriding repr()"""
-        return ("CharFilter(%r, %r, %r, %r)"
-                % (self._mode.value, self._classes, self._include_chars,
-                   self._exclude_chars))
+        return "Filter({!r}, {!r}, {!r}, {!r})".format(
+            self._mode.value, self._classes, self._include_chars,
+            self._exclude_chars)
 
     @staticmethod
     def from_dict(filter_dict):
-        """returns a CharFilter pythonic representation [filter_dict]"""
-        return CharFilter(**filter_dict)
+        """returns a Filter pythonic representation [filter_dict]"""
+        return Filter(**filter_dict)
 
     def to_dict(self):
-        """returns a pythonic representation of this CharFilter"""
+        """returns a pythonic representation of this Filter"""
         data = {"mode" : self._mode.value}
         if self._classes:
             data["classes"] = list(self._classes)
@@ -148,28 +161,30 @@ class CharFilter:
 
 class Command(functools.partial):
     """A subclass of functools.partial that supports equality.
-    The default implementation of functools.partial does not normally support
-    equality for mathematically sound reasons:
+    The default implementation of functools.partial does not normally
+    support equality for mathematically sound reasons:
     https://bugs.python.org/issue3564
 
     With this class's equality operators, we aren't trying to solve an
-    undecidable problem, but just confirm that two partially-applied functions
-    have the same arguments and underlying functions.
+    undecidable problem, but just confirm that two partially-applied
+    functions have the same arguments and underlying functions.
 
-    Optional fields, "name" and "label" are also provided. These fields store
-    player-relevant information that are NOT factored into comparisons.
+    Optional fields, "name", "label", and "field" are also provided.
+    These fields store player-relevant information that are NOT factored
+    into comparisons.
 
-    In addition, this class has a convenience method, '.specify' to create
-    a new Command derived from one by simply adding additional arguments.
-    All other information (base function, names, etc.) will be propagated.
+    In addition, this class has a convenience method, '.specify' to
+    derive a new Command from an existing one by simply adding
+    additional arguments. All other information (base function, names,
+    etc.) will be propagated.
 
     While you can update Command.keywords, avoid doing so.
-    All comparisons are based on the INITIAL keywords, so changing keywords
-    after initialization is unsupported.
+    All comparisons are based on the INITIAL keywords, so changing
+    keywords after initialization is unsupported.
     """
 
     def __init__(self, *args, **kwargs):
-        """initialize a Command as you would a functools.partial object"""
+        """initialize a Command like a functools.partial object"""
         super().__init__()
         # creating an immutable set of keywords for comparisons
         self._keys = frozenset(self.keywords.items())
@@ -185,7 +200,7 @@ class Command(functools.partial):
         self.name = None
         self.label = None
         # by default, add a filter that permits all (empty blacklist)
-        self.filter = CharFilter(FilterMode.BLACKLIST)
+        self.filter = Filter(Filter.BLACKLIST)
 
     def __eq__(self, other):
         """Two commands are equal iff the base functions are equal,
@@ -229,13 +244,20 @@ class Command(functools.partial):
         return self.name
 
     def help_entry(self) -> str:
+        """return a help message for this command"""
         if self.label is not None:
             return f"{self} [from {self.label}]:\n{self.__doc__}"
         return f"{self}:\n{self.__doc__}"
 
     @staticmethod
-    def with_traits(name=None, label=None, filter=None):
-        """decorator to easily wrap a function and add a name / source"""
+    def with_traits(name: str = None, label: str = None,
+                    filter: Filter = None):
+        """decorator to easily wrap a function additional traits
+        [name] = to invoke this Command, the Character must use [name]
+            instead of the function's name
+        [label] = the type of the command. (Affects help menu.)
+        [filter] = if provided, determine which Characters / Classes
+            are permitted to use this command. """
         def decorator(func):
             cmd = Command(func)
             cmd.name = name
@@ -253,35 +275,35 @@ class CharacterClass(type):
     - frequency: how often will new players spawn as this class
     - command_label: how  commands from this class appear in help menu
     """
-    def __init__(self, cls, bases, namespace):
+    def __init__(cls, name, bases, namespace):
         # add the proper name, if not already provided
         if "classname" not in namespace:
-            self.classname = util.camel_to_space(cls)
+            cls.classname = util.camel_to_space(name)
         # add a frequency field, if not already provided
         if "frequency" not in namespace:
-            self.frequency = 1
+            cls.frequency = 1
         # add a "command_label", if not already provided
         # this field is used in creating help menus
         if "command_label" not in namespace:
-            self.command_label = f"{self} Commands"
+            cls.command_label = f"{cls} Commands"
 
         # commands that were implemented for this class
-        self._local_commands = {}
+        cls._local_commands = {}
         for value in namespace.values():
             if isinstance(value, Command):
-                value.label = self.command_label
-                self._local_commands[str(value)] = value
+                value.label = cls.command_label
+                cls._local_commands[str(value)] = value
 
         # all commands, with the most recent commands exposed
-        self._commands = {}
-        for base in reversed(self.__mro__):
+        cls._commands = {}
+        for base in reversed(cls.__mro__):
             if not isinstance(base, CharacterClass):
                 continue
-            self._commands.update(base._local_commands)
-        self._commands.update(self._local_commands)
+            cls._commands.update(base._local_commands)
+        cls._commands.update(cls._local_commands)
 
         # calling the super init
-        super().__init__(cls, bases, namespace)
+        super().__init__(name, bases, namespace)
 
     def __str__(cls):
         """overriding str to return classname"""
@@ -316,8 +338,8 @@ class Character(metaclass=CharacterClass):
             # add command only if filter permits it
             if cmd.filter.permits(self):
                 self.cmd_dict[name] = cmd
-            # because NewCommands are not bound properly like a normal method
-            # we must manually bind the methods
+            # because sCommands are not bound properly like a normal
+            # method, we must manually bind the methods
             # TODO: override getattribute__ to solve the super() issue?
             if isinstance(getattr(self, cmd.func.__name__), Command):
                 setattr(self, cmd.func.__name__, cmd)
@@ -343,11 +365,12 @@ class Character(metaclass=CharacterClass):
     def update(self):
         """periodically called method that updates character state"""
         print(f"[{self}] received update")
-        pass
 
     def spawn(self, spawn_location):
-        """Send a greeting to the character, put them in name-entering mode
-        [spawn_location]: where the character should spawn
+        """Send a greeting to the character and put them into a
+        name-selection mode.
+        [spawn_location]: where the character should spawn after a name
+            is submitted.
         """
         self.message(f"Welcome to MuddySwamp! You are a {type(self)}")
         self.message(f"What should we call you?")
@@ -379,7 +402,8 @@ class Character(metaclass=CharacterClass):
         if not new_name.isalnum():
             self.message("Names must be alphanumeric.")
             return
-        # TODO: perform some kind of check to prevent players having same name?
+        # TODO: perform some kind of check to prevent players
+        # from having the same name?
         self._name = new_name
 
         # move the player to the actual location they should be in
@@ -407,7 +431,7 @@ class Character(metaclass=CharacterClass):
 
     # string-formatting methods
     def __repr__(self):
-        """return a representation of the player"""
+        """return a representation of Character"""
         if self._name is None:
             return f"{type(self).__name__}()"
         return f"{type(self).__name__}(name={self})"
@@ -419,16 +443,16 @@ class Character(metaclass=CharacterClass):
         return "[nameless character]"
 
     def view(self):
-        """return a more lengthy, user-focused description of the Character"""
+        """return a longer, user-focused depiction of Character"""
         if self._name is None:
             return f"A nameless {type(self)}"
         return f"{self._name} the {type(self)}"
 
     #location manipulation methods
     def set_location(self, new_location):
-        """sets location, updating the previous and new locations as appropriate
-        if reported_exit is supplied, then other players in the location
-        will be notified of which location he is going to
+        """sets location, updating the previous and new locations as
+        necessary and gathering commands from any entities in the
+        location
         """
         try:
             self.location.characters.remove(self)
@@ -446,47 +470,6 @@ class Character(metaclass=CharacterClass):
         for entity in new_location.entities:
             entity.add_cmds(self)
 
-    def take_exit(self, exit,
-                  show_leave=True, leave_via=None,
-                  show_enter=True, enter_via=None):
-        """
-        high-level function for characters to change rooms
-        [exit]: exit taken by the player
-        [show_leave]: if True, characters in the current location are notified
-        of this character leaving
-        [leave_via]: if a string is provided, then players are informed which
-        exit the character left through
-        [show_enter]: if True, characters in the destination are notified of
-        this character arriving
-        [enter_via]: if True, characters in the destination are notified of
-        this character arriving
-        """
-        # send entry message first, so that this character doesn't see it
-        if show_enter:
-            try:
-                if enter_via:
-                    exit.destination.message_chars(f"{self} entered through {enter_via}.")
-                else:
-                    exit.destination.message_chars(f"{self} entered.")
-            except AttributeError:
-                # self.location was None
-                pass
-        # change the location
-        old_loc = self.location
-        self.set_location(exit.destination)
-        # TODO have the player look around
-        # self.cmd_look(["look"], verbose=False)
-        # now send the exit message
-        if show_leave:
-            try:
-                if leave_via:
-                    old_loc.message_chars(f"{self} left through {leave_via}.")
-                else:
-                    old_loc.location.message_chars(f"{self} left.")
-            except AttributeError:
-                # self.location was None
-                pass
-
     #inventory/item related methods
     def add_item(self, item, amt=1):
         """add [item] to player's inventory"""
@@ -498,13 +481,10 @@ class Character(metaclass=CharacterClass):
     def equip(self, item, from_inv=True):
         """place [item] in this player's equip dict
         [item]: item to Equip
-        [from_inv]: if True, [item] should be removed from inventory first
-        if False, [item] is not removed from inventory and returned on unequip
-
-        sends character an error message if [item] if not Equippable or if [self]
-        lacks the proper slots to equip this item
-        sends character an error message if [from_inv] is True
-        but this character does not have a copy of [item] in its inventory
+        [from_inv]: if True, [item] should be removed from inventory
+            first. If item is not found in inventory, the command fails.
+            if False, [item] is not removed from inventory and will not
+            be returned to inventory upon unequip.
         """
         # duck test that the item is even equippable
         try:
@@ -580,12 +560,12 @@ class Character(metaclass=CharacterClass):
         """Gives a description of your current location.
         usage: look
         """
-        # TODO: update to allow players to 'inspect' certain objects in detail
+        # TODO: update to allow players to 'inspect' certain objects
         self.message(self.location.view())
 
     @Command
     def say(self, args):
-        """Say a message aloud, sent to all players in your current locaton.
+        """Send a message to all players in your current location.
         usage: say [msg]
         """
         msg = ' '.join(args[1:])
@@ -603,9 +583,13 @@ class Character(metaclass=CharacterClass):
         found_exit = self.location.find_exit(ex_name)
         if found_exit:
             if found_exit.access.permits(self):
-                # TODO: replace this with a more generic name
-                self.take_exit(found_exit, show_leave=True, show_enter=True,
-                               leave_via=f"exit '{ex_name}'")
+                old_location = self.location
+                new_location = found_exit.destination
+                new_location.message_chars(f"{self} entered.")
+                self.set_location(new_location)
+                # TODO: only show the exit if a character can see it?
+                old_location.message_chars(f"{self} left through exit "
+                                           f"'{ex_name}'.")
             elif not found_exit.visibility.permits(self):
                 self.message(f"No exit with name '{ex_name}'.")
             else:
@@ -639,7 +623,7 @@ class Character(metaclass=CharacterClass):
         item_name = " ".join(args[1::]).lower()
         # search through the items in the equip_dict
         found_items = []
-        for target, equip_data in self.equip_dict.items():
+        for _, equip_data in self.equip_dict.items():
             if equip_data is None:
                 continue
             item, _ = equip_data
@@ -780,4 +764,3 @@ class Character(metaclass=CharacterClass):
         """pass"""
         return []
         #TODO: handle items here
-

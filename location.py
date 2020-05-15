@@ -1,12 +1,12 @@
 import inventory as inv
 import item
-from character import Character, CharFilter
+import character as char
 import util
 
 class Exit:
     '''Class representing an Exit
     Exits link a set of names with a particular location
-    Contains: 
+    Contains:
         a list of strings [exit names]
         destination [the location this points to]
     The list can be accessed by treating the this as an iterable
@@ -15,8 +15,8 @@ class Exit:
         for exit_name in myExit:
             [iterates over all the possible exit names]
     There are also several variables involved with filtering:
-        access     = CharFilter that permits accessing the exit 
-        visibility = CharFilter that permits viewing the exit
+        access     = char.Filter that permits accessing the exit
+        visibility = char.Filter that permits viewing the exit
     '''
     def __init__(self, destination, name, other_names=[],
                  access=None, visibility=None, hide_des=False):
@@ -27,19 +27,20 @@ class Exit:
             additional names are optional
         optional keyword arguments:
             other_names = list of other names
-            access  = set the access CharFilter(default: all permitted)
-            visible = set the visibility CharFilter(default: all permitted)
+            access  = set the access char.Filter(default: all permitted)
+            visible = set the visibility char.Filter(default: all permitted)
             hide_des = make the destination invisible to players
         '''
         self._name = name
         self._destination = destination
         self._nameset = set((name, *other_names))
+        # if not visibility is provided, create an empty blacklist
         self.access = access
         if access is None:
-            self.access = CharFilter(False)
+            self.access = char.Filter(False)
         self.visibility = visibility
         if visibility is None:
-            self.visibility = CharFilter(False)
+            self.visibility = char.Filter(False)
         self.hide_des = hide_des
 
     @property
@@ -91,12 +92,12 @@ class Exit:
     @staticmethod
     def from_dict(ex_dict):
         '''creates an Exit from a pythonic representation'''
-        # convert access filter data into a CharFilter
+        # convert access filter data into a char.Filter
         if "access" in ex_dict:
-            ex_dict["access"] = CharFilter.from_dict(ex_dict["access"])
-        # convert visibility filter data into a CharFilter
+            ex_dict["access"] = char.Filter.from_dict(ex_dict["access"])
+        # convert visibility filter data into a char.Filter
         if "visibility" in ex_dict:
-            ex_dict["visibility"] = CharFilter.from_dict(ex_dict["visibility"])
+            ex_dict["visibility"] = char.Filter.from_dict(ex_dict["visibility"])
         return Exit(**ex_dict)
 
     def to_dict(self):
@@ -107,7 +108,7 @@ class Exit:
         data["destination"] = self._destination
         if self.hide_des:
             data["hide_des"] = True
-        #TODO: elide CharFilter fields if they are empty blacklists
+        #TODO: elide Filter fields if they are empty blacklists
         data["access"] = self.access.to_dict()
         data["visibility"] = self.access.to_dict()
         return data
@@ -244,5 +245,5 @@ class Location:
     def add_entity(self, entity):
         self.entities.append(entity)
 
-    def add_item(self, item, quantity=1):     
+    def add_item(self, item, quantity=1):
         self.inv.add_item(item, quantity)

@@ -122,7 +122,7 @@ class TestPersonae(unittest.TestCase):
                 "name": "Boring House Interior",
                 "description": "There is a chair. The walls are brown.",
                 "exits": [
-                    {"name": "outside", "other_names": ["out"], 
+                    {"name": "outside", "other_names": ["out"],
                      "destination": "$Boring House"}
                 ]
             },
@@ -144,7 +144,7 @@ class TestPersonae(unittest.TestCase):
     def test_skim_simple(self):
         """test that simple locations are constructed after a skim"""
         locations = mudworld.skim_for_locations(self.simple)
-        # indirectly test the locations, 
+        # indirectly test the locations,
         # since we don't have a way of checking equality for Locations
         boring_house = locations["Boring House"]
         self.assertEqual(boring_house.name, "Boring House")
@@ -291,7 +291,7 @@ class TestPersonae(unittest.TestCase):
         grug = symbols["Grug"]
         mrcool = symbols["MrCool"]
         abra = symbols["Abra"]
-        # test that the CharFilter is properly working
+        # test that the character.Filter is properly working
         self.assertTrue(secret_exit.access.permits(mrcool))
         self.assertTrue(secret_exit.access.permits(abra))
         self.assertFalse(secret_exit.access.permits(grug))
@@ -399,7 +399,7 @@ class TestWorld(unittest.TestCase):
         # house should only have 1 exit, to the inside
         inside, = tuple(house.exits)
         self.assertTrue(inside.destination is interior)
-    
+
 
 class TestLocationScripts(unittest.TestCase):
     """integration tests for scripts that call mudscript.import_location"""
@@ -432,7 +432,7 @@ class TestLocationScripts(unittest.TestCase):
                          world.locations["Boring House Interior"])
 
 
- 
+
     def test_dark_lord(self):
         """test that the dark lord's abilities work (relies on
         functioning location, control, and character modules)

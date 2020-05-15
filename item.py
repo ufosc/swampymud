@@ -15,7 +15,7 @@ import inspect
 import abc
 from typing import List
 from util import camel_to_space
-from character import Command, Character, CharFilter
+from character import Command, Character
 import inventory as inv
 
 #TODO: add access and visibility filters

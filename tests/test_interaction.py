@@ -79,8 +79,8 @@ class FireStaff(item.Equippable):
     target = inventory.EquipTarget("right hand")
 
     # interestingly, a staff uses can vary by class
-    @character.Command.with_traits(filter=character.CharFilter(
-        character.FilterMode.WHITELIST,
+    @character.Command.with_traits(filter=character.Filter(
+        character.Filter.WHITELIST,
         [Wizard]
     ))
     def fireball(self, char, args):
@@ -89,9 +89,9 @@ class FireStaff(item.Equippable):
         if target is not None:
             target.message(f"{char} hit you with a fireball.")
             char.message(f"You hit {target} with a fireball.")
-    
-    @character.Command.with_traits(filter=character.CharFilter(
-        character.FilterMode.WHITELIST,
+
+    @character.Command.with_traits(filter=character.Filter(
+        character.Filter.WHITELIST,
         [Brute]
     ))
     def hit(self, char, args):
@@ -107,7 +107,7 @@ class InvisibleLocket:
 
 
 class TestInteraction(unittest.TestCase):
-    
+
     def setUp(self):
         self.brute = Brute("Joe")
         self.seller = MagicSalesman("Adam")
@@ -115,12 +115,12 @@ class TestInteraction(unittest.TestCase):
         self.brute.set_location(tavern)
         self.seller.set_location(tavern)
         self.wizard.set_location(tavern)
-    
+
     def tearDown(self):
         self.brute.despawn()
         self.seller.despawn()
         self.wizard.despawn()
-    
+
     def test_fire_staff(self):
         brute, seller, wizard = self.brute, self.seller, self.wizard
         # put down three fire staffs
@@ -146,20 +146,20 @@ class TestInteraction(unittest.TestCase):
         self.assertTrue(isinstance(seller.equip_dict[rh][0], FireStaff))
         self.assertTrue(isinstance(wizard.equip_dict[rh][0], FireStaff))
         # now brute and wizard should have updated commands
-        self.assertTrue("hit" in brute.cmd_dict and 
+        self.assertTrue("hit" in brute.cmd_dict and
                         "fireball" not in brute.cmd_dict)
-        self.assertTrue("hit" not in seller.cmd_dict and 
+        self.assertTrue("hit" not in seller.cmd_dict and
                         "fireball" not in seller.cmd_dict)
-        self.assertTrue("hit" not in wizard.cmd_dict and 
+        self.assertTrue("hit" not in wizard.cmd_dict and
                         "fireball" in wizard.cmd_dict)
         # test that the commands can be used
         brute.command("hit adam")
-        self.assertEqual(brute.msgs.pop(), 
+        self.assertEqual(brute.msgs.pop(),
                          f"You hit {seller} with a staff.")
-        self.assertEqual(seller.msgs.pop(), 
+        self.assertEqual(seller.msgs.pop(),
                          f"{brute} hit you with a staff.")
         wizard.command("fireball adam")
-        self.assertEqual(wizard.msgs.pop(), 
+        self.assertEqual(wizard.msgs.pop(),
                          f"You hit {seller} with a fireball.")
-        self.assertEqual(seller.msgs.pop(), 
+        self.assertEqual(seller.msgs.pop(),
                          f"{wizard} hit you with a fireball.")
