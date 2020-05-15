@@ -1,3 +1,14 @@
+"""Module defining the Location and Exit classes, used to construct the
+in-game world.
+
+You can conceive of the in-game world as a directed, acyclic graph.
+With this model in mind, Locations act as vertices while Exits act as
+edges.
+
+At any given point in time, Locations may store characters, entities,
+and items.
+"""
+
 from typing import Iterable
 import inventory
 import item
@@ -7,9 +18,7 @@ import util
 class Exit:
     """Class representing an in-game Exit.
 
-    Exits link a set of names with a particular Location. If the in-game
-    map is a graph, then Locations are the vertices and Exits are the
-    edges.
+    Exits link a set of names with a particular Location.
     """
     def __init__(self, destination: 'Location',
                  name: str,
