@@ -282,6 +282,14 @@ class ColorRGB(Color256):
                                     f"received '{type(value)}'") from exc
         super().__init__(child, code)
 
+def disable_all():
+    """Globally disable all future color-based formatting.
+    Once called, this can only be undone by reloading the module.
+    Note that any already-formatted strings will still be contain ANSI
+    escape codes.
+    """
+    SGRFunction.__str__ = lambda self: self.content()
+
 # constructing a series of SGR tests
 
 def test_8bit_fg():
