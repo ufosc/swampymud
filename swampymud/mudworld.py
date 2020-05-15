@@ -136,8 +136,8 @@ def walk_tree(tree, obj_names, cls_names):
     if isinstance(tree, str):
         # return the object with that symbol
         yield obj_names[tree]
+    # base case 2--tree is anonymous object data
     elif isinstance(tree, dict):
-        # base case 2--tree is anonymous object data
         # this is why '_type' cannot be used as a symbol
         if "_type" in tree:
             # load in the object
