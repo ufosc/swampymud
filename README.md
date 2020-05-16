@@ -1,6 +1,11 @@
-﻿# MuddySwamp
+﻿# SwampyMud
 
-Multi-user dungeons, or "MUDs" are text-based role-playing games, that naturally evolved from the text-based rpg and adventure games of the 1970s. This project aims to introduce a new generation—one that never experienced a world without broadband internet—to this classic game genre. While this code can be adapted for any setting, we intend to render our university in beautiful ASCII. 
+Multi-user dungeons, or "MUDs" are text-based role-playing games, that naturally evolved from the text-based rpg and adventure games of the 1970s.
+This project aims to introduce a new generation—one that never experienced a world without broadband internet—to this classic game genre.
+While this code can be adapted for any setting, we intend to render our university in beautiful ASCII. 
+
+Note: this repo has the internal (less stable) branch `develop` set to default.
+For a more stable version, please look at the `master` branch.
 
 ## Requirements
 
@@ -24,14 +29,15 @@ Here's the same scenario, in Mudlet:
 Download this repository, or one of the releases. In a terminal, navigate to the repository and run
 
 ```
-./MuddySwamp.py
+python3 -m swampymud
 ```
 
-By default, the server uses port 1234. If you want to specify a different port, you can run
+By default, the server uses port 1234. If you want to specify a different port (e.g. 4000), you can run
 
 ```
-./MuddySwamp.py [port]
+python3 -m swampymud -p 4000
 ```
+For a full list of options, run `python3 -m swampymud --help`.
 
 If you are hosting a server for other people to connect, you will need to port foward your router. When you port forward, select the TCP protocol and direct traffic towards whatever port the server is listening on. 
 
