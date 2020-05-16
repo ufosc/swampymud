@@ -93,7 +93,7 @@ class Entity(metaclass=EntityClass):
     def on_exit(self, char: character.Character):
         pass
 
-    def on_say(self, char: character.Character, msg: str):
+    def on_message(self, char: character.Character, msg: str):
         pass
 
     # serialization-related methods
