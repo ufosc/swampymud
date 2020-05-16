@@ -117,10 +117,18 @@ class Location:
         self.name = name
         self.description = description
 
-    def message_chars(self, msg):
-        """Send message to all characters currently in location"""
-        for char in self.characters:
-            char.message(msg)
+    def message(self, msg: str, exclude: Iterable = ()):
+        """Send message to all characters and entites in this location.
+
+        Optional arguments:
+        exclude -- a SET of characters / entities to be excluded
+        """
+        for character in self.characters:
+            if character not in exclude:
+                character.message(msg)
+        for entity in self.entities:
+            if entity not in exclude:
+                entity.on_message(msg)
 
     @property
     def exits(self):

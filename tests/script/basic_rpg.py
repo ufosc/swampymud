@@ -120,7 +120,7 @@ class Warrior(Character):
         else:
             try:
                 target.health -= self.damage
-                self.location.message_chars(self.attack_msg % (self, target))
+                self.location.message(self.attack_msg % (self, target))
             except AttributeError:
                 pass
 

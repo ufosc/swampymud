@@ -86,6 +86,14 @@ class Entity(metaclass=EntityClass):
             except ValueError:
                 pass
 
+    def despawn(self):
+        """removes entity from location and frees it for gc"""
+        if self.location is not None:
+            for char in self.location.characters:
+                self.remove_cmds(character)
+            self.location.entities.remove(self)
+        self.location = None
+
     # these methods can be overriden
     def on_enter(self, char: character.Character):
         pass
