@@ -8,6 +8,7 @@ commands that can be invoked by characters.
 import enum
 import functools
 import inspect
+import weakref
 import swampymud.inventory as inv
 from swampymud import util
 from swampymud.util.shadowdict import ShadowDict
@@ -37,9 +38,8 @@ class Filter:
     WHITELIST = _FilterMode.WHITELIST
     BLACKLIST = _FilterMode.BLACKLIST
 
-    def __init__(self, mode, classes=frozenset(),
-                 include_chars=frozenset(),
-                 exclude_chars=frozenset()):
+    def __init__(self, mode, classes=(),
+                 include_chars=(), exclude_chars=()):
         """initialize a Filter with [mode]
         if [mode] is True, the Filter will act as a whitelist
         if [mode] is False, the Filter will act as a blacklist
@@ -56,8 +56,10 @@ class Filter:
             if char in include_chars:
                 raise ValueError("Cannot have character in both include"
                                  " and exclude")
-        self._include_chars = set(include_chars)
-        self._exclude_chars = set(exclude_chars)
+        # store characters in a WeakSet, so that the Filter will not
+        # prevent them from getting garbage collected
+        self._include_chars = weakref.WeakSet(include_chars)
+        self._exclude_chars = weakref.WeakSet(exclude_chars)
         if isinstance(mode, self._FilterMode):
             self._mode = mode
         elif isinstance(mode, bool):
@@ -139,8 +141,10 @@ class Filter:
     def __repr__(self):
         """overriding repr()"""
         return "Filter({!r}, {!r}, {!r}, {!r})".format(
-            self._mode.value, self._classes, self._include_chars,
-            self._exclude_chars)
+            self._mode.value,
+            set(self._classes),
+            set(self._include_chars), set(self._exclude_chars)
+        )
 
     @staticmethod
     def from_dict(filter_dict):

@@ -227,7 +227,7 @@ class TestFilter(unittest.TestCase):
         expected[AlphaSlug] = True
         self.assertEqual(self.filter_test(whitelist), expected)
         # test that AlphaSlug was added to the set
-        self.assertEqual(whitelist._classes, set([AlphaSlug]))
+        self.assertEqual(whitelist._classes, {AlphaSlug})
         # now all soldier and soldier-derived classes should be permited
         whitelist.include(Soldier)
         expected[self.chad] = True
@@ -237,7 +237,7 @@ class TestFilter(unittest.TestCase):
         expected[Commander] = True
         self.assertEqual(self.filter_test(whitelist), expected)
         # test that Soldier was added to the set
-        self.assertEqual(whitelist._classes, set([AlphaSlug, Soldier]))
+        self.assertEqual(whitelist._classes, {AlphaSlug, Soldier})
 
         # now test including with a blacklist
         blacklist = char.Filter(mode="blacklist")
@@ -267,7 +267,7 @@ class TestFilter(unittest.TestCase):
         expected[AlphaSlug] = False
         self.assertEqual(self.filter_test(blacklist), expected)
         # AlphaSlug should be added to set
-        self.assertEqual(blacklist._classes, set([AlphaSlug]))
+        self.assertEqual(blacklist._classes, {AlphaSlug})
         # excluding another class
         blacklist.exclude(Bureaucrat)
         expected[self.bill] = False
@@ -276,7 +276,7 @@ class TestFilter(unittest.TestCase):
         expected[Commander] = False
         self.assertEqual(self.filter_test(blacklist), expected)
         # Bureaucrat should be added to set
-        self.assertEqual(blacklist._classes, set([AlphaSlug, Bureaucrat]))
+        self.assertEqual(blacklist._classes, {AlphaSlug, Bureaucrat})
 
     def test_whitelist_chars(self):
         """including/excluding Characters should overrides any class
@@ -292,24 +292,24 @@ class TestFilter(unittest.TestCase):
         expected[Commander] = True
         self.assertEqual(self.filter_test(whitelist), expected)
         # check that the classes and include chars work as expected
-        self.assertEqual(whitelist._classes, set([Soldier]))
-        self.assertEqual(whitelist._include_chars, set())
-        self.assertEqual(whitelist._exclude_chars, set([self.dwight]))
+        self.assertEqual(whitelist._classes, {Soldier})
+        self.assertEqual(set(whitelist._include_chars), set())
+        self.assertEqual(set(whitelist._exclude_chars), {self.dwight})
         # now include dwight
         whitelist.include(self.dwight)
         expected[self.dwight] = True
         self.assertEqual(self.filter_test(whitelist), expected)
-        self.assertEqual(whitelist._classes, set([Soldier]))
-        self.assertEqual(whitelist._include_chars, set([self.dwight]))
-        self.assertEqual(whitelist._exclude_chars, set())
+        self.assertEqual(whitelist._classes, {Soldier})
+        self.assertEqual(set(whitelist._include_chars), {self.dwight})
+        self.assertEqual(set(whitelist._exclude_chars), set())
         # now exclude the Soldier class
         whitelist.exclude(Soldier)
         expected = self.no_chars.copy()
         expected[self.dwight] = True
         self.assertEqual(self.filter_test(whitelist), expected)
         self.assertEqual(whitelist._classes, set())
-        self.assertEqual(whitelist._include_chars, set([self.dwight]))
-        self.assertEqual(whitelist._exclude_chars, set())
+        self.assertEqual(set(whitelist._include_chars), {self.dwight})
+        self.assertEqual(set(whitelist._exclude_chars), set())
 
     def test_blacklist_chars(self):
         """including/excluding Characters should overrides any class
@@ -325,9 +325,9 @@ class TestFilter(unittest.TestCase):
         expected[self.vloobuk] = False
         expected[self.plubb] = False
         self.assertEqual(self.filter_test(blacklist), expected)
-        self.assertEqual(blacklist._classes, set([Slug]))
-        self.assertEqual(blacklist._include_chars, set([self.bloog]))
-        self.assertEqual(blacklist._exclude_chars, set([self.vloobuk]))
+        self.assertEqual(blacklist._classes, {Slug})
+        self.assertEqual(set(blacklist._include_chars), {self.bloog})
+        self.assertEqual(set(blacklist._exclude_chars), {self.vloobuk})
         # now include the Slug class in general again
         blacklist.include(Slug)
         expected[Slug] = True
@@ -335,8 +335,8 @@ class TestFilter(unittest.TestCase):
         expected[self.plubb] = True
         self.assertEqual(self.filter_test(blacklist), expected)
         self.assertEqual(blacklist._classes, set())
-        self.assertEqual(blacklist._include_chars, set([self.bloog]))
-        self.assertEqual(blacklist._exclude_chars, set([self.vloobuk]))
+        self.assertEqual(set(blacklist._include_chars), {self.bloog})
+        self.assertEqual(set(blacklist._exclude_chars), {self.vloobuk})
         # now include vloobuk and exclude bloog
         blacklist.include(self.vloobuk)
         blacklist.exclude(self.bloog)
@@ -344,8 +344,8 @@ class TestFilter(unittest.TestCase):
         expected[self.bloog] = False
         self.assertEqual(self.filter_test(blacklist), expected)
         self.assertEqual(blacklist._classes, set())
-        self.assertEqual(blacklist._include_chars, set([self.vloobuk]))
-        self.assertEqual(blacklist._exclude_chars, set([self.bloog]))
+        self.assertEqual(set(blacklist._include_chars), {self.vloobuk})
+        self.assertEqual(set(blacklist._exclude_chars), {self.bloog})
 
 
 # some test locations
