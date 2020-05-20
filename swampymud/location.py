@@ -10,9 +10,7 @@ and items.
 """
 
 from typing import Iterable
-import swampymud.inventory
-import swampymud.character as char
-import swampymud
+from swampymud import character as char, inventory, entity, util
 
 class Exit:
     """Class representing an in-game Exit.
@@ -113,7 +111,7 @@ class Location:
         self.characters = []
         self.entities = []
         self._exit_list = []
-        self.inv = swampymud.inventory.Inventory()
+        self.inv = inventory.Inventory()
         self.name = name
         self.description = description
 
@@ -156,13 +154,6 @@ class Location:
         for entity in self.entities:
             if str(entity) == query:
                 return entity
-
-    def find_exit(self, exit_name):
-        """returns an exit corresponding to exit name
-        returns 'None' if no exit is found"""
-        for ex in self._exit_list:
-            if exit_name in ex.names:
-                return ex
 
     # TODO: add indefinite articles, oxford comma, etc.
     def view(self, viewer=None):
@@ -247,3 +238,33 @@ class Location:
 
     def add_item(self, item, quantity=1):
         self.inv.add_item(item, quantity)
+
+    # helper method for util.find
+    def __find_child(self, names, types, maxdepth, char, **kwargs):
+        # check that maxdepth hasn't been exceeded
+        if maxdepth < 0:
+            return
+        # only check exits if Exit type is specified (or no type specified)
+        if types is None or util.has_subclass(types, Exit):
+            for ex in self._exit_list:
+                # if a character is provided, see if it can interact
+                # with this exit
+                if char is not None and not ex.interact.permits(char):
+                    continue
+                # check for any intersecting names
+                if ex.names & names:
+                    yield ex
+        if types is None or util.has_instance(types, char.CharacterClass):
+            for char in self.characters:
+                if util.find_check(char, names, types, **kwargs):
+                    yield char
+                    yield from util.find_child(char, names, types, maxdepth - 1, char, **kwargs)
+                # try to visit the character
+                yield from util.find_child(char, types, maxdepth - 1, char)
+        if types is None or util.has_instance(types, item.ItemClass):
+            # look at inv
+            pass
+        if types is None or util.has_instance(types, item.EntityClass):
+            if find_check(entity, names, types, **kwargs):
+                yield entity
+                yield from util.find_child(char, names, types, maxdepth - 1, char, **kwargs)
