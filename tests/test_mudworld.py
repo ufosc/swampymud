@@ -1,6 +1,7 @@
 """unit tests for the mudworld module"""
 import unittest
 import importlib
+import warnings
 from swampymud import mudworld
 from swampymud.character import CharacterClass
 from swampymud.item import Item
@@ -53,7 +54,7 @@ class TestLoad(unittest.TestCase):
     def test_empty(self):
         """test a save file with 3 blank sections"""
         result = mudworld.read_worldfile('tests/saves/empty.yaml')
-        self.assertEqual(result, {"prelude" : None, "tree": None, "personae": None})
+        self.assertEqual(result, {"prelude" : {}, "tree": {}, "personae": {}})
 
     def test_simple(self):
         """test loading a simple save"""
@@ -131,7 +132,6 @@ class TestPrelude(unittest.TestCase):
         prelude = {"tests/script/basic_rpg.py": ["HealthPotion", "Foo"]}
         with self.assertRaises(Exception):
             mudworld.load_prelude(prelude)
-        #TODO: test loading a prelude with mudscript.get_location
 
 
 class TestPersonae(unittest.TestCase):
@@ -170,6 +170,51 @@ class TestPersonae(unittest.TestCase):
     def test_skim_empty(self):
         """test that no locations are skimmed from empty personae"""
         self.assertEqual(mudworld.skim_for_locations(self.empty), {})
+
+    def test_skim_warn(self):
+        """test that skim_locations warns on bad locations"""
+        warn_msg = ("Location '{}' missing required field '{}'. "
+                    "All locations must provide a name and description.")
+        locations = {
+            'correct': {'_type': '^Location',
+                        'description': 'Patrons are grumbling about their day '
+                                       'over a few pints.',
+                        'name': 'Tavern'},
+            'wrong': {'_type': '^Location', 'name': 'Basement'}
+        }
+        with warnings.catch_warnings(record=True) as warn_list:
+            result = mudworld.skim_for_locations(locations)
+        # should only load unaffected Location
+        self.assertEqual(len(result), 1)
+        self.assertEqual(str(result['correct']), "Tavern")
+        # should produce 2 warnings
+        self.assertEqual([str(warn.message) for warn in warn_list], [
+            warn_msg.format('wrong', 'description'),
+            "Skipped 1 Location(s)."
+        ])
+
+        # only location 4 and 5 should succeed here
+        locations = {
+            'loc1': {'_type': '^Location', 'description': 'meme'},
+            'loc2': {'_type': '^Location', 'name': 'meme'},
+            'loc3': {'_type': '^Location'},
+            'loc4': {'_type': '^Location', 'description': 'y', 'name': 'x'},
+            'loc5': {'_type': '^Location', 'description': 'bar', 'name': 'foo'}
+        }
+
+        with warnings.catch_warnings(record=True) as warn_list:
+            result = mudworld.skim_for_locations(locations)
+        # should only load unaffected Location
+        self.assertEqual(len(result), 2)
+        self.assertEqual(str(result['loc4']), "x")
+        self.assertEqual(str(result['loc5']), "foo")
+        # should produce 4 warnings (3 specific + 1 summary)
+        self.assertEqual([str(warn.message) for warn in warn_list], [
+            warn_msg.format('loc1', 'name'),
+            warn_msg.format('loc2', 'description'),
+            warn_msg.format('loc3', 'name'),
+            "Skipped 3 Location(s)."
+        ])
 
     def test_skim_simple(self):
         """test that simple locations are constructed after a skim"""

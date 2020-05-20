@@ -1,6 +1,7 @@
 """This module provides methods for serializing / deserializing game data,
 and also defines the World class"""
 import importlib
+import warnings
 from collections import defaultdict
 from random import choices
 import yaml
@@ -36,7 +37,10 @@ def read_worldfile(save_name):
     if missing:
         raise ValueError(f"Missing section(s) {missing} "
                          f"in world file '{save_name}'")
-
+    # to allow for 'blank' sections, convert any None's to empty dicts
+    for sect, value in save_data.items():
+        if value is None:
+            save_data[sect] = {}
     return save_data
 
 
@@ -69,13 +73,25 @@ def load_prelude(prelude_data):
                                 "{}".format(cls, _GAME_CLASSES))
     return cls_dict
 
-
 def skim_for_locations(personae):
-    """return a dict mapping names to locations based on the provided tree"""
-    return {
-        key: Location(data["name"], data["description"])
-        for key, data in personae.items() if data["_type"] == "^Location"
-    }
+    """extract locations from personae
+    warns if any locations are missing fields
+    """
+    skipped = 0
+    locs = {}
+    for key, data in personae.items():
+        # assume that _type has already been checked
+        if data["_type"] == "^Location":
+            try:
+                locs[key] = Location(data["name"], data["description"])
+            except KeyError as err:
+                warnings.warn(f"Location '{key}' missing required field "
+                              f"'{err.args[0]}'. All locations must provide "
+                              "a name and description.")
+                skipped += 1
+    if skipped:
+        warnings.warn(f"Skipped {skipped} Location(s).", stacklevel=10000)
+    return locs
 
 
 def load_object(obj_data, type_names):
