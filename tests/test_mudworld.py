@@ -18,36 +18,37 @@ class TestLoad(unittest.TestCase):
     def test_blank(self):
         """completely blank save should fail"""
         message = ("Received 'NoneType' instead of a dict in world file "
-                   "'tests/saves/blank.yaml'. (World files should contain "
+                   "'tests/saves/bad/blank.yaml'. (World files should contain "
                    "three sections: prelude, personae, tree.")
 
         with self.assertRaises(TypeError, msg=message):
-            mudworld.read_worldfile('tests/saves/blank.yaml')
+            mudworld.read_worldfile('tests/saves/bad/blank.yaml')
 
     def test_unexpected(self):
         """test that unexpected fields are detected
         (unexpected fields should be detected before missing fields)"""
         msg = "Found unexpected section(s) {sects} in world file '{name}'"
-        emsg = msg.format(sects=["groceries", "budget"], name="bad.yaml")
+        emsg = msg.format(sects=["groceries", "budget"],
+                          name="bad_sections.yaml")
         with self.assertRaises(ValueError, msg=emsg):
-            mudworld.read_worldfile("tests/saves/bad.yaml")
+            mudworld.read_worldfile("tests/saves/bad/bad_sections.yaml")
 
-        emsg = msg.format(sects=["stocks"], name="unexpected.yaml")
+        emsg = msg.format(sects=["stocks"], name="unexpect_section.yaml")
         with self.assertRaises(ValueError, msg=emsg):
-            mudworld.read_worldfile("tests/saves/unexpected.yaml")
+            mudworld.read_worldfile("tests/saves/bad/unexpect_section.yaml")
 
     def test_missing(self):
         """test that missing fields are detected"""
-        msg = "Missing section(s) {sects} in world file 'tests/saves/{name}'"
-        emsg = msg.format(sects=["prelude"], name="missing_prelude.yaml")
+        msg = "Missing section(s) {lst} in world file 'tests/saves/bad/{name}'"
+        emsg = msg.format(lst=["prelude"], name="missing_prelude.yaml")
         with self.assertRaises(ValueError, msg=emsg):
-            mudworld.read_worldfile("tests/saves/missing_prelude.yaml")
+            mudworld.read_worldfile("tests/saves/bad/missing_prelude.yaml")
 
 
-        emsg = msg.format(sects=["personae", "tree"],
+        emsg = msg.format(lst=["personae", "tree"],
                           name="missing_prelude.yaml")
         with self.assertRaises(ValueError, msg=emsg):
-            mudworld.read_worldfile("tests/saves/missing_2.yaml")
+            mudworld.read_worldfile("tests/saves/bad/missing_2.yaml")
 
     def test_empty(self):
         """test a save file with 3 blank sections"""
@@ -437,7 +438,7 @@ class TestLocationScripts(unittest.TestCase):
         """bad location imports should produce a KeyError"""
         with self.assertRaises(KeyError, msg="Cannot access location 'Epic Castle'"
                                " (no locations with that name)"):
-            world = mudworld.World.from_file("tests/saves/bad_location_import.yaml")
+            mudworld.World.from_file("tests/saves/bad/bad_loc_import.yaml")
 
 
     def test_good_location_import(self):
@@ -489,4 +490,3 @@ class TestLocationScripts(unittest.TestCase):
         self.assertEqual(human1.msgs.pop(),
                          "You have been captured!")
         self.assertTrue(human1 in world.locations["dungeon"].characters)
-
