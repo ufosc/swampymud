@@ -138,6 +138,7 @@ class TestPersonae(unittest.TestCase):
     """test case for personae-related functions"""
 
     def setUp(self):
+        self.maxDiff = 1000
         self.empty = {}
         # up these as necessary
         self.simple = {
@@ -166,6 +167,56 @@ class TestPersonae(unittest.TestCase):
             "Warrior": import_class("tests.script.basic_rpg", "Warrior"),
             "CursedRing": import_class("tests.script.weapons", "CursedRing")
         }
+
+    def test_check_types(self):
+        """test that check_types filters out typeless objects"""
+        warn_msg = "Object '{}' missing required field '_type'."
+        unknown_msg = "Object '{}' has unknown type '{}'."
+        type_names = {"Location": Location, "Item": Item}
+        personae = {
+            "good1": {"_type": "^Location", "name": "Tavern"},
+            "good2": {"_type": "^Item", "value": 5},
+            "unknown1": {"_type": "^Foo"},
+            "unknown2": {"_type": "^ItEm"},
+            # whoops, forgot a '^'
+            "unknown3": {"_type": "Location"},
+            # these items have no type
+            "bad1": {"name": "Basement"},
+            "bad2": {},
+            # whoops, put 'type' instead of '_type'
+            "bad3": {"type": "Foo"}
+        }
+        # first, check without checking if the types exist
+        with warnings.catch_warnings(record=True) as warn_list:
+            filtered = mudworld.check_types(personae)
+        # bad objects should be filtered
+        self.assertEqual(set(filtered), {
+            "good1", "good2", "unknown1", "unknown2", "unknown3"
+        })
+        self.assertEqual([str(warn.message) for warn in warn_list], [
+            warn_msg.format("bad1"),
+            warn_msg.format("bad2"),
+            (warn_msg.format("bad3") +
+             " (Did you add a 'type' field instead of '_type'?)"),
+            "Skipped 3 objects. (Unknown type.)"
+        ])
+
+        # now check with a valid set of type_names
+        with warnings.catch_warnings(record=True) as warn_list:
+            filtered = mudworld.check_types(personae, type_names=type_names)
+        self.assertEqual(set(filtered), {"good1", "good2"})
+
+        self.assertEqual([str(warn.message) for warn in warn_list], [
+            unknown_msg.format('unknown1', 'Foo'),
+            unknown_msg.format('unknown2', 'ItEm'),
+            (unknown_msg.format('unknown3', 'ocation') +
+             " (Did you remember to put '^' in front of your type?)"),
+            warn_msg.format("bad1"),
+            warn_msg.format("bad2"),
+            (warn_msg.format("bad3") +
+             " (Did you add a 'type' field instead of '_type'?)"),
+            "Skipped 6 objects. (Unknown type.)"
+        ])
 
     def test_skim_empty(self):
         """test that no locations are skimmed from empty personae"""

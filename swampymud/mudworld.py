@@ -73,19 +73,54 @@ def load_prelude(prelude_data):
                                 "{}".format(cls, _GAME_CLASSES))
     return cls_dict
 
+
+def check_types(personae, type_names=None):
+    """Return a copy of personae with all objs missing a "_type" field
+    removed. Produces a warning for each object removed.
+
+    optional arguments
+    type_names -- if provided, remove and warn about any objects with an
+    unknown type
+    """
+    skipped = 0
+    updated_personae = {}
+    for symbol, data in personae.items():
+        if "_type" not in data:
+            msg = f"Object '{symbol}' missing required field '_type'."
+            # catch an easy pitfall
+            if "type" in data:
+                msg += " (Did you add a 'type' field instead of '_type'?)"
+            warnings.warn(msg)
+            skipped += 1
+            continue
+        obj_type = data["_type"][1:] # strip off the '^'
+        if type_names is not None and obj_type not in type_names:
+            msg = f"Object '{symbol}' has unknown type '{obj_type}'."
+            # catch another easy pitfall
+            if not data["_type"].startswith("^"):
+                msg += " (Did you remember to put '^' in front of your type?)"
+            warnings.warn(msg)
+            skipped += 1
+            continue
+        updated_personae[symbol] = data
+    if skipped:
+        warnings.warn(f"Skipped {skipped} objects. (Unknown type.)")
+    return updated_personae
+
+
 def skim_for_locations(personae):
     """extract locations from personae
     warns if any locations are missing fields
     """
     skipped = 0
     locs = {}
-    for key, data in personae.items():
+    for symbol, data in personae.items():
         # assume that _type has already been checked
         if data["_type"] == "^Location":
             try:
-                locs[key] = Location(data["name"], data["description"])
+                locs[symbol] = Location(data["name"], data["description"])
             except KeyError as err:
-                warnings.warn(f"Location '{key}' missing required field "
+                warnings.warn(f"Location '{symbol}' missing required field "
                               f"'{err.args[0]}'. All locations must provide "
                               "a name and description.")
                 skipped += 1
@@ -277,6 +312,9 @@ class World:
     """class representing an in-game world"""
     def __init__(self, prelude, personae, tree):
         """initialize an empty world"""
+        # remove any fields without a '_type' from the personae
+        personae = check_types(personae)
+
         # skim the personae, creating all locations
         self.locations = skim_for_locations(personae)
         # the prelude won't change, so simply save it
@@ -290,6 +328,9 @@ class World:
 
         # add "Location" to the possible type names
         type_names["Location"] = Location
+
+        # do another type check from the personae
+        personae = check_types(personae, type_names)
 
         # load the dramatis personae
         symbols = load_personae(personae, type_names,
