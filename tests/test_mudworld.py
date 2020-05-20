@@ -17,8 +17,37 @@ class TestLoad(unittest.TestCase):
 
     def test_blank(self):
         """completely blank save should fail"""
-        with self.assertRaises(Exception):
+        message = ("Received 'NoneType' instead of a dict in world file "
+                   "'tests/saves/blank.yaml'. (World files should contain "
+                   "three sections: prelude, personae, tree.")
+
+        with self.assertRaises(TypeError, msg=message):
             mudworld.read_worldfile('tests/saves/blank.yaml')
+
+    def test_unexpected(self):
+        """test that unexpected fields are detected
+        (unexpected fields should be detected before missing fields)"""
+        msg = "Found unexpected section(s) {sects} in world file '{name}'"
+        emsg = msg.format(sects=["groceries", "budget"], name="bad.yaml")
+        with self.assertRaises(ValueError, msg=emsg):
+            mudworld.read_worldfile("tests/saves/bad.yaml")
+
+        emsg = msg.format(sects=["stocks"], name="unexpected.yaml")
+        with self.assertRaises(ValueError, msg=emsg):
+            mudworld.read_worldfile("tests/saves/unexpected.yaml")
+
+    def test_missing(self):
+        """test that missing fields are detected"""
+        msg = "Missing section(s) {sects} in world file 'tests/saves/{name}'"
+        emsg = msg.format(sects=["prelude"], name="missing_prelude.yaml")
+        with self.assertRaises(ValueError, msg=emsg):
+            mudworld.read_worldfile("tests/saves/missing_prelude.yaml")
+
+
+        emsg = msg.format(sects=["personae", "tree"],
+                          name="missing_prelude.yaml")
+        with self.assertRaises(ValueError, msg=emsg):
+            mudworld.read_worldfile("tests/saves/missing_2.yaml")
 
     def test_empty(self):
         """test a save file with 3 blank sections"""

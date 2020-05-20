@@ -15,18 +15,28 @@ _GAME_OBJS = [Character, Item, Entity, Location]
 _GAME_CLASSES = [CharacterClass, ItemClass, EntityClass]
 
 def read_worldfile(save_name):
-    """return a parsed save file"""
+    """return a parsed world file"""
     #TODO: add a 'gzip' layer to this
     with open(save_name) as save_file:
         save_data = save_file.read()
     save_data = yaml.safe_load(save_data)
-    # check that only the following sections appear in the world tree
+    # TODO: maybe add a link to the documentation for this one?
+    if not isinstance(save_data, dict):
+        raise TypeError(f"Received '{type(save_data)}' instead a dict "
+                        f"in world file {save_name}'. (World files should "
+                        "contain three sections: prelude, personae, tree.")
+    # check that we have exactly these three sections
     valid_sections = set(("prelude", "personae", "tree"))
-    for section in save_data:
-        if section not in valid_sections:
-            #TODO: use a more specific exception
-            raise Exception("Found unexpected section '%s' in save file '%s'"
-                            % (section, save_name))
+    input_sections = set(save_data)
+    unexpected = list(input_sections - valid_sections)
+    if unexpected:
+        raise ValueError(f"Found unexpected section(s) {unexpected} "
+                         f"in world file '{save_name}'")
+    missing = list(valid_sections - input_sections)
+    if missing:
+        raise ValueError(f"Missing section(s) {missing} "
+                         f"in world file '{save_name}'")
+
     return save_data
 
 
@@ -169,7 +179,8 @@ def walk_tree(tree, obj_names, cls_names):
     elif tree is None:
         pass
     else:
-        raise TypeError("Expected symbol, list, or mapping, received '%r' of type '%s'" % (tree, type(tree)))
+        raise TypeError("Expected symbol, list, or mapping, "
+                        f"received '{tree!r}' of type '{type(tree)}'")
 
 
 def load_tree(tree, obj_names, cls_names):
