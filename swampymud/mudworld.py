@@ -12,8 +12,8 @@ from swampymud.entity import EntityClass, Entity
 from swampymud.mudscript import LocationExport
 
 # TODO: change these to sets?
-_GAME_OBJS = [Character, Item, Entity, Location]
-_GAME_CLASSES = [CharacterClass, ItemClass, EntityClass]
+_GAME_OBJS = (Character, Item, Entity, Location)
+_GAME_CLASSES = (CharacterClass, ItemClass, EntityClass)
 
 def read_worldfile(save_name):
     """return a parsed world file"""
@@ -53,27 +53,25 @@ def write_worldfile(save_name, save_data):
 
 
 def load_prelude(prelude_data):
-    #TODO use context manager for locations
+    """return a dict of classes imported according to prelude_data"""
     cls_dict = {}
     for fname, classes in prelude_data.items():
-        # convert the pathname to a module name
+        # convert the pathname to a module name and attempt import
         mod_name = fname.replace('.py', '').replace('/', '.')
-        # attempt to import it
         mod = importlib.import_module(mod_name)
-        # try to get each class in the module
         for cls_name in classes:
             cls = getattr(mod, cls_name)
             # check that class is a valid class to import
-            if any(map(lambda x: isinstance(cls, x), _GAME_CLASSES)):
+            if isinstance(cls, _GAME_CLASSES):
                 cls_dict[cls_name] = cls
             # if not, raise an exception
             else:
-                #TODO: use a more specific exception
                 raise TypeError("{!r} is wrong type, expected one of"
                                 "{}".format(cls, _GAME_CLASSES))
     return cls_dict
 
 
+# functions for loading personae
 def check_types(personae, type_names=None):
     """Return a copy of personae with all objs missing a "_type" field
     removed. Produces a warning for each object removed.
@@ -137,8 +135,12 @@ def load_object(obj_data, type_names):
 
 
 def update_symbols(data, obj_names, type_names):
-    """returns a deep copy of [data] where all symbols (names prefixed with $)
-    have been recursively replaced according to the dictionary [obj_names]"""
+    """Return a deep copy of [data] with all symbols replaced with their
+    corresponding in-game values.
+
+    Object symbols (prefixed with '$') are updated by [obj_names].
+    Type symbols (prefixed with '^') are updated by [type_names].
+    """
     # base case 1--data is a string
     if isinstance(data, str):
         if data.startswith("$"):
@@ -166,12 +168,14 @@ def update_symbols(data, obj_names, type_names):
 
 
 def load_personae(personae_data, type_names, obj_names=None):
-    """[personae_data] : personae-formatted object definions
+    """Returns a dict mapping symbols to game objects loaded from
+    personae_data.
+
+    [personae_data] : personae-formatted object definions
     [type_names]: dict mapping strings (names) to classes
-    [obj_names]: optional argument containing starter symbols and objects
-    returns a dict mapping symbols to game objects loaded form [personae_data]
+    [obj_names]: optional argument containing starter symbols and
+    objects (like locations skimmed earlier).
     """
-    # copy any starter symbols if provided
     obj_names = obj_names.copy() if obj_names else {}
     for obj_id, obj_data in personae_data.items():
         # check if 'name' is already in the symbol table
@@ -184,29 +188,27 @@ def load_personae(personae_data, type_names, obj_names=None):
     updated_data = update_symbols(personae_data, obj_names, type_names)
     # now call all the 'post_load' methods
     for obj_id, obj in obj_names.items():
-        # look up the object's data
         obj_data = updated_data[obj_id]
-        # call the post load method
         obj.post_load(obj_data)
     return obj_names
 
 
 def walk_tree(tree, obj_names, cls_names):
-    """recursive function for evaluating the World Tree"""
+    """recursively perform a preorder traversal of [tree], loading in
+    Characters, Items, and Entities in the process
+    """
     # base case 1--tree is a symbol
     if isinstance(tree, str):
         # return the object with that symbol
         yield obj_names[tree]
-    # base case 2--tree is anonymous object data
     elif isinstance(tree, dict):
+        # base case 2--tree is anonymous object data
         # this is why '_type' cannot be used as a symbol
         if "_type" in tree:
-            # load in the object
             obj = load_object(tree, cls_names)
-            # call object's postload method
-            obj.postload(tree, obj_names, cls_names)
+            obj.post_load(tree, obj_names, cls_names)
             yield obj
-        # recursive case 1--tree is a dict mapping object to other, owned objects
+        # recursive case 1--tree is a dict mapping object its children
         else:
             for symbol, subtree in tree.items():
                 # get the owner from the sybmol
@@ -220,7 +222,7 @@ def walk_tree(tree, obj_names, cls_names):
                     elif isinstance(child_obj, Entity):
                         owner.add_entity(child_obj)
                     else:
-                        raise TypeError("%r has wrong type" % child_obj)
+                        raise TypeError(f"{child_obj!r} has wrong type")
                 yield owner
     # recursive case 2--tree is a list of subtrees
     elif isinstance(tree, list):
@@ -243,17 +245,19 @@ def load_tree(tree, obj_names, cls_names):
 
 
 def symbol_replace(data, sym_counts):
-    """returns a copy of [data], but with all classes
-    and game objects replaced with the proper symbols
-    the frequency of each symbol is recorded in [sym_counts]"""
+    """Returns a copy of [data], but with all classes and game objects
+    replaced with the proper symbols.
+
+    The frequency of each symbol is recorded in [sym_counts].
+    """
     # check if object is a game object, replace with obj symbol
-    if any(map(lambda x: isinstance(data, x), _GAME_OBJS)):
-        sym = "$%s" % data.symbol
+    if isinstance(data, _GAME_OBJS):
+        sym = f"${data.symbol}"
         sym_counts[sym] += 1
         return sym
     # if the object is a game class, replace with class symbol
-    elif any(map(lambda x: isinstance(data, x), _GAME_CLASSES)) or data in _GAME_OBJS:
-        return "^%s" % data.__name__
+    elif isinstance(data, _GAME_CLASSES) or data in _GAME_OBJS:
+        return f"^{data.__name__}"
     # recurive case 1--data is a list
     elif isinstance(data, list):
         # run the function on every member of the list
@@ -271,9 +275,17 @@ def symbol_replace(data, sym_counts):
 
 
 def build_tree(obj, personae_counts, tree_counts):
-    """returns a tuple containing subtree, personae_chunk
-    subtree: a subtree of the World Tree
-    personae_data: a chunk of personae_data
+    """Returns a tuple (subtree, personae_chunk) containing a subtree of
+    the World Tree and a chunk of personae data
+
+    This function recursively processes all objects in
+    obj.children() to build up the world tree. Calling build_tree() on a
+    location will serialize all characters, items, and entities in that
+    location. Calling build_tree() on a World will serialize the entire
+    World.
+
+    personae_counts and tree_counts will be updated to reflect the
+    number of times this obj and its children are used.
     """
     personae = {}
     subtrees = []
@@ -283,13 +295,13 @@ def build_tree(obj, personae_counts, tree_counts):
         child_data = symbol_replace(child.save(), personae_counts)
         personae[child.symbol] = child_data
 
-        personae_chunk, subtree = build_tree(child, personae_counts, tree_counts)
+        chunk, subtree = build_tree(child, personae_counts, tree_counts)
         # update personae with the personae_chunk
         # this is valid since each symbol should be unique
-        personae.update(personae_chunk)
+        personae.update(chunk)
         subtrees.append(subtree)
     # run through a series of cases to build the tree
-    # refer to the World Specification document for discussion of each case
+    # refer to the World Specification document for discussion of cases
     if len(subtrees) == 0:
         # if there are no subtrees, then we can use obj's symbol as tree
         tree = obj.symbol
@@ -321,7 +333,7 @@ class World:
         self.prelude = prelude
 
         # make the locations available for the modules in the prelude
-        # this allows developers to access locations via "import_location"
+        # this allows developers to use "mudscript.import_location"
         with LocationExport({str(l) : l for l in self.locations.values()}):
             # load in classes from the prelude
             type_names = load_prelude(prelude)
@@ -382,6 +394,8 @@ class World:
         """return a random CharacterClass, based on each CharClass's
         'frequency' value"""
         cls_list = list(self.char_classes.values())
+        # developers may change the frequency of a CharacterClass during
+        # gameplay, so we simply check the frequencies each time
         freqs = [cls.frequency for cls in cls_list]
         return choices(cls_list, weights=freqs)[0]
 

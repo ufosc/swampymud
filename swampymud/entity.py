@@ -110,7 +110,7 @@ class Entity(metaclass=EntityClass):
         proper_name = None
         return cls(proper_name)
 
-    def postload(self, data, obj_symbols, cls_symbols):
+    def post_load(self, data, obj_symbols, cls_symbols):
         pass
 
     def save(self):
