@@ -218,6 +218,47 @@ class TestPersonae(unittest.TestCase):
             "Skipped 6 objects. (Unknown type.)"
         ])
 
+    def test_check_symbols(self):
+        # running a correct personae through check_symbols produces
+        # no warnings and leaves all the fields intact
+        with warnings.catch_warnings(record=True) as warn_list:
+            checked = mudworld.check_symbols(self.simple,
+                                             obj_names=self.simple,
+                                             type_names=self.simple_classes)
+        self.assertEqual(warn_list, [])
+        self.assertEqual(self.simple, checked)
+
+        # now add an unknown field to Abra
+        checked["Abra"]["friend"] = "$Kadabra"
+        with warnings.catch_warnings(record=True) as warn_list:
+            checked = mudworld.check_symbols(checked,
+                                             obj_names=self.simple,
+                                             type_names=self.simple_classes)
+        # field should be removed
+        self.assertEqual(checked, self.simple)
+        self.assertEqual([str(warn.message) for warn in warn_list], [
+            "Unknown object symbol '$Kadabra'.",
+            "Omitted 1 field(s). (Bad symbol.)"
+        ])
+
+        bad_type = {
+            "sack": {
+                "_type": "^ItemStack",
+                "item_type": "^Gold",
+                "amount": 3
+            }
+        }
+        type_names = { "ItemStack": inv.ItemStack }
+        with warnings.catch_warnings(record=True) as warn_list:
+            checked = mudworld.check_symbols(bad_type, set(), type_names)
+        del bad_type["sack"]["item_type"]
+        self.assertEqual(checked, bad_type)
+        self.assertEqual([str(warn.message) for warn in warn_list], [
+            "Unknown type symbol '^Gold'.",
+            "Omitted 1 field(s). (Bad symbol.)"
+        ])
+
+
     def test_skim_empty(self):
         """test that no locations are skimmed from empty personae"""
         self.assertEqual(mudworld.skim_for_locations(self.empty), {})

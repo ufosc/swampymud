@@ -134,24 +134,75 @@ def load_object(obj_data, type_names):
     return ObjType.load(obj_data)
 
 
+def check_symbols(data, obj_names, type_names):
+    """Return a deep copy of data with each symbol checked. Warn if a
+    symbol is used in data but cannot be found in obj_names or
+    type_names.
+
+    If a symbol cannot be found, then the item is omitted (in the case
+    of a list) or the key, value pair is omitted (in the case of a
+    dict).
+    """
+    with warnings.catch_warnings(record=True) as warn_list:
+        checked = _check_symbols(data, obj_names, type_names)
+    # collect the warnings, resend them, and provide number of skipped
+    for warn in warn_list:
+        warnings.warn(warn.message)
+    if warn_list:
+        warnings.warn(f"Omitted {len(warn_list)} field(s). (Bad symbol.)")
+    return checked
+
+
+def _check_symbols(data, obj_names, type_names):
+    """Helper function for check_symbols"""
+    if isinstance(data, str):
+        if data.startswith("$") and data[1:] not in obj_names:
+            warnings.warn(f"Unknown object symbol '{data}'.")
+            return
+        if data.startswith("^") and data[1:] not in type_names:
+            warnings.warn(f"Unknown type symbol '{data}'.")
+            return
+    elif isinstance(data, list):
+        checked = [_check_symbols(i, obj_names, type_names) for i in data]
+        # remove any items that failed the check
+        return [
+            after for before, after in zip(data, checked)
+            if after is not None or before is None
+        ]
+    elif isinstance(data, dict):
+        checked = {
+            key: _check_symbols(value, obj_names, type_names)
+            for key, value in data.items()
+        }
+        # remove any values that failed the check
+        return {
+            k: checked[k] for k in checked
+            if checked[k] is not None or data[k] is None
+        }
+    # data has passed the check, return it
+    return data
+
+
 def update_symbols(data, obj_names, type_names):
     """Return a deep copy of [data] with all symbols replaced with their
     corresponding in-game values.
 
     Object symbols (prefixed with '$') are updated by [obj_names].
     Type symbols (prefixed with '^') are updated by [type_names].
+
+    Raises KeyError if a symbol cannot be found. (Consider checking data
+    with check_symbols before using this function.)
     """
     # base case 1--data is a string
     if isinstance(data, str):
+        # if object is a symbol, return the appropriate object / type
         if data.startswith("$"):
-            # data is an object symbol, return the corresponding object
             return obj_names[data[1:]]
-        elif data.startswith("^"):
-            # data is a type symbol, return the corresponding type
+        if data.startswith("^"):
             return type_names[data[1:]]
         # otherwise, return the original string
         return data
-    # recurive case 1--data is a list
+    # recursive case 1--data is a list
     elif isinstance(data, list):
         # run the function on every member of the list
         return [update_symbols(x, obj_names, type_names) for x in data]
@@ -177,14 +228,24 @@ def load_personae(personae_data, type_names, obj_names=None):
     objects (like locations skimmed earlier).
     """
     obj_names = obj_names.copy() if obj_names else {}
+    skipped = 0
     for obj_id, obj_data in personae_data.items():
         # check if 'name' is already in the symbol table
         # e.g. skimmed locations need not be loaded in again
         if obj_id in obj_names:
             continue
         # load the object and add it to the table
-        obj_names[obj_id] = load_object(obj_data, type_names)
+        try:
+            obj_names[obj_id] = load_object(obj_data, type_names)
+        except Exception as e:
+            warnings.warn(f"Object '{obj_id}' failed to load. (Reason: {e!r})")
+            skipped += 1
+    if skipped:
+        warnings.warn(f"{skipped} object(s) failed to load.")
+    # check fields with malformed symbols
+    personae_data = check_symbols(personae_data, obj_names, type_names)
     # update all the symbols as appropriate
+    # TODO: take into account symbols that failed above?
     updated_data = update_symbols(personae_data, obj_names, type_names)
     # now call all the 'post_load' methods
     for obj_id, obj in obj_names.items():
