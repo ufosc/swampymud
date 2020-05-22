@@ -9,6 +9,7 @@ from swampymud.location import Location
 from swampymud.character import CharacterClass, Character
 from swampymud.item import ItemClass, Item
 from swampymud.entity import EntityClass, Entity
+from swampymud.inventory import ItemStack
 from swampymud.mudscript import LocationExport
 
 # TODO: change these to sets?
@@ -54,7 +55,8 @@ def write_worldfile(save_name, save_data):
 
 def load_prelude(prelude_data):
     """return a dict of classes imported according to prelude_data"""
-    cls_dict = {}
+    # by default, we include Location and ItemStack
+    cls_dict = {"Location": Location, "ItemStack": ItemStack}
     for fname, classes in prelude_data.items():
         # convert the pathname to a module name and attempt import
         mod_name = fname.replace('.py', '').replace('/', '.')
@@ -266,9 +268,14 @@ def walk_tree(tree, obj_names, cls_names):
         # base case 2--tree is anonymous object data
         # this is why '_type' cannot be used as a symbol
         if "_type" in tree:
-            obj = load_object(tree, cls_names)
-            obj.post_load(tree, obj_names, cls_names)
-            yield obj
+            try:
+                obj = load_object(tree, cls_names)
+                tree = update_symbols(tree, obj_names, cls_names)
+                obj.post_load(tree)
+                yield obj
+            except Exception as ex:
+                warnings.warn("Failed to load anon object. "
+                              f"(Reason: {ex!r})")
         # recursive case 1--tree is a dict mapping object its children
         else:
             for symbol, subtree in tree.items():
@@ -282,6 +289,8 @@ def walk_tree(tree, obj_names, cls_names):
                         owner.add_item(child_obj)
                     elif isinstance(child_obj, Entity):
                         owner.add_entity(child_obj)
+                    elif isinstance(child_obj, ItemStack):
+                        owner.add_item(child_obj.copy(), child_obj.amount)
                     else:
                         raise TypeError(f"{child_obj!r} has wrong type")
                 yield owner
@@ -352,6 +361,11 @@ def build_tree(obj, personae_counts, tree_counts):
     subtrees = []
     # recursive step
     for child in obj.children():
+        # developers may write a faulty 'children' method that
+        # returns / yields None, so we skip
+        if child is None:
+            continue
+
         # replace the child's data symbols and add to personae
         child_data = symbol_replace(child.save(), personae_counts)
         personae[child.symbol] = child_data
@@ -399,9 +413,6 @@ class World:
             # load in classes from the prelude
             type_names = load_prelude(prelude)
 
-        # add "Location" to the possible type names
-        type_names["Location"] = Location
-
         # do another type check from the personae
         personae = check_types(personae, type_names)
 
@@ -423,7 +434,6 @@ class World:
                 self.item_classes[cls.__name__] = cls
             elif isinstance(cls, EntityClass):
                 self.entity_classes[cls.__name__] = cls
-
 
     def children(self):
         """iterate over the locations in this world"""

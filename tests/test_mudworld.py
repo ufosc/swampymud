@@ -97,7 +97,8 @@ class TestPrelude(unittest.TestCase):
 
     def test_empty(self):
         """test an empty prelude"""
-        self.assertEqual(mudworld.load_prelude({}), {})
+        self.assertEqual(mudworld.load_prelude({}),
+                         {"Location": Location, "ItemStack": inv.ItemStack})
 
     def test_basic_import(self):
         """test a basic prelude with one file"""
@@ -106,7 +107,15 @@ class TestPrelude(unittest.TestCase):
         }
         results = mudworld.load_prelude(basic_prelude)
 
-        self.assertEqual(set(results), set(["Warrior", "Wizard", "HealthPotion"]))
+        self.assertEqual(results, {
+            "Location": Location,
+            "ItemStack": inv.ItemStack,
+            "Warrior": import_class("tests.script.basic_rpg", "Warrior"),
+            "Wizard": import_class("tests.script.basic_rpg", "Wizard"),
+            "HealthPotion":
+                import_class("tests.script.basic_rpg", "HealthPotion")
+        })
+
 
     def test_multi_import(self):
         """test an import with multiple files"""
@@ -117,7 +126,7 @@ class TestPrelude(unittest.TestCase):
         classes = mudworld.load_prelude(multi_prelude)
         self.assertEqual(set(classes), set(["DarkWizard", "CursedRing",
                                             "HealthPotion", "WoodenStaff",
-                                            "Golem"]))
+                                            "Golem", "Location", "ItemStack"]))
 
     def test_bad_class_import(self):
         """test if prelude fails with a class not one of the first-class types"""
