@@ -8,6 +8,7 @@ import enum
 import traceback
 import errno
 import argparse
+import warnings
 # import the MUD server class
 from swampymud.mudserver import MudServer, Event, EventType
 # import modules from the SwampyMud engine
@@ -33,13 +34,15 @@ class MainServer(MudServer):
 
 
 # Setup the logger
-logging.basicConfig(format='%(asctime)s [%(threadName)s] [%(levelname)s] %(message)s',
+logging.basicConfig(format='%(asctime)s [%(levelname)s] %(message)s',
                     level=logging.INFO,
                     handlers=[
                         logging.FileHandler("server.log"),
                         logging.StreamHandler(sys.stdout)
                     ])
-
+# Redirect warnings to the logger
+logging.captureWarnings(True)
+warnings.simplefilter('always')
 
 SHELL_MODE = False
 
@@ -159,7 +162,12 @@ parser.add_argument("--default-location", metavar="LOCATION",
 if __name__ == "__main__":
     args = parser.parse_args()
     if args.world:
-        world = mudworld.World.from_file(args.world)
+        # load the world file, catch any warnings and manually log them
+        # to make the output less ugly
+        with warnings.catch_warnings(record=True) as warn_list:
+            world = mudworld.World.from_file(args.world)
+        for warn in warn_list:
+            logging.warning(str(warn.message))
     else:
         # if no world file is provided, run a test world
         world = mudworld.World.test_world()
