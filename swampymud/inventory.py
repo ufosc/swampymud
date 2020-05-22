@@ -100,10 +100,25 @@ class ItemStack:
         """create an ItemStack from an existing item"""
         return ItemStack(type(item), amount, item.save())
 
-    @staticmethod
-    def load(data):
+    # serialization-related methods
+    @classmethod
+    def load(cls, data):
         """load an ItemStack from a Pythonic representation"""
-        return ItemStack(**data)
+        # Because data["item_type"] contains a type symbol, it must be
+        # handled in the post_load method, after update_symbols has been
+        # called.
+        # In the meantime, we create an dangerous, incomplete object.
+        return ItemStack(None, data["amount"])
+
+    def post_load(self, data):
+        """provide ItemStack with the correct item_type and """
+        self._type = data["item_type"]
+        if not isinstance(self._type, type):
+            raise TypeError("Expected [type] for 'item_type', received "
+                            f"{type(self._type).__name__} '{self._type}'")
+        # if data for these items was provided, add it
+        if "data" in data:
+            self._data = data["data"]
 
     def save(self):
         """save a Pythonic representation of this ItemStack"""
@@ -115,6 +130,10 @@ class ItemStack:
         if self._data:
             stack["data"] = self._data.copy()
         return stack
+
+    def children(self):
+        """ItemStacks do not possess any children"""
+        pass
 
 
 # make the common case fast

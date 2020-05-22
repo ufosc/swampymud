@@ -13,7 +13,7 @@ class DarkLord(Humanoid):
 
     def cmd_retreat(self, args):
         """retreat to your home base"""
-        self.location.message_chars(f"{self._name} disappeared "
+        self.location.message(f"{self._name} disappeared "
                                     "in a plume of smoke!")
         self.set_location(DARK_TOWER)
 

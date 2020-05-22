@@ -46,11 +46,6 @@ class TestLocationExits(unittest.TestCase):
         self.normal_world.add_exit(self.magic_door)
         self.assertEqual(list(self.normal_world.exits), [self.magic_portal, self.magic_door])
 
-    def test_contains(self):
-        #TODO consider scrapping this test
-        pass
-
-
     def test_add_redundant(self):
         self.normal_world.add_exit(self.magic_portal)
         with self.assertRaisesRegex(AssertionError, ".*already has exit with name 'portal'"):

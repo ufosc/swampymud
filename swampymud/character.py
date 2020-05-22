@@ -8,6 +8,7 @@ commands that can be invoked by characters.
 import enum
 import functools
 import inspect
+import weakref
 import swampymud.inventory as inv
 from swampymud import util
 from swampymud.util.shadowdict import ShadowDict
@@ -37,9 +38,8 @@ class Filter:
     WHITELIST = _FilterMode.WHITELIST
     BLACKLIST = _FilterMode.BLACKLIST
 
-    def __init__(self, mode, classes=frozenset(),
-                 include_chars=frozenset(),
-                 exclude_chars=frozenset()):
+    def __init__(self, mode, classes=(),
+                 include_chars=(), exclude_chars=()):
         """initialize a Filter with [mode]
         if [mode] is True, the Filter will act as a whitelist
         if [mode] is False, the Filter will act as a blacklist
@@ -56,8 +56,10 @@ class Filter:
             if char in include_chars:
                 raise ValueError("Cannot have character in both include"
                                  " and exclude")
-        self._include_chars = set(include_chars)
-        self._exclude_chars = set(exclude_chars)
+        # store characters in a WeakSet, so that the Filter will not
+        # prevent them from getting garbage collected
+        self._include_chars = weakref.WeakSet(include_chars)
+        self._exclude_chars = weakref.WeakSet(exclude_chars)
         if isinstance(mode, self._FilterMode):
             self._mode = mode
         elif isinstance(mode, bool):
@@ -139,8 +141,10 @@ class Filter:
     def __repr__(self):
         """overriding repr()"""
         return "Filter({!r}, {!r}, {!r}, {!r})".format(
-            self._mode.value, self._classes, self._include_chars,
-            self._exclude_chars)
+            self._mode.value,
+            set(self._classes),
+            set(self._include_chars), set(self._exclude_chars)
+        )
 
     @staticmethod
     def from_dict(filter_dict):
@@ -383,8 +387,9 @@ class Character(metaclass=CharacterClass):
 
     def despawn(self):
         """method executed when a player dies"""
+        self.message("You died.")
         if self.location is not None:
-            self.location.message_chars(f"{self} died.")
+            self.location.message(f"{self} died.", exclude={self})
             try:
                 self.location.characters.remove(self)
             except ValueError:
@@ -459,6 +464,7 @@ class Character(metaclass=CharacterClass):
             # remove commands from all the entities
             # in the current location
             for entity in self.location.entities:
+                entity.on_exit(self)
                 entity.remove_cmds(self)
         except AttributeError:
             # location was none
@@ -468,6 +474,7 @@ class Character(metaclass=CharacterClass):
         # add commands from all the entities
         # in the current locations
         for entity in new_location.entities:
+            entity.on_enter(self)
             entity.add_cmds(self)
 
     #inventory/item related methods
@@ -570,7 +577,7 @@ class Character(metaclass=CharacterClass):
         """
         msg = ' '.join(args[1:])
         if msg and self.location is not None:
-            self.location.message_chars(f"{self.view()}: {msg}")
+            self.location.message(f"{self.view()}: {msg}")
 
     @Command
     def go(self, args):
@@ -585,10 +592,10 @@ class Character(metaclass=CharacterClass):
             if found_exit.interact.permits(self):
                 old_location = self.location
                 new_location = found_exit.destination
-                new_location.message_chars(f"{self} entered.")
+                new_location.message(f"{self} entered.")
                 self.set_location(new_location)
                 # TODO: only show the exit if a character can see it?
-                old_location.message_chars(f"{self} left through exit "
+                old_location.message(f"{self} left through exit "
                                            f"'{ex_name}'.")
             elif not found_exit.perceive.permits(self):
                 self.message(f"No exit with name '{ex_name}'.")

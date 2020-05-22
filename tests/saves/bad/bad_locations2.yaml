@@ -1,0 +1,23 @@
+prelude:
+personae:
+  # no name
+  loc1:
+    _type: ^Location
+    description: meme
+  # no description
+  loc2:
+    _type: ^Location
+    name: meme
+  # no name or description
+  loc3:
+    _type: ^Location
+  # finally, a correct location
+  loc4:
+    _type: ^Location
+    name: x
+    description: y
+  loc5:
+    _type: ^Location
+    name: foo
+    description: bar
+tree:

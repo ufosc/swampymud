@@ -1,0 +1,6 @@
+# this file is totally wrong
+groceries:
+    - butter
+    - milk
+    - eggs
+budget: 100
