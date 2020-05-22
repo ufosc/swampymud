@@ -258,6 +258,66 @@ class TestPersonae(unittest.TestCase):
             "Omitted 1 field(s). (Bad symbol.)"
         ])
 
+        # now check an example with several bad symbols
+        social_types = {
+            "Person": import_class("tests.script.social", "Person")
+        }
+        personae = {
+            "John": {
+                "_type": "^Person",
+                "friends": [
+                    "$MaRy",
+                    "$Jane",
+                    "$Bill"
+                ],
+                "spouse": "$Jane"
+            },
+            "Jane": {
+                "_type": "^Whoops",
+                "friends": [
+                    "$Mary",
+                    "$Bill",
+                    "$Zach"
+                ],
+                "spouse": "$John"
+            },
+            "Bill": {
+                "_type": "^Person",
+                "spouse": "$imaginary"
+            },
+            "Mary": {
+                "_type": "^Person",
+                "friends": [
+                    "$Jane"
+                ],
+                "nested": [
+                    {"nested": "$bad_symbol"},
+                    {"nested": "$Mary"}
+                ]
+            }
+        }
+        with warnings.catch_warnings(record=True) as warn_list:
+            checked = mudworld.check_symbols(personae,
+                                             obj_names=personae,
+                                             type_names=social_types)
+        # delete the wrong fields from personae
+        personae["John"]["friends"].remove("$MaRy")
+        del personae["Jane"]["_type"]
+        personae["Jane"]["friends"].remove("$Zach")
+        del personae["Bill"]["spouse"]
+        del personae["Mary"]["nested"][0]["nested"]
+        self.assertEqual(checked, personae)
+        self.assertCountEqual([str(warn.message) for warn in warn_list], [
+            "Unknown object symbol '$MaRy'.",
+            "Unknown type symbol '^Whoops'.",
+            "Unknown object symbol '$Zach'.",
+            "Unknown object symbol '$imaginary'.",
+            "Unknown object symbol '$bad_symbol'.",
+            "Omitted 5 field(s). (Bad symbol.)"
+        ])
+
+
+
 
     def test_skim_empty(self):
         """test that no locations are skimmed from empty personae"""
