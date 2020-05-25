@@ -12,7 +12,7 @@ import warnings
 # import the MUD server class
 from swampymud.mudserver import MudServer, Event, EventType
 # import modules from the SwampyMud engine
-from swampymud import mudworld
+from swampymud.world import World
 from swampymud import mudscript
 
 # better names welcome
@@ -165,12 +165,12 @@ if __name__ == "__main__":
         # load the world file, catch any warnings and manually log them
         # to make the output less ugly
         with warnings.catch_warnings(record=True) as warn_list:
-            world = mudworld.World.from_file(args.world)
+            world = World.from_file(args.world)
         for warn in warn_list:
             logging.warning(str(warn.message))
     else:
         # if no world file is provided, run a test world
-        world = mudworld.World.test_world()
+        world = World.test_world()
     try:
         server = MainServer(world, args.port)
     except PermissionError:

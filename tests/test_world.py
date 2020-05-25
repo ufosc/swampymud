@@ -1,8 +1,8 @@
-"""unit tests for the mudworld module"""
+"""unit tests for the swampymud.world module"""
 import unittest
 import importlib
 import warnings
-from swampymud import mudworld
+from swampymud import world as mudworld
 from swampymud.character import CharacterClass
 from swampymud.item import Item
 from swampymud.location import Location
