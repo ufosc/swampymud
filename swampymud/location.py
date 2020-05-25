@@ -173,9 +173,7 @@ class Location:
         """
         output = [str(self), self.description]
 
-        transition = "You see "
-
-        # remove any exist that character cannot see
+        # remove any exits that character cannot see
         exit_list = self._exit_list
         if viewer is not None:
             exit_list = [ex for ex in self.exits if ex.perceive.permits(char)]
@@ -183,6 +181,8 @@ class Location:
         if exit_list:
             output.append("Exits:")
             output.extend([ex.view() for ex in exit_list])
+
+        transition = "You see"
 
         if self.characters:
             output.append(f"""{transition} {', '.join(
@@ -196,6 +196,7 @@ class Location:
         if self.inv:
             output.append("Items available:")
             output.append(swampymud.util.group_and_count(list(self.inv)))
+        return "\n".join(output)
 
     def __repr__(self):
         return f"Location{repr((self.name, self.description))}"
