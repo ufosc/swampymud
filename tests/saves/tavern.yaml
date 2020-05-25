@@ -1,0 +1,93 @@
+prelude:
+    tests/script/tavern_chars.py: [Merchant, Wizard, Thug, Thief] # a few character classes
+    tests/script/tavern_items.py: [Sword, Book, Ale, Gold] # a few item classes
+personae:
+    # define a few locations
+    tavern:
+        _type: ^Location
+        name: Swampy Tavern
+        description: A pleasant little tavern.
+        exits:
+            - name: outside
+              destination: $exterior
+            # basement door can only be used by the barkeeper, tim
+            - name: basement
+              destination: $basement
+              interact:
+                mode: whitelist
+                include_chars: [$tim]
+            - name: upstairs
+              destination: $upstairs
+              # this filter will have no effect since 'kevin' does not exist
+              perceive:
+                mode: blacklist
+                include_chars: [$kevin]
+    upstairs:
+        _type: ^Location
+        name: Upstairs
+        description: It's a little cramped, but the bed looks comfy.
+        exits:
+            - name: downstairs
+              destination: $tavern
+    exterior:
+        _type: ^Location
+        name: Swampy Tavern Exterior
+        description: It's muddy out here. You need to get out of the rain.
+        exits:
+            - name: inside
+              destination: $tavern
+    basement:
+        _type: ^Location
+        name: Swampy 
+        description: A damp, dim basement. Tim stores his inventory down here.
+    # now define a few characters
+    # the tavern owner
+    tim:
+        _type: ^Merchant
+        name: Tim
+    # the tavern guard
+    brick:
+        _type: ^Thug
+        name: brick
+    # a few patrons
+    diamond:
+        _type: ^Merchant
+        name: Diamond
+    burke:
+        _type: ^Thug
+        name: Burke
+    vivian:
+        _type: ^Wizard
+        name: Vivian
+    lucius:
+        _type: ^Wizard
+        name: Lucius
+    foxx:
+        _type: ^Thief
+        name: Foxx
+    # a man sleeping upstairs
+    graywhisker:
+        _type: ^Wizard
+        name: Graywhisker
+
+tree:
+    tavern:
+        - tim
+        - brick
+        - diamond
+        - burke
+        - lucius:
+            _type: ^Book
+        - foxx
+    upstairs:
+        - graywhisker
+    exterior:
+        - brick
+    basement:
+        - _type: ^ItemStack
+          item_type: ^Gold
+          amount: 200
+        # this shouldn't load beacuse we forgot the '^' in front of item_type
+        - _type: ^ItemStack
+          item_type: Ale
+          amount: 50
