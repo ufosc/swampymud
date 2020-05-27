@@ -1,6 +1,6 @@
 """unit tests for the mudscript module"""
 import unittest
-from swampymud.mudserver import MudServer
+from swampymud.mudserver import TelnetServer
 import swampymud.mudscript as ms
 from swampymud.location import Location
 
@@ -15,7 +15,7 @@ class TestServerExport(unittest.TestCase):
             ms.message_all("test!")
         # creating a test server with an uncommon port
         # if for some reason you cannot bind this port, feel free to change it
-        test_server = MudServer(17717)
+        test_server = TelnetServer(17717)
         ms.export_server(test_server)
         # now we should be able to use the message_all function
         ms.message_all("hi there, friend!")

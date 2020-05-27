@@ -1,5 +1,5 @@
 '''module containing useful functions for creating SwampyMud scripts'''
-from swampymud.mudserver import MudServer
+from swampymud.mudserver import TelnetServer
 
 server = None
 
@@ -8,7 +8,7 @@ def export_server(inp_server):
     this must be done before calling the 'message_all' function
     '''
     global server
-    if not isinstance(inp_server, MudServer) and inp_server is not None:
+    if not isinstance(inp_server, TelnetServer) and inp_server is not None:
         raise TypeError(f"expected MudServer, received {type(inp_server)}")
     server = inp_server
 

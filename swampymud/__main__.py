@@ -10,13 +10,13 @@ import errno
 import argparse
 import warnings
 # import the MUD server class
-from swampymud.mudserver import MudServer, Event, EventType
+from swampymud.mudserver import TelnetServer, Event, EventType
 # import modules from the SwampyMud engine
 from swampymud.world import World
 from swampymud import mudscript
 
 # better names welcome
-class MainServer(MudServer):
+class MainServer(TelnetServer):
     '''Bundles a server and a library together'''
     def __init__(self, world, port):
         self.world = world
