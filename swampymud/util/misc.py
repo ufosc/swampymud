@@ -1,17 +1,14 @@
 '''Miscellaneous (but useful) functions that don't fit in other modules'''
 import math
+import re
 from collections.abc import Iterable
 
-#TODO: replace with regex
+_cap_re = re.compile("(?<!^)(?<![A-Z])([A-Z])")
 def camel_to_space(name):
     '''adds spaces before capital letters
-    ex: "CamelCaseClass" => "Camel Case Class"'''
-    output = []
-    for letter in name:
-        if letter.upper() == letter:
-            output.append(" ")
-        output.append(letter)
-    return "".join(output).strip()
+    ex: "CamelCaseClass" => "Camel Case Class"
+    '''
+    return _cap_re.sub(r" \1", name)
 
 # default base alphabet
 __ALPHABET = "0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"
