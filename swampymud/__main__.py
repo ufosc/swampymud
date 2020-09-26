@@ -4,33 +4,15 @@ import sys
 import logging
 import threading
 import queue
-import enum
 import traceback
 import errno
 import argparse
 import warnings
 # import the MUD server class
-from swampymud.mudserver import TelnetServer, Event, EventType
+from swampymud.mudserver import MudServer
 # import modules from the SwampyMud engine
 from swampymud.world import World
 from swampymud import mudscript
-
-# better names welcome
-class MainServer(TelnetServer):
-    '''Bundles a server and a library together'''
-    def __init__(self, world, port):
-        self.world = world
-        self.default_class = None
-        self.default_location = None
-        self.players = {} # dict mapping socket IDs to characters
-        super().__init__(port)
-
-    def get_player_class(self):
-        '''get a player class from the server'''
-        if self.default_class is not None:
-            return self.default_class
-        else:
-            return self.world.random_cls()
 
 
 # Setup the logger
@@ -40,30 +22,19 @@ logging.basicConfig(format='%(asctime)s [%(levelname)s] %(message)s',
                         logging.FileHandler("server.log"),
                         logging.StreamHandler(sys.stdout)
                     ])
+
 # Redirect warnings to the logger
 logging.captureWarnings(True)
 warnings.simplefilter('always')
 
 SHELL_MODE = False
 
-class ServerCommandEnum(enum.Enum):
-    ''' basic enum for the type of server command'''
-    BROADCAST_MESSAGE = 0
-    GET_PLAYERS = 1
-
-class ServerComand:
-    '''Simple wrapper class for a server-side command'''
-    def __init__(self, command_type, params):
-        self.command_type = command_type
-        self.params = params
-
 class MudServerWorker(threading.Thread):
     def __init__(self, q, server, *args, **kwargs):
         self.keep_running = True
         self.q = q
-        self.mud = server
+        self.server = server
         super().__init__(*args, **kwargs)
-
 
     # Cannot call mud.shutdown() here because it will try to call
     # the sockets in run on the final go through
@@ -71,82 +42,11 @@ class MudServerWorker(threading.Thread):
         self.keep_running = False
 
     def run(self):
-        logging.info("Starting server.")
         logging.info("Server started successfully.")
         # main game loop. We loop forever (i.e. until the program is terminated)
         while self.keep_running:
-            try:
-                server_command = self.q.get(block=False)
-                if server_command is not None:
-                    if server_command.command_type == ServerCommandEnum.BROADCAST_MESSAGE:
-                        self.mud.send_message_to_all(server_command.params)
-                    elif server_command.command_type == ServerCommandEnum.GET_PLAYERS:
-                        logging.info("Players: ")
-                        for player in self.mud.players.values():
-                            logging.info(str(player))
-
-            except Exception:
-                pass
-
-            # 'update' must be called in the loop to keep the game running and give
-            # us up-to-date information
-            self.mud.update()
-
-            # handle events on the server_queue
-            while self.mud.server_queue:
-                event = self.mud.server_queue.popleft()
-                logging.info(event)
-                etype, pid, content = event
-                if etype is EventType.PLAYER_JOIN:
-                    logging.info("Player %s joined." % pid)
-                    # create a new character and map it to the ID
-                    PlayerClass = self.mud.get_player_class()
-                    character = PlayerClass()
-                    self.mud.players[pid] = character
-
-                    # TODO: make all location changes silent!
-                    # set the character location
-                    # server default overrides everything
-                    if self.mud.default_location is not None:
-                        start_loc = self.mud.default_location
-                    elif character.starting_location is not None:
-                        start_loc = character.starting_location
-                    # if no default class
-                    else:
-                        try:
-                            start_loc = next(iter(self.mud.world.locations.values()))
-                        except StopIteration:
-                            logging.critical(f"Could not spawn {pid}, server has no locations")
-                            continue
-                        logging.warning(f"{PlayerClass} has no default location, "
-                                        f"so {pid} will be spawned in {start_loc}")
-
-                    # put the character in "greet" mode
-                    character.spawn(start_loc)
-
-                elif etype is EventType.MESSAGE_RECEIVED:
-                    try:
-                        self.mud.players[pid].command(content)
-                    except Exception:
-                        logging.error(traceback.format_exc())
-
-                elif etype is EventType.PLAYER_DISCONNECT:
-                    # logging data of the player
-                    logging.info("%s left" % pid)
-                    try:
-                        character = self.mud.players[pid]
-                        self.mud.send_message_to_all(f"{character} quit the game")
-                        del self.mud.players[pid]
-                    except KeyError:
-                        pass
-
-            # temporary: move this to a better place later
-            for socket, character in self.mud.players.items():
-                for msg in character.msgs:
-                    self.mud.send_message(socket, msg)
-                character.msgs.clear()
-        # Shut down the mud instance after the while loop finishes
-        self.mud.shutdown()
+            self.server.update()
+        self.server.shutdown()
 
 parser = argparse.ArgumentParser(description="Launch a swampy Multi-User Dungeon.")
 parser.add_argument("-p", "--port", type=int,
@@ -172,7 +72,8 @@ if __name__ == "__main__":
         # if no world file is provided, run a test world
         world = World.test_world()
     try:
-        server = MainServer(world, args.port)
+        server = MudServer(world, args.port)
+        logging.info(f"Starting server on port [{args.port}]")
     except PermissionError:
         print(f"Error. Do not have permission to use port '{args.port}'",
               file=sys.stderr)
