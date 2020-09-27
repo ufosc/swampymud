@@ -10,9 +10,7 @@ and items.
 """
 
 from typing import Iterable
-import swampymud.inventory
-import swampymud.character as char
-import swampymud
+from swampymud import character as char, inventory, entity, util, item
 
 class Exit:
     """Class representing an in-game Exit.
@@ -113,7 +111,7 @@ class Location:
         self.characters = []
         self.entities = []
         self._exit_list = []
-        self.inv = swampymud.inventory.Inventory()
+        self.inv = inventory.Inventory()
         self.name = name
         self.description = description
 
@@ -156,13 +154,6 @@ class Location:
         for entity in self.entities:
             if str(entity) == query:
                 return entity
-
-    def find_exit(self, exit_name):
-        """returns an exit corresponding to exit name
-        returns 'None' if no exit is found"""
-        for ex in self._exit_list:
-            if exit_name in ex.names:
-                return ex
 
     # TODO: add indefinite articles, oxford comma, etc.
     def view(self, viewer=None):
@@ -248,3 +239,44 @@ class Location:
 
     def add_item(self, item, quantity=1):
         self.inv.add_item(item, quantity)
+
+    # helper method for util.find
+    def find_child(self, params: util.FindParams, **other_fields):
+        # check that maxdepth hasn't been exceeded
+        if params.maxdepth < 0:
+            return
+        # only check exits if Exit type is specified (or no type specified)
+        if params.type is None or util.has_subclass(params.type, Exit):
+            # exitsare not first class game objects, so we manually
+            # sort through them
+            for ex in self._exit_list:
+                # check for any must have other_fields
+                if not util.obj_does_have(ex, other_fields):
+                    continue
+                # TODO: check params.optional
+                # if a character is provided, see if it can interact
+                # with this exit
+                if not (params.pov is None or ex.interact.permits(params.pov)):
+                    continue
+                # check for any intersecting names
+                if params.name is None or params.name & ex.names:
+                    yield ex
+        if params.type is None or util.has_instance(params.type, char.CharacterClass):
+            for other_char in self.characters:
+                if util.find_check(other_char, params, **other_fields):
+                    yield other_char
+                # try to visit the character
+                yield from util.find_child(other_char, params.decrement(),
+                                           **other_fields)
+        if params.type is None or util.has_instance(params.type, item.ItemClass):
+            # We don't decrement the maxdepth here, because the inventory
+            # is considered to be a part of the location itself.
+            # Items in a location's inventory might be on the ground,
+            # on a table, etc.
+            yield from self.inv.find_child(params, **other_fields)
+        if params.type is None or util.has_instance(params.type, entity.EntityClass):
+            for ent in self.entities:
+                if util.find_check(entity, params, **other_fields):
+                    yield entity
+                yield from util.find_child(ent, params.decrement(),
+                                           **other_fields)

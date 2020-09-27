@@ -2,6 +2,7 @@
 and ItemStack, a class for efficiently storing items of the same type
 """
 from collections import defaultdict
+from swampymud.util import FindParams
 
 def matching_subset(main, sub):
     """check that all the keys in a dictionary are in sub and agree with main
@@ -74,20 +75,30 @@ class ItemStack:
         except AttributeError:
             return False
 
-    def matches(self, item_type=None, exact_data=None, **fields):
+    def matches(self, item_type=None, exact=None, optional=None, **must_have):
         """check that [item_type] and data agree with both arguments are optional"""
-        if item_type is not None and self._type is not item_type:
+        if item_type is not None and not issubclass(self._type, item_type):
             return False
-        if exact_data is not None and exact_data != self._data:
-            # edge case: this ItemStack has no data and exact_data is {}
-            # in this case exact_data are not equal but have same meaning
-            if self._data is not None or exact_data != {}:
+        if exact is not None and exact != self._data:
+            # edge case: this ItemStack has no data (None) and exact is {}
+            # in this case exact are not equal but have same meaning
+            if not (self._data is None and exact == {}):
                 return False
-        # check any remaining fields and return the result
-        # edge case: self._data is None but fields are provided
+
+        # check the optional fields
+        if optional is not None and self._data is not None:
+            for key in set(self._data) & set(optional):
+                if self._data[key] != optional[key]:
+                    return False
+
+        # must_have is *slightly* different from exact, because
+        # must_have is not an exhaustive list of the fields in the stack
         if self._data is None:
-            return fields == {}
-        return matching_subset(self._data, fields)
+            return matching_subset({}, must_have)
+        else:
+            return matching_subset(self._data, must_have)
+
+
 
     def copy(self):
         """returns a copy of an item stored in the stack"""
@@ -166,7 +177,7 @@ class Inventory:
         item_type = type(item)
         data = item.save()
         for stack in self._items[name]:
-            if stack.matches(item_type, data):
+            if stack.matches(item_type, exact=data):
                 stack.amount += amount
                 break
         # otherwise, create a new stack
@@ -200,19 +211,33 @@ class Inventory:
         if not self._items[name]:
             del self._items[name]
 
-    def find(self, name=None, cls=None, exact_data=None, **other_fields):
-        if name:
-            name = name.lower()
-            # if name provided, get the corresponding bucket
-            if name in self._items:
-                for stack in self._items[name]:
-                    if stack.matches(cls, exact_data, **other_fields):
-                        yield stack.copy(), stack.amount
+    def find_child(self, params: FindParams, exact=None, **other_fields):
+        """
+        Helper function for util.find(). This method does not validate
+        its parameters (e.g. check that names are strings), so it is
+        highly recommended that you use util.find():
+            util.find(inv, ...)
+        See the documentation for util.find() for more information.
+        """
+        #TODO: decide what to do with pov?
+        if params.maxdepth < 0:
+            return
+
+        # ItemStack.matches expects slightly different arguments
+        match_args = (params.type, exact, params.optional)
+
+        # if a name is provided, go to the corresponding bucket
+        if params.name is not None:
+            for name in params.name:
+                if name in self._items:
+                    for stack in self._items[name]:
+                        if stack.matches(*match_args, **other_fields):
+                            yield stack.copy(), stack.amount
+        # if not, search through every bucket
         else:
-            # if not, search through every bucket
             for name, bucket in self._items.items():
                 for stack in bucket:
-                    if stack.matches(cls, exact_data, **other_fields):
+                    if stack.matches(*match_args, **other_fields):
                         yield stack.copy(), stack.amount
 
     def __iter__(self):

@@ -585,24 +585,35 @@ class Character(metaclass=CharacterClass):
         usage: go [exit name]
         """
         ex_name = " ".join(args[1:])
-        # TODO handle ambiguity?
-        # structural solution might be avoided here
-        found_exit = self.location.find_exit(ex_name)
-        if found_exit:
-            if found_exit.interact.permits(self):
-                old_location = self.location
-                new_location = found_exit.destination
-                new_location.message(f"{self} entered.")
-                self.set_location(new_location)
-                # TODO: only show the exit if a character can see it?
-                old_location.message(f"{self} left through exit "
-                                           f"'{ex_name}'.")
-            elif not found_exit.perceive.permits(self):
-                self.message(f"No exit with name '{ex_name}'.")
-            else:
-                self.message(f"Exit '{ex_name}' is inaccessible to you.")
+
+        # Manually iterating over our location's list of exits
+        # Note! If writing your own method, just do
+        #   util.find(location, ex_name, location.Exit, char=my_char)
+        # I'm only writing this to avoid a cyclic dependency.
+
+        for ex in self.location._exit_list:
+            if ex_name in ex.names:
+                found_exit = ex
+                break
         else:
             self.message(f"No exit with name '{ex_name}'.")
+            return
+
+        if found_exit.interact.permits(self):
+            old_location = self.location
+            new_location = found_exit.destination
+            new_location.message(f"{self} entered.")
+            self.set_location(new_location)
+            # TODO: only show the exit if a character can see it?
+            old_location.message(f"{self} left through exit "
+                                        f"'{ex_name}'.")
+        else:
+            if found_exit.perceive.permits(self):
+                self.message(f"Exit '{ex_name}' is inaccessible to you.")
+            # if the char can't see or interact with the exit,
+            # we lie to them and pretend like it doesn't exist
+            else:
+                self.message(f"No exit with name '{ex_name}'.")
 
     @Command.with_traits(name="equip")
     def cmd_equip(self, args):
@@ -611,7 +622,7 @@ class Character(metaclass=CharacterClass):
             self.message("Provide an item to equip.")
             return
         item_name = " ".join(args[1::]).lower()
-        found_items = list(self.inv.find(name=item_name))
+        found_items = util.find(self.inv, name=item_name)
         if len(found_items) == 1:
             self.equip(found_items[0][0])
         elif len(found_items) > 1:
@@ -651,7 +662,9 @@ class Character(metaclass=CharacterClass):
             self.message("Provide an item to pick up.")
             return
         item_name = " ".join(args[1::]).lower()
-        found_items = list(self.location.inv.find(name=item_name))
+
+        # TODO: find a way to provide type=Item
+        found_items = util.find(self.location, name=item_name)
         if len(found_items) == 1:
             item = found_items[0][0]
             self.location.inv.remove_item(item)
@@ -669,7 +682,7 @@ class Character(metaclass=CharacterClass):
             self.message("Provide an item to drop.")
             return
         item_name = " ".join(args[1:]).lower()
-        found_items = list(self.inv.find(name=item_name))
+        found_items = util.find(self.inv, name=item_name)
         if len(found_items) == 1:
             item = found_items[0][0]
             self.inv.remove_item(item)
@@ -709,7 +722,7 @@ class Character(metaclass=CharacterClass):
             self.message("Please specify an item.")
             return
         item_name = args[1]
-        found_items = list(self.inv.find(name=item_name))
+        found_items = util.find(self.inv, name=item_name)
         if len(found_items) == 1:
             item = found_items[0][0]
             self.inv.remove_item(item)
