@@ -11,16 +11,6 @@ class TestMisc(unittest.TestCase):
         self.assertEqual(util.camel_to_space("Gandalf"), "Gandalf")
         self.assertEqual(util.camel_to_space("frodo"), "frodo")
 
-    def test_group_and_count(self):
-        self.assertEqual(util.group_and_count(["apple", "apple", "banana", "cap", "cap", "cap"]),
-                         "apple\t[2]\nbanana\ncap\t[3]")
-        self.assertEqual(util.group_and_count(range(3)), "0\n1\n2")
-        test3 = util.group_and_count(
-            ["apple", "apple", "banana", "cap", "cap", "cap"],
-            format="%s: %i", single_format="%s: 0", sep=", "
-        )
-        self.assertEqual(test3, "apple: 2, banana: 0, cap: 3")
-
     def test_to_base(self):
         '''test that to_base(int, base) works with several bases'''
         # test type checks work
@@ -178,7 +168,7 @@ class TestFind(unittest.TestCase):
                               [shopkeep, guest, drunkard])
         self.assertCountEqual(find(tavern, type=(char.Character,
                                                   location.Exit)),
-                             exit_list + [shopkeep, drunkard, guest])
+                              exit_list + [shopkeep, drunkard, guest])
 
         # can we look by name?
         self.assertCountEqual(find(tavern, name="outside"),

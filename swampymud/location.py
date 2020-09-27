@@ -186,7 +186,7 @@ class Location:
             )}""")
         if self.inv:
             output.append("Items available:")
-            output.append(swampymud.util.group_and_count(list(self.inv)))
+            output.append(self.inv.readable())
         return "\n".join(output)
 
     def __repr__(self):
