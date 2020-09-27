@@ -1,14 +1,15 @@
 '''Miscellaneous (but useful) functions that don't fit in other modules'''
 import math
 import re
+from collections import namedtuple
 from collections.abc import Iterable
 
-_cap_re = re.compile("(?<!^)(?<![A-Z])([A-Z])")
+__cap_re = re.compile("(?<!^)(?<![A-Z])([A-Z])")
 def camel_to_space(name):
     '''adds spaces before capital letters
     ex: "CamelCaseClass" => "Camel Case Class"
     '''
-    return _cap_re.sub(r" \1", name)
+    return __cap_re.sub(r" \1", name)
 
 # default base alphabet
 __ALPHABET = "0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"
@@ -74,65 +75,112 @@ def has_instance(iterable, class_or_tuple):
 def has_subclass(iterable, class_or_tuple):
     """returns True if iterable contains an subclass of cls"""
     for i in iterable:
-        if isinstance(i, class_or_tuple):
+        if issubclass(i, class_or_tuple):
             return True
     return False
 
-def find(obj, names=None, types=None, maxdepth=0, char=None, **kwargs):
+# creating a base class for FindParams
+__base = namedtuple("FindParams",
+                    field_names=["name", "type", "maxdepth", "pov",
+                                 "optional"],
+                    defaults=[None, None, 0, None, None])
+
+
+# inheriting from FindParams to add a decrement method
+class FindParams(__base):
+
+    def decrement(self):
+        return self._replace(maxdepth=self.maxdepth-1)
+
+def find(obj, name=None, type=None, maxdepth=0, pov=None, optional=None, **other_fields):
     '''find in-game objects inside of [obj]
 
     optional arguments
-    names: str or iterable of strings -- only return objects when str(object) == names
-    types: type or iterable of types -- only return objects that are instance of one of the provided types
-    maxdepth: int -- descend at most [maxdepth] during recursive search. (default: search only local object)
-    char: Character -- only look through objects that [char] has permission to look at
+    names: str or iterable of strings -- only return objects when
+        str(object) == names
+    types: type or iterable of types -- only return objects that are
+        instances of one of the provided types
+    maxdepth: int -- descend at most [maxdepth] during recursive search.
+        (default: search only local object)
+    pov: Character -- only look through objects that [pov] has
+        permission to look at
+    optional: dict -- optional fields that items may not have
 
     additionally, you may provide other object attributes to match on
     as keywords
     '''
-    # setting up the arguements
-    # first, coerce names into a set of lowercase strings
-    if isinstance(names, str):
-        names = {names.lower()}
-    elif isinstance(names, Iterable):
-        names = set(map(str.lower, names))
-    elif names is not None:
-        raise TypeError("find: 'names' must be a str or iterable of strings")
+    # It's generally bad form to override builtin functions / types.
+    # I used "type" as an argument name just to make the interface
+    # consistent with FindParams, but here I switch our argument's name to
+    # 'typ' and brought the builtin back.
+    (typ, type) = (type, __builtins__["type"])
 
-    # do the same for types
-    if isinstance(types, type):
-        types = (types,)
-    elif isinstance(types, Iterable):
-        types = tuple(types)
-    elif types is not None:
-        raise TypeError("find: 'types' must be a type or iterable of types")
+    # Setting up the arguments.
+    # First, coerce names into a set of lowercase strings.
+    errmsg = ("util.find() names argument should be a str or "
+              "iterable of strings, received type '{}'")
+    if isinstance(name, str):
+        name = {name.lower()}
+    elif isinstance(name, Iterable):
+        try:
+            name = set(map(str.lower, name))
+        except TypeError as ex:
+            # find the offending type and raise an error
+            for n in name:
+                if not isinstance(n, str):
+                    raise TypeError(errmsg.format(type(n)))
+    elif name is not None:
+        raise TypeError(errmsg.format(type(name)))
+    # Next, we coerce the provided typ into a tuple of types.
+    errmsg = ("util.find() types argument should be a type or "
+              "iterable of types, received value '{}'")
+    if typ is not None:
+        # coerce types into a tuple
+        if isinstance(typ, Iterable):
+            typ = tuple(typ)
+        else:
+            typ = (typ,)
+        # check that all the provided typ are a type
+        for member_type in typ:
+            if not isinstance(member_type, type):
+                raise TypeError(errmsg.format(type(member_type)))
 
-    # check that maxdepth is actually a number
+    # Check that maxdepth is actually a number
     if maxdepth is None:
         # infinity makes for easier calculations
         maxdepth = math.inf
     elif not isinstance(maxdepth, (int, float)):
-        raise TypeError("find 'maxdepth' must be int or float")
+        raise TypeError("util.find() maxdepth argument must be int or float, "
+                        f"received type '{type(maxdepth)}'")
+    # Check that optional is a dict
+    if optional is not None and not isinstance(optional, dict):
+        raise TypeError("util.find() optional argument must be dict, "
+                        f"received type '{type(optional)}'")
 
-    if maxdepth < 0:
-        return
-    # visit the root object
-    find_check(obj, names, types, **kwargs)
+    # Chunk the arguments into a FindParams object
+    params = FindParams(name, typ, maxdepth, pov, optional)
 
     # call the internal function
-    find_child(obj, names, types, maxdepth-1, char, **kwargs)
+    return list(find_child(obj, params, **other_fields))
 
 
-def find_child(obj, names, types, maxdepth, char, **kwargs):
+def find_child(obj, params: FindParams, **other_fields):
+    '''Recursively search [obj] for objects matching the provided
+    parameters. Unless you are implementing a helper 'find_child'
+    method on a class, you should use util.find instead.
+    '''
+    # we can skip all of the tedious input validation
+
     # check that we haven't exceeded the maximum depth
-    if maxdepth < 0:
+    if params.maxdepth < 0:
         return
-    # try to use a 'find_child' method first
     # developers can supply a 'find_child' to speed up the find process
-    try:
-        yield from obj.find_child(names, type, maxdepth - 1, char, **kwargs)
+    # we would use a try-except here, but AttributeErrors way downstream
+    # can cause major problems
+    if hasattr(obj, 'find_child'):
+        yield from obj.find_child(params, **other_fields)
     # no 'find_child' method was supplied
-    except AttributeError:
+    else:
         # all in-game objects should have a 'children' method
         try:
             children = obj.children()
@@ -142,21 +190,42 @@ def find_child(obj, names, types, maxdepth, char, **kwargs):
                              "Character, Item, or Entity")
         for child in children:
             # check each of the arguments
-            if find_check(child, names, types, **kwargs):
+            if find_check(child, params, **other_fields):
                 yield obj
             # recurse
-            yield from find_child(child, names, type, maxdepth - 1, char, **kwargs)
+            # we call params.decrement() to lower the maxdepth
+            yield from find_child(params.decrement(), **other_fields)
 
-def find_check(obj, names, types, **kwargs) -> bool:
-    if names is not None and str(obj).lower() not in names:
+
+def find_check(obj, params: FindParams, **other_fields) -> bool:
+    '''Returns true if the provided arguments (find parameters)
+    hold true for the provided [obj].
+    '''
+    if params.name is not None and str(obj).lower() not in params.name:
         return False
-    if types is not None and not isinstance(obj, types):
+    if params.type is not None and not isinstance(obj, params.type):
         return False
-    # check for direct matches with any additional kwargs
-    for key in kwargs:
+    # if other_fields are provided, then the items MUST provide those fields
+    if not obj_does_have(obj, other_fields):
+        return False
+    # check for direct matches with other_fields
+    # objects are necessarily required to have these fields,
+    # but if they do have them, they better match
+    if params.optional:
+        for field, value in params.optional.items():
+            try:
+                if getattr(obj, field) != value:
+                    return False
+            except AttributeError:
+                pass
+    return True
+
+
+def obj_does_have(obj, must_have) -> bool:
+    for k, v in must_have.items():
         try:
-            if obj.key != kwargs[key]:
+            if getattr(obj, k) != v:
                 return False
         except AttributeError:
-            pass
+            return False
     return True

@@ -10,7 +10,7 @@ and items.
 """
 
 from typing import Iterable
-from swampymud import character as char, inventory, entity, util
+from swampymud import character as char, inventory, entity, util, item
 
 class Exit:
     """Class representing an in-game Exit.
@@ -240,31 +240,42 @@ class Location:
         self.inv.add_item(item, quantity)
 
     # helper method for util.find
-    def __find_child(self, names, types, maxdepth, char, **kwargs):
+    def find_child(self, params: util.FindParams, **other_fields):
         # check that maxdepth hasn't been exceeded
-        if maxdepth < 0:
+        if params.maxdepth < 0:
             return
         # only check exits if Exit type is specified (or no type specified)
-        if types is None or util.has_subclass(types, Exit):
+        if params.type is None or util.has_subclass(params.type, Exit):
+            # exitsare not first class game objects, so we manually
+            # sort through them
             for ex in self._exit_list:
+                # check for any must have other_fields
+                if not util.obj_does_have(ex, other_fields):
+                    continue
+                # TODO: check params.optional
                 # if a character is provided, see if it can interact
                 # with this exit
-                if char is not None and not ex.interact.permits(char):
+                if not (params.pov is None or ex.interact.permits(params.pov)):
                     continue
                 # check for any intersecting names
-                if ex.names & names:
+                if params.name is None or params.name & ex.names:
                     yield ex
-        if types is None or util.has_instance(types, char.CharacterClass):
-            for char in self.characters:
-                if util.find_check(char, names, types, **kwargs):
-                    yield char
-                    yield from util.find_child(char, names, types, maxdepth - 1, char, **kwargs)
+        if params.type is None or util.has_instance(params.type, char.CharacterClass):
+            for other_char in self.characters:
+                if util.find_check(other_char, params, **other_fields):
+                    yield other_char
                 # try to visit the character
-                yield from util.find_child(char, types, maxdepth - 1, char)
-        if types is None or util.has_instance(types, item.ItemClass):
-            # look at inv
-            pass
-        if types is None or util.has_instance(types, item.EntityClass):
-            if find_check(entity, names, types, **kwargs):
-                yield entity
-                yield from util.find_child(char, names, types, maxdepth - 1, char, **kwargs)
+                yield from util.find_child(other_char, params.decrement(),
+                                           **other_fields)
+        if params.type is None or util.has_instance(params.type, item.ItemClass):
+            # We don't decrement the maxdepth here, because the inventory
+            # is considered to be a part of the location itself.
+            # Items in a location's inventory might be on the ground,
+            # on a table, etc.
+            yield from self.inv.find_child(params, **other_fields)
+        if params.type is None or util.has_instance(params.type, entity.EntityClass):
+            for ent in self.entities:
+                if util.find_check(entity, params, **other_fields):
+                    yield entity
+                yield from util.find_child(ent, params.decrement(),
+                                           **other_fields)
