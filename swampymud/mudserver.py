@@ -266,10 +266,10 @@ class MudServer:
 
         # only send a message if character had provided a name
         if str(character) != "[nameless character]":
-            self.send_message_to_all(f"{character} quit the game.")
+            self.message_all(f"{character} quit the game.")
 
     # methods used in mudscript
-    def send_message_to_all(self, message):
+    def message_all(self, message):
         """Sends the text in the 'message' parameter to every player that
         is connected to the server.
         """
