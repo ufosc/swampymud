@@ -9,6 +9,7 @@ import enum
 import functools
 import inspect
 import weakref
+import asyncio
 import swampymud.inventory as inv
 from swampymud import util
 from swampymud.util.shadowdict import ShadowDict
@@ -333,7 +334,7 @@ class Character(metaclass=CharacterClass):
         super().__init__()
         self._name = name
         self.location = None
-        self.msgs = []
+        self.msgs = asyncio.Queue()
 
         # build dict from Commands collected by CharacterClass
         self.cmd_dict = ShadowDict()
@@ -357,8 +358,8 @@ class Character(metaclass=CharacterClass):
 
     def message(self, msg):
         """send a message to the controller of this character"""
-        self.msgs.append(msg)
-        # store this last message for convenience
+        # place a
+        self.msgs.put_nowait(msg)
 
     def command(self, msg):
         """issue 'msg' to character.

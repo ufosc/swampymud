@@ -154,12 +154,12 @@ class TestInteraction(unittest.TestCase):
                         "fireball" in wizard.cmd_dict)
         # test that the commands can be used
         brute.command("hit adam")
-        self.assertEqual(brute.msgs.pop(),
+        self.assertEqual(brute.msgs.get_nowait(),
                          f"You hit {seller} with a staff.")
-        self.assertEqual(seller.msgs.pop(),
+        self.assertEqual(seller.msgs.get_nowait(),
                          f"{brute} hit you with a staff.")
         wizard.command("fireball adam")
-        self.assertEqual(wizard.msgs.pop(),
+        self.assertEqual(wizard.msgs.get_nowait(),
                          f"You hit {seller} with a fireball.")
-        self.assertEqual(seller.msgs.pop(),
+        self.assertEqual(seller.msgs.get_nowait(),
                          f"{wizard} hit you with a fireball.")

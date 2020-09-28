@@ -684,15 +684,15 @@ class TestLocationScripts(unittest.TestCase):
 
         # now return to the castle
         dark_lord.cmd_retreat([])
-        self.assertEqual(human1.msgs.pop(),
+        self.assertEqual(human1.msgs.get_nowait(),
                          "Vennicule disappeared in a plume of smoke!")
-        self.assertEqual(human2.msgs.pop(),
+        self.assertEqual(human2.msgs.get_nowait(),
                          "Vennicule disappeared in a plume of smoke!")
         self.assertTrue(dark_lord in world.locations["tower"].characters)
 
         # now test the 'capture' command
         dark_lord.set_location(world.locations["Tavern"])
         dark_lord.cmd_capture(["capture", str(human1)])
-        self.assertEqual(human1.msgs.pop(),
+        self.assertEqual(human1.msgs.get_nowait(),
                          "You have been captured!")
         self.assertTrue(human1 in world.locations["dungeon"].characters)
