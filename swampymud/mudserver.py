@@ -22,8 +22,6 @@ import asyncio
 # required for websockets to work
 import websockets
 
-TcpCient = namedtuple("TcpClient", ["pid", "reader", "writer"])
-
 
 class MudServer:
     '''A high-level game server that coordinates between a TelnetServer
@@ -33,25 +31,29 @@ class MudServer:
     server.
     '''
 
-    # TODO: handle websocket / telnet server ports
     def __init__(self, world, ws_port=None, tcp_port=None):
         logging.debug("Server %r created", self)
+        # game-related data
         self.world = world
         self.default_class = None
         self.default_location = None
+        # dict mapping pid [int] to in-game Characters
+        self.players = {}
+
         self.tcp_port = tcp_port
+        self.tcp_server = None
+        self._tcp_clients = {}
         self.ws_port = ws_port
+        self.ws_server = None
+        # TODO: add ._ws_clients
+
         self.next_id = 0
         self._running = False
-        self.players = {} # dict mapping server-socket IDs to characters
-
         # at least one port must be provided
         if tcp_port is None and ws_port is None:
             raise ValueError("Cannot create MudServer without at least one "
                              "TCP or WS port.")
 
-        # TODO: remove this dict (it's not necessary?)
-        self._tcp_clients = {} # dict mapping pids to TcpClients
 
     async def run(self):
         """Begin this MudServer.
@@ -83,19 +85,25 @@ class MudServer:
             # start a WebSocketServer
             self.ws_server = await websockets.serve(self._register_ws,
                                                     port=self.ws_port)
-            # add it to the list of coroutines
-            #coroutines.append(self.tcp_server.serve_forever())
+            # use a simple coro so that MudServer doesn't close
+            # with WebSocketServer still running
+            coroutines.append(self.ws_server.wait_closed())
 
         # We use asyncio.gather() to execute multiple coroutines.
-        await asyncio.gather(*coroutines)
+        await asyncio.gather(*coroutines, return_exceptions=True)
 
     def shutdown(self):
-        """Shut down the """
-        try:
-            self.tcp_server.shutdown()
-        except AttributeError:
-            pass
-        #TODO: kill the websocket server
+        """Shut down this server and disconnect all clients. (Both TCP
+        and WebSocket clients are disconnected.)
+        """
+        if self.tcp_server is not None:
+            self.tcp_server.close()
+            # asyncio.Server doesn't automatically close existing
+            # sockets, so we manually close them all now
+            for stream_writer in self._tcp_clients.values():
+                stream_writer.close()
+        if self.ws_server is not None:
+            self.ws_server.close()
         self._running = False
 
     # Callback methods for the TCP Server.
@@ -111,8 +119,9 @@ class MudServer:
         pid = self.next_id
         self.next_id += 1
 
-        # Now, create a tcp client and add it to the collection
-        self._tcp_clients[pid] = TcpCient(pid, reader, writer)
+        # Now, store the tcp client in a dictionary, so we can track it
+        # down later if necessary.
+        self._tcp_clients[pid] = writer
 
         # This method will create a new Character and assign it to the
         # player.
@@ -128,7 +137,8 @@ class MudServer:
         # message.
         # We want to move on immediately when the player disconnects, so
         # we return_when=asyncio.FIRST_COMPLETED here.
-        await asyncio.wait([self._incoming_tcp(pid), self._outgoing_tcp(pid)],
+        await asyncio.wait([self._incoming_tcp(pid, reader),
+                            self._outgoing_tcp(pid, writer)],
                            return_when=asyncio.FIRST_COMPLETED)
 
 
@@ -136,8 +146,6 @@ class MudServer:
         # been detected and this player has disconnected.
         # Close the StreamWriter.
         writer.close()
-        # Remove the client from the list of TCP clients.
-        del self._tcp_clients[pid]
 
         # Finally, call server.on_player_quit().
         # By default, this will delete the player's Character and send a
@@ -146,9 +154,9 @@ class MudServer:
         # This method can be overriden for custom behavior.
         self.on_player_quit(pid)
 
-    async def _incoming_tcp(self, pid):
+    async def _incoming_tcp(self, pid, reader):
         """Handle incoming messages from a Tcp Client."""
-        (_, reader, _) = self._tcp_clients[pid]
+
         # When the user disconnects, asyncio will call it "EOF" (end of
         # file). Until then, we simply try to read a line from the
         # user.
@@ -174,16 +182,15 @@ class MudServer:
 
         logging.debug("_incoming_tcp closed for %s", pid)
 
-    async def _outgoing_tcp(self, pid):
+    async def _outgoing_tcp(self, pid, writer):
         """Handles outgoing messages, that is, messages sent to a Character
         that must be forwarded to a Player.
         """
-        (_, reader, writer) = self._tcp_clients[pid]
         character = self.players[pid]
 
-        # As with MudServer._incoming_tcp, we use reader.at_eof() to
-        # determine when the player has disconnected.
-        while not reader.at_eof():
+        # This coroutine just loops forever, and will eventually be
+        # broken once the client disconnects.
+        while True:
             # Try to get a message from the Character's queue.
             # This will block until the character receives a message.
             msg = await character.msgs.get()
@@ -206,6 +213,8 @@ class MudServer:
         logging.debug("_outgoing_tcp closed for %s", pid)
 
     # Callback methods for new WebSocket connections.
+    # This method is executed whenever a new WebSocket connects to the
+    # WebSocketServer.
     async def _register_ws(self, websocket, path):
         # we don't currently do anything with the path, so just log it
         logging.debug("WebSocket %s connected at path %s", websocket, path)
@@ -236,30 +245,43 @@ class MudServer:
         self.on_player_quit(pid)
 
     async def _incoming_ws(self, pid, websocket):
+        """Handle incoming messages from a Tcp Client."""
         # websockets have a convenient __aiter__ interface, allowing
         # us to just iterate over the messages forever.
         # Under the hood, if there are no messages available from the
         # WebSocket, this code will yield and until another message is
         # received.
-        async for msg in websocket:
-            # Trim whitespace
-            msg = msg.strip()
-            # Make sure the message isn't an empty string
-            if msg:
-                # Pass the message onto the server's handler.
-                self.on_player_msg(pid, msg)
-        logging.debug("_incoming_ws closed for %s", pid)
+
+        # If the WebSocket is disconnected unexpectedly, the for loop
+        # will produce an exception.
+        try:
+            async for msg in websocket:
+                # Trim whitespace
+                msg = msg.strip()
+                # Make sure the message isn't an empty string
+                if msg:
+                    # Pass the message onto the server's handler.
+                    self.on_player_msg(pid, msg)
+        # If we get this error, then player probably just logged off.
+        except websockets.exceptions.ConnectionClosed:
+            pass
+        finally:
+            logging.debug("_incoming_ws closed for %s", pid)
 
     async def _outgoing_ws(self, pid, websocket):
-
-        # This code is analogous to MudServer._outgoing_tcp
+        """Handles outgoing messages, that is, messages sent to a Character
+        that must be forwarded to a Player.
+        """
         character = self.players[pid]
 
         while not websocket.closed:
             msg = await character.msgs.get()
 
             # TODO: try to get more messages and buffer writes?
-            await websocket.send(msg + "\n\r")
+            try:
+                await websocket.send(msg + "\n\r")
+            except websockets.exceptions.ConnectionClosed:
+                break
 
         logging.debug("_outgoing_ws closed for %s", pid)
 
