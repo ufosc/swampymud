@@ -6,6 +6,29 @@ from swampymud.character import Command
 import swampymud.location as loc
 import swampymud.inventory as inv
 
+
+def qlist(q):
+    """Convenience function that converts asyncio.Queues into lists.
+    This is inefficient and should not be used in real code.
+    """
+    l = []
+    # get the messages out
+    while not q.empty():
+        l.append(q.get_nowait())
+
+    # now put the messages back (since we popped them out)
+    for i in l[::-1]:
+        q.put_nowait(item)
+
+    return l
+
+def qclear(q):
+    """Convenience function to clear an asyncio.Queue.
+    This is inefficient and should not be used in real code.
+    """
+    while not q.empty():
+        q.get_nowait()
+
 class TestCommand(unittest.TestCase):
     """testing the Command class and associated functions"""
 
@@ -96,6 +119,16 @@ class TestCommand(unittest.TestCase):
 class Human(char.Character):
     """base class for all humans"""
     equip_slots = ["Head", "Right Hand"]
+
+    # overriding the default constructor to use a list
+    # instead of an asyncio.Queue for messages
+    # this will make it easier for testing
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.msgs = []
+
+    def message(self, msg):
+        self.msgs.append(msg)
 
     # some commands for testing
     # this comman will be overriden in base classes
@@ -566,6 +599,9 @@ class TestCommandInheritance(unittest.TestCase):
     """test that characters are initialized with proper commands"""
 
     def setUp(self):
+        # note that this default will require special treatment,
+        # since real Characters use an asyncio.Queue for their
+        # messages, not a list
         self.default = char.Character("default")
         self.human = Human("tim")
         self.soldier = Soldier("max")
@@ -585,7 +621,7 @@ class TestCommandInheritance(unittest.TestCase):
         """test that all inherited commands work as expected"""
         # default Character should not have access to hit
         self.default.command("hit")
-        self.assertEqual(self.default.msgs.pop(),
+        self.assertEqual(self.default.msgs.get_nowait(),
                          "Command 'hit' not recognized.")
         with self.assertRaises(AttributeError):
             self.default.hit(["hit"])
@@ -616,7 +652,7 @@ class TestCommandInheritance(unittest.TestCase):
 
         # default Character, Human, and Bureaucrat should not have access to call
         self.default.command("call")
-        self.assertEqual(self.default.msgs.pop(),
+        self.assertEqual(self.default.msgs.get_nowait(),
                          "Command 'call' not recognized.")
         with self.assertRaises(AttributeError):
             self.default.call(["call"])
@@ -698,13 +734,13 @@ class TestDefaultCommands(unittest.TestCase):
         """test for the help command"""
         # using help by itself should produce a list of commands
         self.phil.command("help")
-        self.assertEqual(self.phil.msgs.pop(),
+        self.assertEqual(self.phil.msgs.get_nowait(),
                          "---Default Commands---\n"
                          "help look say go equip unequip pickup drop inv use")
 
         # using help with other commands should produce their docstring
         self.phil.command("help help")
-        help_msg = self.phil.msgs.pop()
+        help_msg = self.phil.msgs.get_nowait()
         # check that help message agrees with the CommandDict
         self.assertEqual(help_msg, self.phil.cmd_dict["help"].help_entry())
         self.assertEqual(help_msg,
@@ -713,14 +749,14 @@ class TestDefaultCommands(unittest.TestCase):
                          "usage: help [command]\n"
                          "If no command is supplied, a list of all commands is shown.")
         self.phil.command("help say")
-        help_msg = self.phil.msgs.pop()
+        help_msg = self.phil.msgs.get_nowait()
         self.assertEqual(help_msg,
                          "say [from Default Commands]:\n"
                          "Send a message to all players in your current"
                          " location.\nusage: say [msg]")
         # invalid command should cause an error
         self.phil.command("help invalid_cmd")
-        help_msg = self.phil.msgs.pop()
+        help_msg = self.phil.msgs.get_nowait()
         self.assertEqual(help_msg, "Command 'invalid_cmd' not recognized.")
 
     def test_say(self):
@@ -729,31 +765,33 @@ class TestDefaultCommands(unittest.TestCase):
         self.bill.command("say hey, what's up?")
         self.assertEqual(self.bill.msgs,
                          ["Bill the Human: hey, what's up?"])
-        self.assertEqual(self.phil.msgs,
+        self.assertEqual(qlist(self.phil.msgs),
                          ["Bill the Human: hey, what's up?"])
         self.bill.msgs.clear()
-        self.phil.msgs.clear()
+        # we have to use special function since default Character has
+        # has an asyncio.Queue() instead of a list
+        qclear(self.phil.msgs)
         self.bill.command("say spam")
         self.bill.command("say spam")
         self.bill.command("say spam")
         self.assertEqual(self.bill.msgs,
                          ["Bill the Human: spam"] * 3)
-        self.assertEqual(self.phil.msgs,
+        self.assertEqual(qlist(self.phil.msgs),
                          ["Bill the Human: spam"] * 3)
         self.bill.msgs.clear()
-        self.phil.msgs.clear()
+        qclear(self.phil.msgs)
         # empty messages should not be sent
         self.bill.command("say")
         self.assertEqual(self.bill.msgs, [])
-        self.assertEqual(self.phil.msgs, [])
+        self.assertEqual(qlist(self.phil.msgs), [])
         self.bill.command("say      ")
         self.assertEqual(self.bill.msgs, [])
-        self.assertEqual(self.phil.msgs, [])
+        self.assertEqual(qlist(self.phil.msgs), [])
         # consecutive spaces will be treated as one separator
         self.bill.command("say  whoops   extra  spaces")
         self.assertEqual(self.bill.msgs,
                          ["Bill the Human: whoops extra spaces"])
-        self.assertEqual(self.phil.msgs,
+        self.assertEqual(qlist(self.phil.msgs),
                          ["Bill the Human: whoops extra spaces"])
 
     def test_go_err(self):
@@ -770,25 +808,25 @@ class TestDefaultCommands(unittest.TestCase):
         """test that basic use of the 'go' command works properly"""
         self.bill.command("go outside")
         self.assertEqual(self.bill.msgs, [])
-        self.assertEqual(self.phil.msgs,
+        self.assertEqual(qlist(self.phil.msgs),
                          ["Bill left through exit 'outside'."])
-        self.assertEqual(self.dana.msgs, ["Bill entered."])
+        self.assertEqual(qlist(self.dana.msgs), ["Bill entered."])
         self.assertTrue(self.bill.location is TEST_OUT)
         self.tearDown()
         self.setUp()
         self.bill.command("go out")
         self.assertEqual(self.bill.msgs, [])
-        self.assertEqual(self.phil.msgs,
+        self.assertEqual(qlist(self.phil.msgs),
                          ["Bill left through exit 'out'."])
-        self.assertEqual(self.dana.msgs, ["Bill entered."])
+        self.assertEqual(qlist(self.dana.msgs), ["Bill entered."])
         self.assertTrue(self.bill.location is TEST_OUT)
         self.tearDown()
         self.setUp()
         self.bill.command("go test  out")
         self.assertEqual(self.bill.msgs, [])
-        self.assertEqual(self.phil.msgs,
+        self.assertEqual(qlist(self.phil.msgs),
                          ["Bill left through exit 'test out'."])
-        self.assertEqual(self.dana.msgs, ["Bill entered."])
+        self.assertEqual(qlist(self.dana.msgs), ["Bill entered."])
         self.assertTrue(self.bill.location is TEST_OUT)
 
     def test_go_filtered(self):
@@ -798,8 +836,8 @@ class TestDefaultCommands(unittest.TestCase):
         TEST_EXIT.interact = char.Filter(mode=True)
         self.bill.command("go outside")
         self.assertEqual(self.bill.msgs, ["Exit 'outside' is inaccessible to you."])
-        self.assertEqual(self.phil.msgs, [])
-        self.assertEqual(self.dana.msgs, [])
+        self.assertEqual(qlist(self.phil.msgs), [])
+        self.assertEqual(qlist(self.dana.msgs), [])
         self.assertTrue(self.bill.location is TEST_ROOM)
         self.bill.msgs.clear()
         # set perceive for exit to an empty whitelist
@@ -808,8 +846,8 @@ class TestDefaultCommands(unittest.TestCase):
         TEST_EXIT.perceive = char.Filter(mode=True)
         self.bill.command("go outside")
         self.assertEqual(self.bill.msgs, ["No exit with name 'outside'."])
-        self.assertEqual(self.phil.msgs, [])
-        self.assertEqual(self.dana.msgs, [])
+        self.assertEqual(qlist(self.phil.msgs), [])
+        self.assertEqual(qlist(self.dana.msgs), [])
         self.assertTrue(self.bill.location is TEST_ROOM)
         self.bill.msgs.clear()
         # BUT, if we set interact to empty blacklist (allowing anyone in)
@@ -817,9 +855,9 @@ class TestDefaultCommands(unittest.TestCase):
         TEST_EXIT.interact = char.Filter(mode=False)
         self.bill.command("go outside")
         self.assertEqual(self.bill.msgs, [])
-        self.assertEqual(self.phil.msgs,
+        self.assertEqual(qlist(self.phil.msgs),
                          ["Bill left through exit 'outside'."])
-        self.assertEqual(self.dana.msgs, ["Bill entered."])
+        self.assertEqual(qlist(self.dana.msgs), ["Bill entered."])
         self.assertTrue(self.bill.location is TEST_OUT)
 
     def test_cmd_equip(self):

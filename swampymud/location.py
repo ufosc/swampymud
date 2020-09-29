@@ -10,9 +10,7 @@ and items.
 """
 
 from typing import Iterable
-import swampymud.inventory
-import swampymud.character as char
-import swampymud
+from swampymud import character as char, inventory, entity, util, item
 
 class Exit:
     """Class representing an in-game Exit.
@@ -113,7 +111,7 @@ class Location:
         self.characters = []
         self.entities = []
         self._exit_list = []
-        self.inv = swampymud.inventory.Inventory()
+        self.inv = inventory.Inventory()
         self.name = name
         self.description = description
 
@@ -157,13 +155,6 @@ class Location:
             if str(entity) == query:
                 return entity
 
-    def find_exit(self, exit_name):
-        """returns an exit corresponding to exit name
-        returns 'None' if no exit is found"""
-        for ex in self._exit_list:
-            if exit_name in ex.names:
-                return ex
-
     # TODO: add indefinite articles, oxford comma, etc.
     def view(self, viewer=None):
         """return an information-rich, user-focused view of this
@@ -173,9 +164,7 @@ class Location:
         """
         output = [str(self), self.description]
 
-        transition = "You see "
-
-        # remove any exist that character cannot see
+        # remove any exits that character cannot see
         exit_list = self._exit_list
         if viewer is not None:
             exit_list = [ex for ex in self.exits if ex.perceive.permits(char)]
@@ -183,6 +172,8 @@ class Location:
         if exit_list:
             output.append("Exits:")
             output.extend([ex.view() for ex in exit_list])
+
+        transition = "You see"
 
         if self.characters:
             output.append(f"""{transition} {', '.join(
@@ -195,7 +186,8 @@ class Location:
             )}""")
         if self.inv:
             output.append("Items available:")
-            output.append(swampymud.util.group_and_count(list(self.inv)))
+            output.append(self.inv.readable())
+        return "\n".join(output)
 
     def __repr__(self):
         return f"Location{repr((self.name, self.description))}"
@@ -247,3 +239,44 @@ class Location:
 
     def add_item(self, item, quantity=1):
         self.inv.add_item(item, quantity)
+
+    # helper method for util.find
+    def find_child(self, params: util.FindParams, **other_fields):
+        # check that maxdepth hasn't been exceeded
+        if params.maxdepth < 0:
+            return
+        # only check exits if Exit type is specified (or no type specified)
+        if params.type is None or util.has_subclass(params.type, Exit):
+            # exitsare not first class game objects, so we manually
+            # sort through them
+            for ex in self._exit_list:
+                # check for any must have other_fields
+                if not util.obj_does_have(ex, other_fields):
+                    continue
+                # TODO: check params.optional
+                # if a character is provided, see if it can interact
+                # with this exit
+                if not (params.pov is None or ex.interact.permits(params.pov)):
+                    continue
+                # check for any intersecting names
+                if params.name is None or params.name & ex.names:
+                    yield ex
+        if params.type is None or util.has_instance(params.type, char.CharacterClass):
+            for other_char in self.characters:
+                if util.find_check(other_char, params, **other_fields):
+                    yield other_char
+                # try to visit the character
+                yield from util.find_child(other_char, params.decrement(),
+                                           **other_fields)
+        if params.type is None or util.has_instance(params.type, item.ItemClass):
+            # We don't decrement the maxdepth here, because the inventory
+            # is considered to be a part of the location itself.
+            # Items in a location's inventory might be on the ground,
+            # on a table, etc.
+            yield from self.inv.find_child(params, **other_fields)
+        if params.type is None or util.has_instance(params.type, entity.EntityClass):
+            for ent in self.entities:
+                if util.find_check(entity, params, **other_fields):
+                    yield entity
+                yield from util.find_child(ent, params.decrement(),
+                                           **other_fields)

@@ -8,6 +8,17 @@ from swampymud.location import Location
 class TestEntityMeta(unittest.TestCase):
     """testcases for the basic guarantees of the entity class"""
 
+    class DefaultCharacter(char.Character):
+        """Slightly more convenient CharacterClass that stores messages
+        in a list instead of a Queue for more straightforward testing.
+        """
+        def __init__(self, *args, **kwargs):
+            super().__init__(*args, **kwargs)
+            self.msgs = []
+
+        def message(self, msg):
+            self.msgs.append(msg)
+
     class CoolRobot(entity.Entity):
         pass
 
@@ -66,7 +77,7 @@ class TestEntityMeta(unittest.TestCase):
         self.ship = Location("Discovery", "A quiet, humming spaceship.")
         self.room = Location("Private Quarters", "Your personal quarters.")
         self.bmo_room = Location("BMO's Room", "Where BMO lives.")
-        self.dave = char.Character("Dave")
+        self.dave = self.DefaultCharacter("Dave")
         self.hal = self.TalkingRobot()
         self.bmo = self.NiceRobot()
         self.dave.set_location(self.room)

@@ -2,6 +2,7 @@
 import unittest
 import swampymud.inventory as inv
 from swampymud.item import Usable, Equippable, Item
+from swampymud.util import FindParams
 
 class SilverCoin(Item):
     """example of a Miscellaneous Item"""
@@ -17,8 +18,8 @@ class HealthPotion(Item):
         pass
 
     @classmethod
-    def load(cls, data):
-        return cls(data["hp"])
+    def load(types, data):
+        return types(data["hp"])
 
     def save(self):
         return {"hp": self.hp}
@@ -34,8 +35,8 @@ class BadPoison(Item):
         pass
 
     @classmethod
-    def load(cls, data):
-        return cls(data["dmg"])
+    def load(types, data):
+        return types(data["dmg"])
 
     def save(self):
         return {"dmg": self.dmg}
@@ -57,9 +58,9 @@ class Sword(Equippable):
         pass
 
     @classmethod
-    def load(cls, data):
+    def load(types, data):
         """load Sword with [data]"""
-        return cls(data["dmg"], data["material"])
+        return types(data["dmg"], data["material"])
 
     def save(self):
         """provide a pythonic representation of this Sword"""
@@ -165,44 +166,44 @@ class TestItemStack(unittest.TestCase):
         self.assertTrue(self.rare_stack.matches(Sword))
 
         # check with exact data
-        self.assertTrue(self.coin_stack.matches(exact_data={}))
-        self.assertFalse(self.strong_potions.matches(exact_data={}))
-        self.assertFalse(self.weak_potions.matches(exact_data={}))
-        self.assertFalse(self.rare_stack.matches(exact_data={}))
-        self.assertFalse(self.sword_stack.matches(exact_data={}))
+        self.assertTrue(self.coin_stack.matches(exact={}))
+        self.assertFalse(self.strong_potions.matches(exact={}))
+        self.assertFalse(self.weak_potions.matches(exact={}))
+        self.assertFalse(self.rare_stack.matches(exact={}))
+        self.assertFalse(self.sword_stack.matches(exact={}))
         strong = {"hp": 25}
-        self.assertFalse(self.coin_stack.matches(exact_data=strong))
-        self.assertTrue(self.strong_potions.matches(exact_data=strong))
-        self.assertFalse(self.weak_potions.matches(exact_data=strong))
-        self.assertFalse(self.rare_stack.matches(exact_data=strong))
-        self.assertFalse(self.sword_stack.matches(exact_data=strong))
+        self.assertFalse(self.coin_stack.matches(exact=strong))
+        self.assertTrue(self.strong_potions.matches(exact=strong))
+        self.assertFalse(self.weak_potions.matches(exact=strong))
+        self.assertFalse(self.rare_stack.matches(exact=strong))
+        self.assertFalse(self.sword_stack.matches(exact=strong))
         weak = {"hp": 5}
-        self.assertFalse(self.coin_stack.matches(exact_data=weak))
-        self.assertFalse(self.strong_potions.matches(exact_data=weak))
-        self.assertTrue(self.weak_potions.matches(exact_data=weak))
-        self.assertFalse(self.rare_stack.matches(exact_data=weak))
-        self.assertFalse(self.sword_stack.matches(exact_data=weak))
-        # only full match should work... this should match nothing
+        self.assertFalse(self.coin_stack.matches(exact=weak))
+        self.assertFalse(self.strong_potions.matches(exact=weak))
+        self.assertTrue(self.weak_potions.matches(exact=weak))
+        self.assertFalse(self.rare_stack.matches(exact=weak))
+        self.assertFalse(self.sword_stack.matches(exact=weak))
+        # only a 'full match' should work... this should match nothing
         almost = {"dmg": 10}
-        self.assertFalse(self.coin_stack.matches(exact_data=almost))
-        self.assertFalse(self.strong_potions.matches(exact_data=almost))
-        self.assertFalse(self.weak_potions.matches(exact_data=almost))
-        self.assertFalse(self.rare_stack.matches(exact_data=almost))
-        self.assertFalse(self.sword_stack.matches(exact_data=almost))
+        self.assertFalse(self.coin_stack.matches(exact=almost))
+        self.assertFalse(self.strong_potions.matches(exact=almost))
+        self.assertFalse(self.weak_potions.matches(exact=almost))
+        self.assertFalse(self.rare_stack.matches(exact=almost))
+        self.assertFalse(self.sword_stack.matches(exact=almost))
         rare = {"dmg": 50, "material": "iron"}
-        self.assertFalse(self.coin_stack.matches(exact_data=rare))
-        self.assertFalse(self.strong_potions.matches(exact_data=rare))
-        self.assertFalse(self.weak_potions.matches(exact_data=rare))
-        self.assertTrue(self.rare_stack.matches(exact_data=rare))
-        self.assertFalse(self.sword_stack.matches(exact_data=rare))
+        self.assertFalse(self.coin_stack.matches(exact=rare))
+        self.assertFalse(self.strong_potions.matches(exact=rare))
+        self.assertFalse(self.weak_potions.matches(exact=rare))
+        self.assertTrue(self.rare_stack.matches(exact=rare))
+        self.assertFalse(self.sword_stack.matches(exact=rare))
 
-        # check the field match feature
+        # check the must_have feature
+        # this works because coin stack doesn't have an hp field
         self.assertFalse(self.coin_stack.matches(hp=5))
         self.assertFalse(self.strong_potions.matches(hp=5))
         self.assertTrue(self.weak_potions.matches(hp=5))
         self.assertFalse(self.rare_stack.matches(hp=5))
         self.assertFalse(self.sword_stack.matches(hp=5))
-
         self.assertFalse(self.coin_stack.matches(material="iron"))
         self.assertFalse(self.strong_potions.matches(material="iron"))
         self.assertFalse(self.weak_potions.matches(material="iron"))
@@ -234,33 +235,42 @@ class TestItemStack(unittest.TestCase):
         self.assertFalse(self.rare_stack.matches(Sword, hp=5))
         self.assertFalse(self.sword_stack.matches(Sword, hp=5))
 
-        self.assertFalse(self.coin_stack.matches(Sword, exact_data=rare))
-        self.assertFalse(self.strong_potions.matches(Sword, exact_data=rare))
-        self.assertFalse(self.weak_potions.matches(Sword, exact_data=rare))
-        self.assertTrue(self.rare_stack.matches(Sword, exact_data=rare))
-        self.assertFalse(self.sword_stack.matches(Sword, exact_data=rare))
+        self.assertFalse(self.coin_stack.matches(Sword, exact=rare))
+        self.assertFalse(self.strong_potions.matches(Sword, exact=rare))
+        self.assertFalse(self.weak_potions.matches(Sword, exact=rare))
+        self.assertTrue(self.rare_stack.matches(Sword, exact=rare))
+        self.assertFalse(self.sword_stack.matches(Sword, exact=rare))
 
-        self.assertFalse(self.coin_stack.matches(Sword, exact_data=rare,
+        self.assertFalse(self.coin_stack.matches(Sword, exact=rare,
                                                  material="iron"))
-        self.assertFalse(self.strong_potions.matches(Sword, exact_data=rare,
+        self.assertFalse(self.strong_potions.matches(Sword, exact=rare,
                                                  material="iron"))
-        self.assertFalse(self.weak_potions.matches(Sword, exact_data=rare,
+        self.assertFalse(self.weak_potions.matches(Sword, exact=rare,
                                                    material="iron"))
-        self.assertTrue(self.rare_stack.matches(Sword, exact_data=rare,
+        self.assertTrue(self.rare_stack.matches(Sword, exact=rare,
                                                 material="iron"))
-        self.assertFalse(self.sword_stack.matches(Sword, exact_data=rare,
+        self.assertFalse(self.sword_stack.matches(Sword, exact=rare,
                                                   material="iron"))
 
-        self.assertFalse(self.coin_stack.matches(Sword, exact_data=strong,
+        self.assertFalse(self.coin_stack.matches(Sword, exact=strong,
                                                  material="iron"))
-        self.assertFalse(self.strong_potions.matches(Sword, exact_data=strong,
+        self.assertFalse(self.strong_potions.matches(Sword, exact=strong,
                                                      material="iron"))
-        self.assertFalse(self.weak_potions.matches(Sword, exact_data=strong,
+        self.assertFalse(self.weak_potions.matches(Sword, exact=strong,
                                                    material="iron"))
-        self.assertFalse(self.rare_stack.matches(Sword, exact_data=strong,
+        self.assertFalse(self.rare_stack.matches(Sword, exact=strong,
                                                  material="iron"))
-        self.assertFalse(self.sword_stack.matches(Sword, exact_data=strong,
+        self.assertFalse(self.sword_stack.matches(Sword, exact=strong,
                                                   material="iron"))
+
+        # however, optional should match even if all fields aren't provided
+        # this works because coin stack doesn't have an hp field
+        self.assertTrue(self.coin_stack.matches(optional={"hp": 5}))
+        self.assertTrue(self.coin_stack.matches(optional=almost))
+        self.assertTrue(self.strong_potions.matches(optional=almost))
+        self.assertTrue(self.weak_potions.matches(optional=almost))
+        self.assertFalse(self.rare_stack.matches(optional=almost)) # dmg is 50
+        self.assertTrue(self.sword_stack.matches(optional=almost))
 
     def test_get_item(self):
         coin = self.coin_stack.copy()
@@ -313,8 +323,8 @@ class TestInventory(unittest.TestCase):
             while inventory:
                 count += 1
                 try:
-                    item, amount = tuple(inventory.find())[0]
-                except Exception:
+                    item, amount = tuple(inventory.find_child(FindParams()))[0]
+                except TypeError:
                     continue
                 inventory.remove_item(item, amount)
             return count
@@ -434,9 +444,11 @@ this function is inefficient and fragile, do not use outside simple testing"""
         return hash((str(type(item)), (tuple(item.save()), amt)))
 
     def cmp_contents(self, list1, list2):
-        """returns true if and only if all (item, amt) pairs that appear in
-list1 also appear in list2, and visa versa
-this function is inefficient and fragile, do not use outside simple testing"""
+        """
+        returns true if and only if all (item, amt) pairs that appear in
+        list1 also appear in list2, and visa versa
+        this function is inefficient and fragile, do not use outside simple testing
+        """
         set1 = {self.hash_item_amt(x) for x in list1}
         set2 = {self.hash_item_amt(x) for x in list2}
         return len(set1) == len(list2) and len(set1) == len(list2) and set1 == set2
@@ -468,14 +480,14 @@ this function is inefficient and fragile, do not use outside simple testing"""
     def test_find(self):
         """test that find method can be used to find items"""
         # no results for an item names Silver Coin in self.empty
-        results = list(self.empty.find(name="Silver Coin"))
+        results = list(self.empty.find_child(FindParams(name=("silver coin",))))
         self.assertEqual(results, [])
         # really, nothing should work for self.empty
-        results = list(self.empty.find())
+        results = list(self.empty.find_child(FindParams()))
         self.assertEqual(results, [])
 
         # testing find for self.coins
-        results = list(self.coins.find())
+        results = list(self.coins.find_child(FindParams()))
         self.assertEqual(len(results), 1)
         # checking that the item yielded is indeed a SilverCoin
         self.assertTrue(isinstance(results[0][0], SilverCoin))
@@ -483,33 +495,28 @@ this function is inefficient and fragile, do not use outside simple testing"""
         self.assertEqual(results[0][1], 10)
 
         # test results should be the same if a name is provided
-        results = list(self.coins.find(name="Silver Coin"))
+        results = list(self.coins.find_child(FindParams(name=("silver coin",))))
         self.assertTrue(isinstance(results[0][0], SilverCoin))
         self.assertEqual(results[0][1], 10)
 
         # ...or if exact data is provided
-        results = list(self.coins.find(exact_data={}))
+        results = list(self.coins.find_child(FindParams(), exact={}))
         self.assertTrue(isinstance(results[0][0], SilverCoin))
         self.assertEqual(results[0][1], 10)
 
         # ...or both
-        results = list(self.coins.find(name="Silver Coin", exact_data={}))
+        results = list(self.coins.find_child(FindParams(name=("silver coin",)), exact={}))
         self.assertTrue(isinstance(results[0][0], SilverCoin))
         self.assertEqual(results[0][1], 10)
 
-
         # but if we provide non-matching data, we expect nothing
-        results = list(self.coins.find(exact_data={"value": 10}))
-        self.assertEqual(results, [])
-
-        # or if we provide another field
-        results = list(self.coins.find(value=10))
+        results = list(self.coins.find_child(FindParams(), value=10))
         self.assertEqual(results, [])
 
         # testing find for potion_seller
         # first, add a few "BadPoisons" to
         # calling find with no arguments should yield everything
-        results = list(self.potion_seller.find())
+        results = list(self.potion_seller.find_child(FindParams()))
         self.assertTrue(self.cmp_contents(results, [
             (SilverCoin(), 20),
             (HealthPotion(hp=10), 5),
@@ -518,7 +525,7 @@ this function is inefficient and fragile, do not use outside simple testing"""
             (HealthPotion(hp=50), 3)
         ]))
         # test for type Health Potion
-        results = list(self.potion_seller.find(cls=HealthPotion))
+        results = list(self.potion_seller.find_child(FindParams(type=(HealthPotion,))))
         self.assertTrue(self.cmp_contents(results, [
             (HealthPotion(hp=10), 5),
             (HealthPotion(hp=3), 7),
@@ -526,31 +533,31 @@ this function is inefficient and fragile, do not use outside simple testing"""
             (HealthPotion(hp=50), 3)
         ]))
         # test for fields 'hp=10'
-        results = list(self.potion_seller.find(hp=10))
+        results = list(self.potion_seller.find_child(FindParams(), hp=10))
         self.assertTrue(self.cmp_contents(results, [
             (HealthPotion(hp=10), 5),
         ]))
         # test for fields 'hp=5'
-        results = list(self.potion_seller.find(hp=5))
+        results = list(self.potion_seller.find_child(FindParams(),hp=5))
         self.assertTrue(self.cmp_contents(results, [
         ]))
-        # test for fields 'hp=10' and cls=HealthPotion
-        results = list(self.potion_seller.find(cls=HealthPotion, hp=10))
+        # test for fields 'hp=10' and type=HealthPotion
+        results = list(self.potion_seller.find_child(FindParams(type=HealthPotion), hp=10))
         self.assertTrue(self.cmp_contents(results, [
             (HealthPotion(hp=10), 5),
         ]))
         # test with exact data
-        results = list(self.potion_seller.find(exact_data={"hp": 100}))
+        results = list(self.potion_seller.find_child(FindParams(), hp=100))
         self.assertTrue(self.cmp_contents(results, [
             (HealthPotion(hp=100), 2),
         ]))
         # test with exact data and redundant 'hp=100'
-        results = list(self.potion_seller.find(exact_data={"hp": 100}, hp=100))
+        results = list(self.potion_seller.find_child(FindParams(), exact={"hp": 100}, hp=100))
         self.assertTrue(self.cmp_contents(results, [
             (HealthPotion(hp=100), 2),
         ]))
-        # test with exact_data and contradictory 'hp=5'
-        results = list(self.potion_seller.find(exact_data={"hp": 100}, hp=5))
+        # test with must_have and contradictory 'hp=5'
+        results = list(self.potion_seller.find_child(FindParams(), exact={"hp": 100}, hp=5))
         self.assertTrue(self.cmp_contents(results, [
         ]))
         self.potion_seller.add_item(BadPoison(dmg=10), 5)
@@ -558,28 +565,28 @@ this function is inefficient and fragile, do not use outside simple testing"""
         self.potion_seller.add_item(Sword(dmg=10, material="steel"), 3)
         self.potion_seller.add_item(Sword(dmg=7, material="steel"), 3)
         # testing on dmg=10 should yield sword and BadPoison
-        results = list(self.potion_seller.find(dmg=10))
+        results = list(self.potion_seller.find_child(FindParams(), dmg=10))
         self.assertTrue(self.cmp_contents(results, [
             (BadPoison(dmg=10), 5),
             (Sword(dmg=10, material="steel"), 3)
         ]))
-        # testing with exact_data {"dmg": 10} should only yield BadPoison
-        results = list(self.potion_seller.find(exact_data={"dmg":10}))
+        # testing with exact {"dmg": 10} should only yield BadPoison
+        results = list(self.potion_seller.find_child(FindParams(), exact={"dmg": 10}))
         self.assertTrue(self.cmp_contents(results, [
             (BadPoison(dmg=10), 5),
         ]))
         # testing with multiple field arguments
-        results = list(self.potion_seller.find(dmg=10, material="steel"))
+        results = list(self.potion_seller.find_child(FindParams(), dmg=10, material="steel"))
         self.assertTrue(self.cmp_contents(results, [
             (Sword(dmg=10, material="steel"), 3)
         ]))
         # good name should return something
-        results = list(self.potion_seller.find(name="Sword", dmg=7, material="steel"))
+        results = list(self.potion_seller.find_child(FindParams(name=("sword",)), dmg=7, material="steel"))
         self.assertTrue(self.cmp_contents(results, [
             (Sword(dmg=7, material="steel"), 3)
         ]))
         # bad name should return nothing
-        results = list(self.potion_seller.find(name="Swor", dmg=10, material="steel"))
+        results = list(self.potion_seller.find_child(FindParams(name=("swor",)), dmg=10, material="steel"))
         self.assertTrue(self.cmp_contents(results, [
         ]))
 
