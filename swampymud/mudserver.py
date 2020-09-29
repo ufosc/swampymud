@@ -15,11 +15,12 @@ Thank you, Mark.
 """
 import logging
 import traceback
+import warnings
 from collections import namedtuple
 # for asynchronous stuff
 import asyncio
-# required for WebsocketServer
-
+# required for websockets to work
+import websockets
 
 TcpCient = namedtuple("TcpClient", ["pid", "reader", "writer"])
 
@@ -33,17 +34,24 @@ class MudServer:
     '''
 
     # TODO: handle websocket / telnet server ports
-    def __init__(self, world, port):
-        logging.info("Setting up server on port [%d]", port)
+    def __init__(self, world, ws_port=None, tcp_port=None):
+        logging.debug("Server %r created", self)
         self.world = world
         self.default_class = None
         self.default_location = None
-        self.port = port
-
-        self.players = {} # dict mapping server-socket IDs to characters
-        self._tcp_clients = {} # dict mapping pids to TcpClients
+        self.tcp_port = tcp_port
+        self.ws_port = ws_port
         self.next_id = 0
         self._running = False
+        self.players = {} # dict mapping server-socket IDs to characters
+
+        # at least one port must be provided
+        if tcp_port is None and ws_port is None:
+            raise ValueError("Cannot create MudServer without at least one "
+                             "TCP or WS port.")
+
+        # TODO: remove this dict (it's not necessary?)
+        self._tcp_clients = {} # dict mapping pids to TcpClients
 
     async def run(self):
         """Begin this MudServer.
@@ -51,7 +59,7 @@ class MudServer:
         of an event loop, perhaps like this:
             asyncio.get_event_loop().run_until_complete(my_mud.run())
         """
-        logging.info("Starting server...")
+        logging.debug("Starting server...")
         # First, check to make sure the same server instance isn't being
         # run multiple times.
         if self._running:
@@ -59,11 +67,27 @@ class MudServer:
 
         # Flag the server as running
         self._running = True
-        self.tcp_server = await asyncio.start_server(self._register_tcp,
-                                                     port=self.port)
-        await self.tcp_server.serve_forever()
 
-        # TODO: add websockets!
+        # We create a list of coroutines, since we might be running more
+        # than just one if we have a TCP Server AND a WebSocketServer.
+        coroutines = []
+
+        if self.tcp_port is not None:
+            # start asyncio.Server
+            self.tcp_server = await asyncio.start_server(self._register_tcp,
+                                                         port=self.tcp_port)
+            # add it to the list of coroutines
+            coroutines.append(self.tcp_server.serve_forever())
+
+        if self.ws_port is not None:
+            # start a WebSocketServer
+            self.ws_server = await websockets.serve(self._register_ws,
+                                                    port=self.ws_port)
+            # add it to the list of coroutines
+            #coroutines.append(self.tcp_server.serve_forever())
+
+        # We use asyncio.gather() to execute multiple coroutines.
+        await asyncio.gather(*coroutines)
 
     def shutdown(self):
         """Shut down the """
@@ -74,7 +98,7 @@ class MudServer:
         #TODO: kill the websocket server
         self._running = False
 
-    # Callback method for the TCP Server.
+    # Callback methods for the TCP Server.
     # This method is executed whenever a new client connects to the
     # TCP server.
     async def _register_tcp(self, reader, writer):
@@ -180,6 +204,64 @@ class MudServer:
                 break
 
         logging.debug("_outgoing_tcp closed for %s", pid)
+
+    # Callback methods for new WebSocket connections.
+    async def _register_ws(self, websocket, path):
+        # we don't currently do anything with the path, so just log it
+        logging.debug("WebSocket %s connected at path %s", websocket, path)
+
+        # First, grab a new unique identifier.
+        pid = self.next_id
+        self.next_id += 1
+
+        # Call the server's custom handler. (By default, this will
+        # create a new Character and assign it to the player.)
+        self.on_player_join(pid)
+
+        # WebSockets have a slightly different API than the tcp streams
+        # rather than a reading and writing stream, which just have
+        # one socket.
+        # As with _register_tcp, we want to quit immediately the player
+        # disconnects, so we use return_when=asyncio.FIRST_COMPLETED
+        await asyncio.wait([self._incoming_ws(pid, websocket),
+                            self._outgoing_ws(pid, websocket)],
+                           return_when=asyncio.FIRST_COMPLETED)
+
+        # If this code is reached, then the WebSocket has disconnected.
+        # This should already be closed, but just in case.
+        await websocket.close()
+
+        # Call the server's event handler. (By default, this will simply
+        # notify the other players.)
+        self.on_player_quit(pid)
+
+    async def _incoming_ws(self, pid, websocket):
+        # websockets have a convenient __aiter__ interface, allowing
+        # us to just iterate over the messages forever.
+        # Under the hood, if there are no messages available from the
+        # WebSocket, this code will yield and until another message is
+        # received.
+        async for msg in websocket:
+            # Trim whitespace
+            msg = msg.strip()
+            # Make sure the message isn't an empty string
+            if msg:
+                # Pass the message onto the server's handler.
+                self.on_player_msg(pid, msg)
+        logging.debug("_incoming_ws closed for %s", pid)
+
+    async def _outgoing_ws(self, pid, websocket):
+
+        # This code is analogous to MudServer._outgoing_tcp
+        character = self.players[pid]
+
+        while not websocket.closed:
+            msg = await character.msgs.get()
+
+            # TODO: try to get more messages and buffer writes?
+            await websocket.send(msg + "\n\r")
+
+        logging.debug("_outgoing_ws closed for %s", pid)
 
     # handlers for each event
     # override these for custom behavior
