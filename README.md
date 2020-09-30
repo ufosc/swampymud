@@ -4,13 +4,14 @@ Multi-user dungeons, or "MUDs" are text-based role-playing games, that naturally
 This project aims to introduce a new generation—one that never experienced a world without broadband internet—to this classic game genre.
 While this code can be adapted for any setting, we intend to render our university in beautiful ASCII. 
 
-Note: this repo has the internal (less stable) branch `develop` set to default.
-For a more stable version, please look at the `master` branch.
+(Note: this project should be considered an alpha. Expect changes to the API.)
 
 ## Requirements
 
 ### Hosting
-For **hosting** a server, Python 3 must be installed on the system (along with an appropriate internet connection.) For help with Python installation, visit <https://www.python.org>
+For **hosting** a server, Python 3 must be installed on the system (along with an appropriate internet connection.) For help with Python installation, visit <https://www.python.org>.
+
+This project also requires the packages `websockets` (>= 8.1) and `PyYAML` (>=5.3.0).
 
 ### Connecting
 For **connecting** to an existing server, a simple telnet client is required. However, we recommend using a dedicated MUD client to avoid ugliness like this:
@@ -23,41 +24,42 @@ Here's the same scenario, in Mudlet:
 
 ![mudlet_client.png](images/mudlet_client.png)
 
+*You can now connect to a swampymud in your browser using a websocket. More on this later...*
+
 ## Getting Started
 ### Hosting
 
-Download this repository, or one of the releases. In a terminal, navigate to the repository and run
+I recommend installing this package using `pip`:
+```
+pip3 install swampymud
+```
 
+Alternatively, if you want to install from source, you can clone this repo and install the requirements with `pip3 install -r requirements.txt`.
+
+Either way, you can launch a Swampy MUD server right away like so:
 ```
 python3 -m swampymud
 ```
 
-By default, the server uses port 1234. If you want to specify a different port (e.g. 4000), you can run
+By default, this will start a WebSocket server on port 9000.
+If you want to specify a different port (e.g. 4000), you can run
 
+```sh
+python3 -m swampymud --ws 4000
 ```
-python3 -m swampymud -p 4000
+To start a plain TCP server instead of a WebSocket server, use the `--tcp` flag.
+```sh
+python3 -m swampymud --tcp 8333
+```
+Why not both? You can provide both the `--ws` and `--tcp` arguments to start both a WebSocket server and a TCP server.
+```sh
+# this will start a WebSocket server on port 1234
+# AND a plain TCP server on port 5678
+python3 -m swampymud --ws 1234 --tcp 5678
 ```
 For a full list of options, run `python3 -m swampymud --help`.
 
 If you are hosting a server for other people to connect, you will need to port foward your router. When you port forward, select the TCP protocol and direct traffic towards whatever port the server is listening on. 
-
-Once the server begins running, you will see an administrator prompt:
-
-```
-2019-02-24 14:49:09,497 [MudServerThread] [INFO] Starting server.
-2019-02-24 14:49:09,497 [MudServerThread] [INFO] Server started successfully.
-```
-
-You can type "help" to get a list of administrator commands.
-
-```
-help
-2019-02-24 14:50:01,441 [MainThread] [INFO] Server commands are:
- broadcast [message] - Broadcasts a message to the entire server
- players - Prints a list of all players
- stop - Stops the server
- list [locations|items|chars] - list all available loaded locations/items/chars
-```
 
 ### Connecting
 
@@ -65,8 +67,10 @@ help
 
 If you want to use an ugly, raw telent client, you can use the following terminal command on *nix systems:
 
-```
-telnet <ip address> 1234
+```sh
+# telnet <ip address> <port>
+# if you started a server with the default settings:
+telnet localhost 9000
 ```
 
 On Windows, a telnet client is not provided by default. One option is to follow [this guide](http://technet.microsoft.com/en-us/library/cc771275%28v=ws.10%29.aspx)
@@ -85,9 +89,7 @@ Alternatively, you can install [PuTTY](https://putty.org/), a **free and open so
 5. When you exit Mudlet, you will be asked if you want to save the profile. Select "Yes", and simply load the profile next time you play.
 
 ## Contributing
-
 Please read **[CONTRIBUTING.md](CONTRIBUTING.md)** for how to work on the project.
 
 ## License
-
 This project is licensed under the **MIT** License - see the [LICENSE.md](LICENSE.md) file for details.

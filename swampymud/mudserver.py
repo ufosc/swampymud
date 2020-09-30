@@ -46,6 +46,8 @@ class MudServer:
         self.ws_port = ws_port
         self.ws_server = None
         # TODO: add ._ws_clients
+        # by tracking clients, we can write a 'kick' function and
+        # have a cleaner shutdown in the case of the tcp server
 
         self.next_id = 0
         self._running = False
@@ -53,7 +55,6 @@ class MudServer:
         if tcp_port is None and ws_port is None:
             raise ValueError("Cannot create MudServer without at least one "
                              "TCP or WS port.")
-
 
     async def run(self):
         """Begin this MudServer.
