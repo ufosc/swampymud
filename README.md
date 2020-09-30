@@ -9,7 +9,9 @@ While this code can be adapted for any setting, we intend to render our universi
 ## Requirements
 
 ### Hosting
-For **hosting** a server, Python 3 must be installed on the system (along with an appropriate internet connection.) For help with Python installation, visit <https://www.python.org>
+For **hosting** a server, Python 3 must be installed on the system (along with an appropriate internet connection.) For help with Python installation, visit <https://www.python.org>.
+
+This project also requires the packages `websockets` (>= 8.1) and `PyYAML` (>=5.3.0).
 
 ### Connecting
 For **connecting** to an existing server, a simple telnet client is required. However, we recommend using a dedicated MUD client to avoid ugliness like this:
@@ -27,20 +29,26 @@ Here's the same scenario, in Mudlet:
 ## Getting Started
 ### Hosting
 
-Download this repository, or one of the releases. In a terminal, navigate to the repository and run
+I recommend installing this package using `pip`:
+```
+pip3 install swampymud
+```
 
+Alternatively, if you want to install from source, you can clone this repo and install the requirements with `pip3 install -r requirements.txt`.
+
+Either way, you can launch a Swampy MUD server right away like so:
 ```
 python3 -m swampymud
 ```
 
-By default, this will start a WebSocket server on port 9000. If you want to specify a different port (e.g. 4000), you can run
+By default, this will start a WebSocket server on port 9000.
+If you want to specify a different port (e.g. 4000), you can run
 
-```s
-python3 -m swampymud -ws
+```sh
+python3 -m swampymud --ws 4000
 ```
 To start a plain TCP server instead of a WebSocket server, use the `--tcp` flag.
 ```sh
-# this will start a plain TCP server on port 8333
 python3 -m swampymud --tcp 8333
 ```
 Why not both? You can provide both the `--ws` and `--tcp` arguments to start both a WebSocket server and a TCP server.
@@ -65,8 +73,6 @@ If you want to use an ugly, raw telent client, you can use the following termina
 telnet localhost 9000
 ```
 
-
-
 On Windows, a telnet client is not provided by default. One option is to follow [this guide](http://technet.microsoft.com/en-us/library/cc771275%28v=ws.10%29.aspx)
 to enable the Windows telnet client.
 
@@ -83,9 +89,7 @@ Alternatively, you can install [PuTTY](https://putty.org/), a **free and open so
 5. When you exit Mudlet, you will be asked if you want to save the profile. Select "Yes", and simply load the profile next time you play.
 
 ## Contributing
-
 Please read **[CONTRIBUTING.md](CONTRIBUTING.md)** for how to work on the project.
 
 ## License
-
 This project is licensed under the **MIT** License - see the [LICENSE.md](LICENSE.md) file for details.
