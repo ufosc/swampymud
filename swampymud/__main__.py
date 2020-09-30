@@ -15,7 +15,7 @@ import asyncio
 
 # Setup the logger
 logging.basicConfig(format='%(asctime)s [%(levelname)s] %(message)s',
-                    level=logging.DEBUG,
+                    level=logging.INFO,
                     handlers=[
                         logging.FileHandler("server.log"),
                         logging.StreamHandler(sys.stdout)
