@@ -1,9 +1,28 @@
-'''module dedicated to the biject class'''
+'''module dedicated to the biject class
+If you are confused about what a bijection is, refer to:
+https://simple.wikipedia.org/wiki/Bijective_function
+'''
 
 class Biject:
-    '''class representing a bijection'''
+    '''Class representing a bijection.
+    A biject is simply a special dict representing a one-to-one
+    relationship, (a normal dict is many-to-one). Because a bijection
+    has exactly one value for every key, we can pass a value into
+    the biject to its original key back.
+    In a normal dict:
+        d = dict()
+        d["a"] = "apple"
+        d["apple"] # this produces a KeyError
+        d["b"] = "apple" # this works, many keys can point to one value
+    With a biject:
+        b = biject()
+        b["a"] = "apple"
+        d["apple"] # this works, giving a key to a biject its value back
+        d["b"] = "apple" # produces a ValueError, since only one key
+        # can point to a value at a time
+    '''
     def __init__(self, start_dict=None):
-        '''start_dict can be provided to 
+        '''start_dict can be provided to
         fill the bijection with something
         otherwise, an empty bijection is created'''
         self._left = {}
@@ -50,7 +69,7 @@ class Biject:
             value = self._right[key]
             del self._right[key]
             del self._left[value]
-    
+
     def __contains__(self, key):
         '''returns true if 'key' is in bijection'''
         return key in self._left or self._right
@@ -58,7 +77,7 @@ class Biject:
     def __repr__(self):
         '''return a representation of the bijection'''
         if self._left:
-            return "Biject(%r)" % self._left
+            return f"Biject({self._left!r})"
         else:
             return "Biject()"
 
