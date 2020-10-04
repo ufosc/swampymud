@@ -3,6 +3,7 @@ from swampymud.mudserver import MudServer
 
 server = None
 
+
 def export_server(inp_server):
     '''store a server in the mudscript module
     this must be done before calling the 'message_all' function
@@ -35,7 +36,19 @@ def message_all(msg):
     global server
     server.message_all(msg)
 
+
+@server_warning
+def kick(character, **kwargs):
+    """Find the client associated with [character] and disconnect
+    them from the game.
+    Raises KeyError if [character] cannot be found.
+    """
+    global server
+    server.kick(character, **kwargs)
+
+
 _EXPORTED_LOCATIONS = None
+
 
 class LocationExport:
     """a context-manager style location exporter
@@ -72,7 +85,7 @@ def import_location(name):
     global _EXPORTED_LOCATIONS
     if _EXPORTED_LOCATIONS is None:
         raise SwampyException(f"Cannot access location '{name}' "
-                             "(no locations are exported)")
+                              "(no locations are exported)")
     try:
         return _EXPORTED_LOCATIONS[name]
     except KeyError as exc:

@@ -16,7 +16,7 @@ Thank you, Mark.
 import logging
 import traceback
 import warnings
-from collections import namedtuple
+from swampymud.util.biject import Biject
 # for asynchronous stuff
 import asyncio
 # required for websockets to work
@@ -38,16 +38,17 @@ class MudServer:
         self.default_class = None
         self.default_location = None
         # dict mapping pid [int] to in-game Characters
-        self.players = {}
+        # use a biject here so we can get Characters back if needed
+        self.players = Biject()
 
         self.tcp_port = tcp_port
         self.tcp_server = None
         self._tcp_clients = {}
         self.ws_port = ws_port
         self.ws_server = None
-        # TODO: add ._ws_clients
+        self._ws_clients = {}
         # by tracking clients, we can write a 'kick' function and
-        # have a cleaner shutdown in the case of the tcp server
+        # have a cleaner shutdown (in the case of the tcp server)
 
         self.next_id = 0
         self._running = False
@@ -147,6 +148,7 @@ class MudServer:
         # been detected and this player has disconnected.
         # Close the StreamWriter.
         writer.close()
+        del self._tcp_clients[pid]
 
         # Finally, call server.on_player_quit().
         # By default, this will delete the player's Character and send a
@@ -224,6 +226,10 @@ class MudServer:
         pid = self.next_id
         self.next_id += 1
 
+        # Now, store the websocket in a dictionary, so we can track it
+        # down later if necessary.
+        self._ws_clients[pid] = websocket
+
         # Call the server's custom handler. (By default, this will
         # create a new Character and assign it to the player.)
         self.on_player_join(pid)
@@ -240,6 +246,10 @@ class MudServer:
         # If this code is reached, then the WebSocket has disconnected.
         # This should already be closed, but just in case.
         await websocket.close()
+
+        # Delete the pid / websocket from the clients.
+        del self._ws_clients[pid]
+        # (We still keep track of pid in self._players... just in case.)
 
         # Call the server's event handler. (By default, this will simply
         # notify the other players.)
@@ -380,5 +390,49 @@ class MudServer:
         """
         # We copy the _clients into a list to avoid dictionary changing
         # size during iteration.
-        for character in self.players.values():
+        for (_pid, character) in self.players:
             character.message(message)
+
+    def kick(self, character, reason: str=""):
+        """Find the client associated with [character] and disconnect
+        them from the game.
+        Raises KeyError if [character] cannot be found.
+        """
+        # get the pid from the player biject
+        # (raises KeyError if character not found)
+        pid = self.players[character]
+
+        try:
+            tcp_stream_writer = self._tcp_clients[pid]
+            kick_coro = tcp_stream_writer.close()
+        # pid is not in tcp_clients, maybe it's a websocket?
+        except KeyError:
+            try:
+                websocket = self._ws_clients[pid]
+                kick_coro = websocket.close()
+            except KeyError:
+                logging.error("Could not kick pid '%s' "
+                              "(are they already disconnected?)", pid)
+                return
+
+        character.message("You are being kicked from the server.")
+        if reason:
+            character.message(f"(Reason: {reason})")
+        try:
+            # turn the coroutine into a task to schedule it
+            asyncio.create_task(kick_coro)
+        # loop is not running right now
+        except RuntimeError:
+            if self._running:
+                logging.error("Could not kick pid '%s' (Maybe MudServer.run() "
+                              "was called but never awaited?)", pid)
+            else:
+                logging.error("Could not kick pid '%s' "
+                              "(server is not running)", pid)
+            return
+        if reason:
+            logging.info("Kicked pid '%s' associated with [%s] "
+                         "(Reason: %s)", pid, character, reason)
+        else:
+            logging.info("Kicked pid '%s' associated with [%s]",
+                         pid, character)
