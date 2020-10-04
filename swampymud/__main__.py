@@ -53,28 +53,29 @@ if __name__ == "__main__":
     else:
         # if no world file is provided, run a test world
         world = World.test_world()
-        ws_port = args.ws
-        tcp_port = args.tcp
 
-        # perform some error handling
-        if ws_port is None and tcp_port is None:
-            # default to WebSocket server on port 9000
-            ws_port = 9000
-        elif ws_port == tcp_port:
-            print("Error: TCP server and WebSocket server cannot use the "
-                  f"same port '{ws_port}'.\nProvide different ports "
-                  "for each server.",
-                  file=sys.stderr)
-            exit(1)
+    ws_port = args.ws
+    tcp_port = args.tcp
 
-        if tcp_port is not None:
-            if ws_port is None:
-                logging.info("Launching a TCP Server on port '%d'", tcp_port)
-            else:
-                 logging.info("Launching a WebSocket Server on port '%d' and "
-                              "a TCP Server on port '%d'", ws_port, tcp_port)
+    # perform some error handling
+    if ws_port is None and tcp_port is None:
+        # default to WebSocket server on port 9000
+        ws_port = 9000
+    elif ws_port == tcp_port:
+        print("Error: TCP server and WebSocket server cannot use the "
+                f"same port '{ws_port}'.\nProvide different ports "
+                "for each server.",
+                file=sys.stderr)
+        exit(1)
+
+    if tcp_port is not None:
+        if ws_port is None:
+            logging.info("Launching a TCP Server on port '%d'", tcp_port)
         else:
-            logging.info("Launching a WebSocket Server on port '%d'", ws_port)
+                logging.info("Launching a WebSocket Server on port '%d' and "
+                            "a TCP Server on port '%d'", ws_port, tcp_port)
+    else:
+        logging.info("Launching a WebSocket Server on port '%d'", ws_port)
 
     try:
         server = MudServer(world, ws_port, tcp_port)
