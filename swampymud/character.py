@@ -5,6 +5,7 @@ This module also defines the 'Filter', used for CharacterClass-based
 permissions systems, and 'Command', a wrapper that converts methods into
 commands that can be invoked by characters.
 """
+import re
 import enum
 import functools
 import inspect
@@ -12,6 +13,7 @@ import weakref
 import asyncio
 import swampymud.inventory as inv
 from swampymud import util
+from swampymud.util import parser
 from swampymud.util.shadowdict import ShadowDict
 
 class Filter:
@@ -174,7 +176,7 @@ class Command(functools.partial):
     undecidable problem, but just confirm that two partially-applied
     functions have the same arguments and underlying functions.
 
-    Optional fields, "name", "label", and "field" are also provided.
+    Optional fields, "name", "label", and "filter" are also provided.
     These fields store player-relevant information that are NOT factored
     into comparisons.
 
@@ -419,13 +421,31 @@ class Character(metaclass=CharacterClass):
 
         self._parser = self._command_parser
 
+    # simple regex for detecting quoted messages
+    _quote_regex = re.compile(r"(['\"])(.*)\1")
+
     def _command_parser(self, line: str):
-        """The default parser for a player. Parses"""
+        """The default parser for a player."""
+        args = util.parser.split_args(line)
+        # starting a message with ' or " is a shortcut for the say cmd
+        # so, we check for that first
+        is_quoted = self._quote_regex.fullmatch(line)
+
+        # if we only have one token, and it's quoted, send as message
+        # e.g. _command_parser('"hello there!"')
+        if is_quoted and len(args) == 1:
+            message = is_quoted.group(2)
+            self.say(["say", message])
+            return
+
         # command is always the first word
-        args = line.split()
         cmd_name = args[0]
         if not cmd_name in self.cmd_dict:
-            self.message("Command \'%s\' not recognized." % cmd_name)
+            self.message(f"Command '{cmd_name}' not recognized.")
+            if line.startswith("'"):
+                self.message("(Did you forget a ' at the end of your message?)")
+            elif line.startswith('"'):
+                self.message('(Did you forget a " at the end of your message?)')
             return
         cmd = self.cmd_dict[cmd_name]
         cmd(args)
@@ -575,6 +595,9 @@ class Character(metaclass=CharacterClass):
     def say(self, args):
         """Send a message to all players in your current location.
         usage: say [msg]
+        Note that you can drop the 'say' and just type your message
+        in quotes:
+        "Hello, how are you?"
         """
         msg = ' '.join(args[1:])
         if msg and self.location is not None:

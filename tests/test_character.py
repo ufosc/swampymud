@@ -753,7 +753,9 @@ class TestDefaultCommands(unittest.TestCase):
         self.assertEqual(help_msg,
                          "say [from Default Commands]:\n"
                          "Send a message to all players in your current"
-                         " location.\nusage: say [msg]")
+                         " location.\nusage: say [msg]\nNote that you can drop"
+                         " the 'say' and just type your message\n"
+                         'in quotes:\n"Hello, how are you?"')
         # invalid command should cause an error
         self.phil.command("help invalid_cmd")
         help_msg = self.phil.msgs.get_nowait()
