@@ -43,6 +43,7 @@ Parsing a list of tokens:
     work through the
 """
 import re
+from abc import ABC, abstractmethod
 
 def split_args(string):
     """Split [string] on whitespace, respecting quotes.
@@ -157,12 +158,20 @@ def with_grammar(grammar: str):
     stack[0].cleanup()
     return stack[0]
 
-class Matcher:
+class Matcher(ABC):
     """A grammar is implicitly concatentation"""
     def __repr__(self):
         return f"{type(self).__name__}({self.args!r})"
 
-class Group:
+    @abstractmethod
+    def to_nfa(self):
+        pass
+
+    def match(self, inp):
+        NFAState.next_id = 0
+        return self.to_nfa().match(split_args(inp))
+
+class Group(Matcher):
     """Implictly, a group functions as a stack within our stack"""
     def __init__(self, *args, alts=None):
         alts = [] if alts is None else alts
@@ -217,30 +226,268 @@ class Group:
                 self.alts.append(self.args)
                 self.args = []
 
+    def to_nfa(self):
+        if self.args:
+            return NFA.concat(*map(lambda e: e.to_nfa(), self.args))
+        else:
+            return NFA.union(*map(
+                lambda alt: NFA.concat(*map(lambda e: e.to_nfa(), alt)),
+                self.alts
+            ))
 
 # two types of basic grammar expressions
 class Keyword(Matcher):
     def __init__(self, kw):
         self.args = kw
 
+    def to_nfa(self):
+        return NFA.match_on(self.args)
+
 class Variable(Matcher):
     #TODO: possible optimization, join types in an alternate
     # together into one variable
+    # UPDATE: yes, this helps reduce the number of exponential options
     def __init__(self, *types):
         self.args = types
+
+    def to_nfa(self):
+        # this nfa matches one word exactly
+        # however, variables can match an unlimited number of words
+        return NFA.plus(NFA.match_on(Token.ANY))
 
 # three quantifiers
 class Star(Matcher):
     def __init__(self, expr):
         self.args = expr
 
+    def to_nfa(self):
+        return NFA.star(self.args.to_nfa())
+
 class Plus(Matcher):
     def __init__(self, expr):
         self.args = expr
 
+    def to_nfa(self):
+        # The 'plus' of an NFA is just that NFA concatenated to the
+        # star / Kleene Star of itself
+        return NFA.plus(self.args.to_nfa())
+
 class Optional(Matcher):
     def __init__(self, expr):
-        self. args = expr
+        self.args = expr
+
+    def to_nfa(self):
+        return NFA.optional(self.args.to_nfa())
+
+from enum import Enum
+# Creating a few enums for simplicity
+class Token(Enum):
+    ANY = 0
+    END = 0
+
+
+class NFAState:
+    """state of a non-deterministic finite state automaton"""
+    next_id = 0
+    states = []
+
+    def __init__(self, accepting=False, epsilons=None, match_words=None):
+        if epsilons and match_words:
+            raise ValueError("State must have either epsilon transitions or match words, not both.")
+        self.epsilons = epsilons if epsilons else []
+        self.match_words = match_words if match_words else {}
+        self.accepting = accepting
+        self.id = NFAState.next_id
+        NFAState.states.append(self)
+        NFAState.next_id += 1
+
+    def add_epsilon(self, to):
+        if self.match_words:
+            raise ValueError("Cannot add epsilon to state with words")
+        self.epsilons.append(to)
+
+    def add_word(self, word, to):
+        if self.epsilons:
+            raise ValueError("Cannot add word to state with epsilons")
+        self.match_words[word] = to
+
+    def __repr__(self):
+        return f"NFAState[{self.id}]"
+
+    def __getitem__(self, index):
+        return self.states[index]
+
+    def view(self):
+        return (f"NFAState[{self.id}]("
+                f"\n  accepting={self.accepting},"
+                f"\n  epsilons={self.epsilons},"
+                f"\n  match_words={self.match_words}"
+                "\n)")
+
+    def traverse(self, traversed=None, depth=0):
+        if traversed is None:
+            traversed = set()
+        yield (self, depth)
+        traversed.add(self)
+        for state in self.epsilons:
+            if state in traversed:
+                continue
+            traversed.add(state)
+            yield from state.traverse(traversed, depth+1)
+        for state in self.match_words.values():
+            if state in traversed:
+                continue
+            traversed.add(state)
+            yield from state.traverse(traversed, depth+1)
+
+    def transitions(self, token):
+        if self.epsilons:
+            for state in self.epsilons:
+                yield from state.transitions(token)
+        elif self.match_words:
+            if token is Token.END:
+                # whoops, end of the line
+                return
+            if Token.ANY in self.match_words:
+                yield self.match_words[Token.ANY]
+            if token in self.match_words:
+                yield self.match_words[token]
+        # edge case:
+        else:
+            if token is Token.END and self.accepting:
+                yield self
+class NFA:
+    def __init__(self, start, end):
+        self.start = start
+        self.end = end
+
+    def __repr__(self):
+        from textwrap import indent
+        return "\n".join(map(
+                lambda x: indent(NFAState.view(x[0]), " " * (4 * x[1])),
+                self.start.traverse()
+            ))
+
+    def concat_with(self, nxt):
+        """joins NFA nxt to this NFA"""
+        self.end.accepting = False
+        self.end.add_epsilon(nxt.start)
+        self.end = nxt.end
+        return self
+
+    @staticmethod
+    def match_on(value):
+        """Returns a simple NFA that matches on [value]"""
+        start = NFAState()
+        end = NFAState(accepting=False)
+        start.add_word(value, end)
+        return NFA(start, end)
+
+    @staticmethod
+    def star(nfa):
+        """Returns a NFA matching the Kleene Star of NFA"""
+        new_start = NFAState()
+        new_end = NFAState(accepting=True)
+
+        # new start can either go to start of nfa or bypass it
+        new_start.add_epsilon(nfa.start)
+        new_start.add_epsilon(new_end)
+
+        nfa.end.accepting = False
+        nfa.end.add_epsilon(new_end)
+
+        # nfa can loop back to the beginning
+        nfa.end.add_epsilon(nfa.start)
+
+        nfa.start = new_start
+        nfa.end = new_end
+        return nfa
+
+    @staticmethod
+    def plus(nfa):
+        """Returns a NFA matching the Kleene Plus of NFA"""
+        # this could easily be implemented with NFA.star
+        # word+ is equivalent to word word*
+        # NFA.concat(nfa, NFA.closure(nfa))
+        # however, we can save one epsilon state with this implementation
+        new_end = NFAState(accepting=True)
+
+        nfa.end.accepting = False
+        nfa.end.add_epsilon(new_end)
+
+        # nfa can loop back to the beginning
+        nfa.end.add_epsilon(nfa.start)
+
+        nfa.end = new_end
+        return nfa
+
+    @staticmethod
+    def optional(nfa):
+        new_start = NFAState()
+        new_start.add_epsilon(nfa.start)
+        new_start.add_epsilon(nfa.end)
+        new_end = NFAState(accepting=True)
+        nfa.end.accepting = False
+        nfa.end.add_epsilon(new_end)
+        nfa.start = new_start
+        nfa.end = new_end
+        return nfa
+
+    @staticmethod
+    def union(*nfas):
+        new_start = NFAState()
+        new_end = NFAState(accepting=True)
+        for nfa in nfas:
+            new_start.add_epsilon(nfa.start)
+            nfa.end.accepting = False
+            nfa.end.add_epsilon(new_end)
+        return NFA(new_start, new_end)
+
+    @staticmethod
+    def concat(*nfas):
+        """concatentate several NFAs together
+        note, passing in zero NFAs will produce a single state
+        that is already accepting
+        """
+        # this looks ugly, but it helps optimize the number of states
+        if not nfas:
+            accepting = NFAState(accepting=True)
+            return NFA(accepting, accepting)
+        if len(nfas) == 1:
+            return nfas[0]
+        # we simply concatenate the NFAs in reverse
+        nfa = nfas[-1]
+        for next_nfa in reversed(nfas[:-1]):
+            nfa = next_nfa.concat_with(nfa)
+        return nfa
+
+    def match(self, tokens):
+        """Search for all possible paths through [self]"""
+        states = [self.start]
+        print(self)
+        for index, token in enumerate(tokens):
+            next_states = []
+            print(states)
+            print(token)
+            for state in states:
+                for next_state in state.transitions(token):
+                    next_states.append(next_state)
+            states = next_states
+        # give states one last chance to catch up (in case they have)
+        # any empty epsilons leftover
+        print(states)
+        next_states = []
+        print("END")
+        for state in states:
+            for next_state in state.transitions(Token.END):
+                next_states.append(next_state)
+        states = next_states
+
+        print(states)
+        for state in states:
+            if state.accepting:
+                return True
+        return False
 
 
 """
@@ -266,6 +513,3 @@ The contextualizer makes heavy use of util.find to match objects to the
 phrases.
 If
 """
-class Matcher:
-    """Abstact Base Class for finite state automata"""
-    pass
