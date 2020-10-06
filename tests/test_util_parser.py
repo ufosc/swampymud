@@ -48,39 +48,136 @@ class TestParser(unittest.TestCase):
                 ["hey", "whoops", "I", "forgot to close this quote"])
 
 
-    def gammar_parser(self):
+    def test_gammar_parser(self):
         # convenience function
         def compare(inp, output):
             self.assertEqual(parser.with_grammar(inp), output)
         compare("foo", Group(Keyword("foo")))
-        compare("foo bar", Group(Keyword("foo bar")))
+        compare("foo bar", Group(Keyword("foo"), Keyword("bar")))
         compare("foo (bar (baz) bok)",
                 Group(Keyword("foo"),
                       Group(Keyword("bar"),
                             Group(Keyword("baz")),
-                            Keyword("Bok"))))
+                            Keyword("bok"))))
         compare("foo | bar",
                 Group(alts=[[Keyword("foo")], [Keyword("bar")]]))
         compare("foo | ITEM",
                 Group(alts=[[Keyword("foo")], [Variable("ITEM")]]))
         compare("foo?",
-                Group(Optional("foo")))
+                Group(Optional(Keyword("foo"))))
         compare("foo*",
-                Group(Star("foo")))
+                Group(Star(Keyword("foo"))))
         compare("foo+",
-                Group(Plus("foo")))
+                Group(Plus(Keyword("foo"))))
         compare("give ITEM to? ( ENTITY | CHARACTER )",
                 Group(Keyword("give"),
                       Variable("ITEM"),
                       Optional(Keyword("to")),
                       Group(alts=[[Variable("ENTITY")],
                                   [Variable("CHARACTER")]])))
-
         compare("put (ENTITY | ITEM down?)",
                 Group(Keyword("put"),
                       Group(alts=[
                           [Variable("ENTITY")],
-                          [Variable("Item"), Optional(Keyword("down"))]
+                          [Variable("ITEM"), Optional(Keyword("down"))]
                       ])))
 
         # TODO: test all the errors and make a better exception
+
+
+    def test_match(self):
+        def assert_match(grammar, inp):
+            self.assertTrue(grammar.to_nfa().match(parser.split_args(inp)))
+
+        def assert_no_match(grammar, inp):
+            self.assertFalse(grammar.to_nfa().match(parser.split_args(inp)))
+
+
+        grammar = Keyword("foo")
+        assert_match(grammar, "foo")
+        assert_no_match(grammar, "foo foo")
+        assert_no_match(grammar, "foofoo")
+        assert_no_match(grammar, "baz")
+        assert_no_match(grammar, "")
+
+        grammar = Optional(Keyword("foo"))
+        assert_match(grammar, "")
+        assert_match(grammar, "foo")
+        assert_no_match(grammar, "foo foo")
+        assert_no_match(grammar, "baz")
+
+        grammar = Star(Keyword("baz"))
+        assert_match(grammar, "")
+        assert_match(grammar, "baz")
+        assert_match(grammar, "baz baz baz baz baz")
+        assert_match(grammar, "baz baz baz baz baz baz")
+        assert_no_match(grammar, "baz foo baz")
+        assert_no_match(grammar, "foo baz baz")
+        assert_no_match(grammar, "baz baz foo")
+
+        grammar = Plus(Keyword("bing"))
+        assert_match(grammar, "bing")
+        assert_match(grammar, "bing bing")
+        assert_match(grammar, "bing bing bing bing bing")
+        assert_match(grammar, "bing bing bing bing bing bing")
+        assert_no_match(grammar, "")
+        assert_no_match(grammar, "bing baz")
+        assert_no_match(grammar, "bi ng")
+        assert_no_match(grammar, "bing bing bing baz")
+        assert_no_match(grammar, "bing baz bing bing")
+        assert_no_match(grammar, "foo foo foo")
+
+        # variables match any multiple words
+        grammar = Variable("ITEM")
+        assert_match(grammar, "foo")
+        assert_match(grammar, "foo bar baz")
+        assert_match(grammar, "foo baz fsdfdasf f sdaf s")
+        assert_no_match(grammar, "")
+
+        # star of a variable can match any number of variables multiple times
+        grammar = Star(Variable("ITEM"))
+        assert_match(grammar, "")
+        assert_match(grammar, "foo")
+        assert_match(grammar, "foo bar baz")
+        assert_match(grammar, "foo baz fsdfdasf f sdaf s")
+
+        grammar = Group(Keyword("foo"), Keyword("bar"))
+        assert_match(grammar, "foo bar")
+        assert_no_match(grammar, "foo")
+        assert_no_match(grammar, "bar")
+        assert_no_match(grammar, "foo bar baz")
+        assert_no_match(grammar, "bar foo")
+        assert_no_match(grammar, "")
+
+        # unions can match one or the other
+        # "look (up | down)"
+        grammar = Group(Keyword("look"),
+                        Group(alts=[[Keyword("up")], [Keyword("down")]]))
+        assert_match(grammar, "look up")
+        assert_match(grammar, "look down")
+        assert_no_match(grammar, "look")
+        assert_no_match(grammar, "up")
+        assert_no_match(grammar, "down")
+        assert_no_match(grammar, "give up")
+        assert_no_match(grammar, "give down")
+        assert_no_match(grammar, "give")
+        assert_no_match(grammar, "look around")
+
+        # finally, a complex example
+        # "give ITEM to? (ENTITY | CHARACTER)"
+        grammar = Group(Keyword("give"),
+                        Variable("ITEM"),
+                        Optional(Keyword("to")),
+                        Group(alts=[[Variable("ENTITY")], [Variable("CHARACTER")]]))
+        assert_match(grammar, "give red sword to bob")
+        # this matches, assuming 'to' is an Entity / Character
+        assert_match(grammar, "give red sword to")
+        assert_match(grammar, "give red sword to james the epic wizard")
+        assert_match(grammar, "give foo to bar")
+        # give an item named 'give' to a character / entity named 'give'
+        assert_match(grammar, "give give give")
+        assert_match(grammar, "give give to give")
+        assert_no_match(grammar, "give")
+        assert_no_match(grammar, "give to")
+        assert_no_match(grammar, "give give")
+        assert_no_match(grammar, "")

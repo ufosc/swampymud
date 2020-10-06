@@ -106,7 +106,7 @@ def string_index(tok_index, tokens):
         return 0
 
 
-_grammar_token_re = re.compile(r"([()|*?])|[ \t\r\n]")
+_grammar_token_re = re.compile(r"([()|*?+])|[ \t\r\n]")
 def with_grammar(grammar: str):
     """Returns a parser based on the provided grammar."""
     # actually, it just returns a DFA
@@ -171,6 +171,9 @@ class Matcher(ABC):
         NFAState.next_id = 0
         return self.to_nfa().match(split_args(inp))
 
+    def __eq__(self, other):
+        return isinstance(other, type(self)) and other.args == self.args
+
 class Group(Matcher):
     """Implictly, a group functions as a stack within our stack"""
     def __init__(self, *args, alts=None):
@@ -206,6 +209,9 @@ class Group(Matcher):
                 return f"Group(alts={self.alts})"
         else:
             return f"Group({repr(self.args)[1:-1]})"
+
+    def __eq__(self, other):
+        return isinstance(other, Group) and other.args == self.args and other.alts == self.alts
 
     def cleanup(self):
         """This operation detects
@@ -368,7 +374,7 @@ class NFA:
                 self.start.traverse()
             ))
 
-    def concat_with(self, nxt):
+    def _concat_with(self, nxt):
         """joins NFA nxt to this NFA"""
         self.end.accepting = False
         self.end.add_epsilon(nxt.start)
@@ -379,7 +385,7 @@ class NFA:
     def match_on(value):
         """Returns a simple NFA that matches on [value]"""
         start = NFAState()
-        end = NFAState(accepting=False)
+        end = NFAState(accepting=True)
         start.add_word(value, end)
         return NFA(start, end)
 
@@ -458,32 +464,32 @@ class NFA:
         # we simply concatenate the NFAs in reverse
         nfa = nfas[-1]
         for next_nfa in reversed(nfas[:-1]):
-            nfa = next_nfa.concat_with(nfa)
+            nfa = next_nfa._concat_with(nfa)
         return nfa
 
     def match(self, tokens):
         """Search for all possible paths through [self]"""
         states = [self.start]
-        print(self)
+        #print(self)
         for index, token in enumerate(tokens):
             next_states = []
-            print(states)
-            print(token)
+            #print(states)
+            #print(token)
             for state in states:
                 for next_state in state.transitions(token):
                     next_states.append(next_state)
             states = next_states
         # give states one last chance to catch up (in case they have)
         # any empty epsilons leftover
-        print(states)
+        #print(states)
         next_states = []
-        print("END")
+        #print("END")
         for state in states:
             for next_state in state.transitions(Token.END):
                 next_states.append(next_state)
         states = next_states
 
-        print(states)
+        #print(states)
         for state in states:
             if state.accepting:
                 return True
