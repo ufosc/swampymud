@@ -44,6 +44,7 @@ Parsing a list of tokens:
 """
 import re
 from abc import ABC, abstractmethod
+from copy import deepcopy
 
 def split_args(string):
     """Split [string] on whitespace, respecting quotes.
@@ -168,7 +169,6 @@ class Matcher(ABC):
         pass
 
     def match(self, inp):
-        NFAState.next_id = 0
         return self.to_nfa().match(split_args(inp))
 
     def __eq__(self, other):
@@ -288,166 +288,152 @@ class Optional(Matcher):
 from enum import Enum
 # Creating a few enums for simplicity
 class Token(Enum):
-    ANY = 0
-    END = 0
+    E = 0 # epsilon transition
+    ANY = 1
+    END = 2
 
 
-class NFAState:
-    """state of a non-deterministic finite state automaton"""
-    next_id = 0
-    states = []
+def _add_epsilon(from_state, to_index):
+    # if any words are in from_state, we cannot add an epsilon
+    for match in from_state:
+        if match is not Token.E:
+            raise ValueError("Cannot add epsilon transition to state with matches")
+    if Token.E not in from_state:
+        from_state[Token.E] = []
+    from_state[Token.E].append(to_index)
 
-    def __init__(self, accepting=False, epsilons=None, match_words=None):
-        if epsilons and match_words:
-            raise ValueError("State must have either epsilon transitions or match words, not both.")
-        self.epsilons = epsilons if epsilons else []
-        self.match_words = match_words if match_words else {}
-        self.accepting = accepting
-        self.id = NFAState.next_id
-        NFAState.states.append(self)
-        NFAState.next_id += 1
-
-    def add_epsilon(self, to):
-        if self.match_words:
-            raise ValueError("Cannot add epsilon to state with words")
-        self.epsilons.append(to)
-
-    def add_word(self, word, to):
-        if self.epsilons:
-            raise ValueError("Cannot add word to state with epsilons")
-        self.match_words[word] = to
-
-    def __repr__(self):
-        return f"NFAState[{self.id}]"
-
-    def __getitem__(self, index):
-        return self.states[index]
-
-    def view(self):
-        return (f"NFAState[{self.id}]("
-                f"\n  accepting={self.accepting},"
-                f"\n  epsilons={self.epsilons},"
-                f"\n  match_words={self.match_words}"
-                "\n)")
-
-    def traverse(self, traversed=None, depth=0):
-        if traversed is None:
-            traversed = set()
-        yield (self, depth)
-        traversed.add(self)
-        for state in self.epsilons:
-            if state in traversed:
-                continue
-            traversed.add(state)
-            yield from state.traverse(traversed, depth+1)
-        for state in self.match_words.values():
-            if state in traversed:
-                continue
-            traversed.add(state)
-            yield from state.traverse(traversed, depth+1)
-
-    def transitions(self, token):
-        if self.epsilons:
-            for state in self.epsilons:
-                yield from state.transitions(token)
-        elif self.match_words:
-            if token is Token.END:
-                # whoops, end of the line
-                return
-            if Token.ANY in self.match_words:
-                yield self.match_words[Token.ANY]
-            if token in self.match_words:
-                yield self.match_words[token]
-        # edge case:
-        else:
-            if token is Token.END and self.accepting:
-                yield self
 class NFA:
-    def __init__(self, start, end):
-        self.start = start
-        self.end = end
+    def __init__(self, table=None):
+        """Create a simple NFA"""
+        if table is None:
+            table = [{}]
+        # the NFA is represented by a table
+        # self._table[0] is always the beginning element,
+        # and self._table[-1] is always the end (accepting) element
+        self._table = table
 
     def __repr__(self):
-        from textwrap import indent
-        return "\n".join(map(
-                lambda x: indent(NFAState.view(x[0]), " " * (4 * x[1])),
-                self.start.traverse()
-            ))
+        return f"NFA({self._table})"
+
+    def copy(self):
+        """Return a deep copy of this NFA"""
+        return NFA(deepcopy(self._table))
+
+    def _shift_table(self, shift_by: int):
+        """Return a copy of table with all indices incremented"""
+        new_table = []
+        for state in self._table:
+            if Token.E in state:
+                shifted = [index + shift_by for index in state[Token.E]]
+                new_table.append({Token.E: shifted})
+                # if a state has epsilon transitions, then it only
+                # has epsilon transitions
+                continue
+            new_table.append(
+                {token : index + shift_by for (token, index) in state.items()}
+            )
+        return new_table
 
     def _concat_with(self, nxt):
-        """joins NFA nxt to this NFA"""
-        self.end.accepting = False
-        self.end.add_epsilon(nxt.start)
-        self.end = nxt.end
-        return self
+        """Return a copy of this NFA joined to a copy of nxt"""
+        table = deepcopy(self._table)
+        nxt_table = nxt._shift_table(len(table))
+        # index of nxt's start node will be length of this table
+        _add_epsilon(table[-1], len(table))
+        # update all of the indices in nxt
+        table.extend(nxt_table)
+        return NFA(table)
 
     @staticmethod
     def match_on(value):
         """Returns a simple NFA that matches on [value]"""
-        start = NFAState()
-        end = NFAState(accepting=True)
-        start.add_word(value, end)
-        return NFA(start, end)
+        table = [
+            {value : 1}, # this is saying 'go to the next index'
+            {} # since this is the last index, we win
+        ]
+        return NFA(table)
 
     @staticmethod
     def star(nfa):
         """Returns a NFA matching the Kleene Star of NFA"""
-        new_start = NFAState()
-        new_end = NFAState(accepting=True)
+        # To implement the Klein Star operation, we simply
+        # add a new state to the beginning and a new state to the end
+        # This new state at the beginning can either transition to the
+        # end or to the first node of the table.
 
-        # new start can either go to start of nfa or bypass it
-        new_start.add_epsilon(nfa.start)
-        new_start.add_epsilon(new_end)
+        # shift one to account for new state at beginning
+        shifted = nfa._shift_table(1)
 
-        nfa.end.accepting = False
-        nfa.end.add_epsilon(new_end)
+        # old end can now loop to the beginning
+        _add_epsilon(shifted[-1], 0)
+        # add an epsilon transition to the end of the future table
+        _add_epsilon(shifted[-1], len(shifted) + 1)
 
-        # nfa can loop back to the beginning
-        nfa.end.add_epsilon(nfa.start)
+        new_start = { Token.E : [ 1, len(shifted) + 1]}
+        new_end = {}
 
-        nfa.start = new_start
-        nfa.end = new_end
-        return nfa
+        table = [new_start] + shifted
+        table.append(new_end)
+
+        return NFA(table)
 
     @staticmethod
     def plus(nfa):
         """Returns a NFA matching the Kleene Plus of NFA"""
-        # this could easily be implemented with NFA.star
+        # this could easily be implemented as NFA.concat(nfa, NFA.star(nfa))
         # word+ is equivalent to word word*
         # NFA.concat(nfa, NFA.closure(nfa))
         # however, we can save one epsilon state with this implementation
-        new_end = NFAState(accepting=True)
-
-        nfa.end.accepting = False
-        nfa.end.add_epsilon(new_end)
-
-        # nfa can loop back to the beginning
-        nfa.end.add_epsilon(nfa.start)
-
-        nfa.end = new_end
-        return nfa
+        # TODO: implement in the more optimal fashion above
+        return nfa._concat_with(NFA.star(nfa))
 
     @staticmethod
     def optional(nfa):
-        new_start = NFAState()
-        new_start.add_epsilon(nfa.start)
-        new_start.add_epsilon(nfa.end)
-        new_end = NFAState(accepting=True)
-        nfa.end.accepting = False
-        nfa.end.add_epsilon(new_end)
-        nfa.start = new_start
-        nfa.end = new_end
-        return nfa
+        # this approach is essentially the same as NFA.star, except
+        # we do not add an epsilon transition from the old end to the new start
+
+        # shift one to account for new state at beginning
+        shifted = nfa._shift_table(1)
+        # add an epsilon transition to the end of the future table
+        _add_epsilon(shifted[-1], len(shifted) + 1)
+
+        # new start can either push to the new NFA or bypass entirely
+        new_start = { Token.E : [ 1, len(shifted) + 1]}
+        new_end = {}
+
+        table = [new_start] + shifted
+        table.append(new_end)
+        return NFA(table)
 
     @staticmethod
     def union(*nfas):
-        new_start = NFAState()
-        new_end = NFAState(accepting=True)
+        # for optimization purposes, avoid
+        if not nfas:
+            return NFA()
+        elif len(nfas) == 1:
+            return nfas[0].copy()
+
+        start = {Token.E : []}
+        table = [start]
+        old_ends = []
+
         for nfa in nfas:
-            new_start.add_epsilon(nfa.start)
-            nfa.end.accepting = False
-            nfa.end.add_epsilon(new_end)
-        return NFA(new_start, new_end)
+            # add an epsilon to the start of this table
+            # we do the 'unsafe' version here, since we know
+            # start is a proper epsilon state
+            start[Token.E].append(len(table))
+            table.extend(nfa._shift_table(len(table)))
+            # the new index of the old end of the table is the new length of the table
+            old_ends.append(len(table) - 1)
+
+        # add a new end
+        new_end = len(table)
+        table.append({})
+        for end in old_ends:
+            # we use the checked version here, because we need to check
+            # if the ends are not epsilon states
+            _add_epsilon(table[end], new_end)
+        return NFA(table)
 
     @staticmethod
     def concat(*nfas):
@@ -455,45 +441,55 @@ class NFA:
         note, passing in zero NFAs will produce a single state
         that is already accepting
         """
-        # this looks ugly, but it helps optimize the number of states
+
+        # If no NFAs provided, return an empty NFA (matches exactly nothing).
+        # We do this to avoid excess states
         if not nfas:
-            accepting = NFAState(accepting=True)
-            return NFA(accepting, accepting)
-        if len(nfas) == 1:
-            return nfas[0]
-        # we simply concatenate the NFAs in reverse
-        nfa = nfas[-1]
-        for next_nfa in reversed(nfas[:-1]):
-            nfa = next_nfa._concat_with(nfa)
-        return nfa
+            return NFA()
+        # Get the first NFA
+        nfa = nfas[0]
+        # start concatenating!
+        table = deepcopy(nfa._table)
+        for nxt_nfa in nfas[1:]:
+            # this is similar to NFA._concat_with
+            nxt_table = nxt_nfa._shift_table(len(table))
+            _add_epsilon(table[-1], len(table))
+            table.extend(nxt_table)
+        return NFA(table)
+
+    def transitions(self, state_index, token):
+        state = self._table[state_index]
+        if Token.E in state:
+            for next_state in state[Token.E]:
+                yield from self.transitions(next_state, token)
+        else:
+            if state_index == len(self._table) - 1:
+                # edge case, we already reached the end, but we're
+                # pushing through the rest of the epsilons
+                # so, just re-yield the state_index
+                if token is Token.END:
+                    yield state_index
+                # TODO: else: return special value or something
+            elif Token.ANY in state and token is not Token.END:
+                yield state[Token.ANY]
+            elif token in state:
+                yield state[token]
 
     def match(self, tokens):
-        """Search for all possible paths through [self]"""
-        states = [self.start]
-        #print(self)
-        for index, token in enumerate(tokens):
-            next_states = []
-            #print(states)
-            #print(token)
-            for state in states:
-                for next_state in state.transitions(token):
-                    next_states.append(next_state)
-            states = next_states
-        # give states one last chance to catch up (in case they have)
-        # any empty epsilons leftover
-        #print(states)
-        next_states = []
-        #print("END")
-        for state in states:
-            for next_state in state.transitions(Token.END):
-                next_states.append(next_state)
-        states = next_states
+        # add Token.END to the list of tokens, this helps
+        # push through any states that are still epsilons
+        tokens = tokens + [Token.END]
 
-        #print(states)
-        for state in states:
-            if state.accepting:
-                return True
-        return False
+        states = {0}
+
+        for token in tokens:
+            next_states = set()
+            for state in states:
+                next_states.update(self.transitions(state, token))
+            states = next_states
+
+        # did we reach the final state?
+        return (len(self._table) - 1) in next_states
 
 
 """
