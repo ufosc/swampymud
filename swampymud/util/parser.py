@@ -45,7 +45,9 @@ Parsing a list of tokens:
 import re
 from abc import ABC, abstractmethod
 from copy import deepcopy
+from enum import Enum
 from collections import namedtuple
+
 
 def split_args(string):
     """Split [string] on whitespace, respecting quotes.
@@ -93,91 +95,70 @@ def split_args(string):
     return ["".join(token) for token in tokens]
 
 
-def string_index(tok_index, tokens):
-    # compute the cumulative length of the list of tokens up to token [index]
-    cumsum = []
-    prev = 0
-    for s in tokens[:tok_index]:
-        length = len(s) if s else 0
-        cumsum.append(length + prev)
-        prev = length
-    if cumsum:
-        return cumsum[-1]
-    # edge case: provided index is 0
-    else:
-        return 0
+class ParseError(Exception):
+
+    def __init__(self, args, **kwargs):
+        # for now, simply take the failures and ignore rest of stack
+        args = {stack[-1] for stack in args}
+        super().__init__(args, **kwargs)
 
 
-_grammar_token_re = re.compile(r"([()|*?+])|[ \t\r\n]")
-def with_grammar(grammar: str):
-    """Returns a parser based on the provided grammar."""
-    # actually, it just returns a DFA
-    # parse grammar into tokens
-    tokens = _grammar_token_re.split(grammar)
+# annotation used for parsing grammar rules
+Parsed = namedtuple("Parsed", ["rule", "tokens"])
+# reason for a parse error failing
+Fail = namedtuple("Fail", ["expected", "received"])
 
-    # stack of grammar components
-    stack = [Group()]
-
-    for tok_index, token in enumerate(tokens):
-        if not token:
-            # token is empty string or None (whitespace)
-            continue
-        if token.islower():
-            # it's a keyword
-            stack[-1].add(Keyword(token))
-        elif token.isupper():
-            # do some kind of type checking here
-            stack[-1].add(Variable(token))
-        elif token == "(":
-            # start new capturing group
-            stack.append(Group())
-        elif token == ")":
-            # end previous capturing group / union
-            finished_group = stack.pop()
-            finished_group.cleanup()
-            if stack:
-                stack[-1].add(finished_group)
-            else:
-                index = string_index(tok_index, tokens)
-                raise ValueError(f"Unmatched ')' at index [{index}]")
-        elif token == "|":
-            stack[-1].add_alternative()
-        # quantifiers
-        elif token == "*":
-            stack[-1].quantify_last(Star)
-        elif token == "+":
-            stack[-1].quantify_last(Plus)
-        elif token == "?":
-            stack[-1].quantify_last(Optional)
-        else:
-            index = string_index(tok_index, tokens)
-            raise ValueError(f"Unrecognized token {token!r} starting at index [{index}]")
-    # do we have any unfinished capturing groups on the stack?
-    if len(stack) > 1:
-        count = len(stack) - 1
-        index = string_index(0, tokens)
-        raise ValueError(f"Expected {count} ')', but input ended at [{index}]")
-    stack[0].cleanup()
-    return stack[0]
-
-Annotation = namedtuple("Annotation", ["type", "subtype", "tokens"])
-
-class GrammarRule(ABC):
-    """A grammar is implicitly concatentation"""
-    def __repr__(self):
-        return f"{type(self).__name__}({self.args!r})"
+class Grammar(ABC):
+    """Abstract Base Class for all other grammar expressions
+    Grammar provide high-level abstractions for a provided grammar.
+    """
+    def __init__(self, expr):
+        self.inner = expr
 
     @abstractmethod
     def to_nfa(self):
+        """Return a Nondeterministic Finite Automaton representing
+        this Grammar
+        """
         pass
+
+    # lazily create the NFA
+    @property
+    def nfa(self):
+        if not hasattr(self, "_nfa"):
+            self._nfa = self.to_nfa()
+        return self._nfa
+
+    def __repr__(self):
+        """overriding repr()"""
+        return f"{type(self).__name__}({self.inner!r})"
 
     def match(self, inp):
         return self.to_nfa().match(split_args(inp))
 
     def __eq__(self, other):
-        return isinstance(other, type(self)) and other.args == self.args
+        """Overriding == for convenient unit testing"""
+        return isinstance(other, type(self)) and other.inner == self.inner
 
-class Group(GrammarRule):
+    def matches(self, tokens):
+        """Returns true if 'tokens' obey this rule."""
+        return self.nfa.matches(tokens)
+
+    def annotate(self, tokens):
+        """Returns a list of all valid interpretations of this
+        grammar.
+        raises ParseError if no valid interpretation can be found.
+        (This means that the returned list is guaranteed to have at
+        least one valid intepretation.)
+        """
+        return self.nfa.annotate(tokens)
+
+    @staticmethod
+    def from_string(string):
+        return _parse_grammar(string)
+
+
+class Group(Grammar):
     """Implictly, a group functions as a stack within our stack"""
     def __init__(self, *args, alts=None):
         alts = [] if alts is None else alts
@@ -244,80 +225,135 @@ class Group(GrammarRule):
                 self.alts
             ))
 
+
 # two types of basic grammar expressions
-class Keyword(GrammarRule):
-    def __init__(self, kw):
-        self.args = kw
+class Keyword(Grammar):
+    def __init__(self, keyword):
+        self.inner = keyword
 
     def to_nfa(self):
-        return NFA.emitter(NFA.match_on(self.args), self)
+        return NFA.emitter(NFA.match_on(self.inner), self)
 
-    def claim(self, tokens):
-        return Annotation("Keyword", self.args, tokens)
-
-class Variable(GrammarRule):
-    #TODO: possible optimization, join types in an alternate
-    # together into one variable
-    # UPDATE: yes, this helps reduce the number of exponential options
+# TODO: join union of Variables into one variable
+# UPDATE: yes, this helps reduce the number of exponential options
+class Variable(Grammar):
     def __init__(self, *types):
-        self.args = types
+        self.inner = types
 
     def to_nfa(self):
         # this nfa matches one word exactly
         # however, variables can match an unlimited number of words
         return NFA.emitter(NFA.plus(NFA.match_on(Token.ANY)), self)
 
-    def claim(self, tokens):
-        return Annotation("Variable", self.args, tokens)
 
 # three quantifiers
-class Star(GrammarRule):
+class Star(Grammar):
+    """This Grammar rule represents the Kleene Star of the inner rule.
+    https://en.wikipedia.org/wiki/Kleene_star
+    """
     def __init__(self, expr):
-        self.args = expr
+        self.inner = expr
 
     def to_nfa(self):
-        return NFA.star(self.args.to_nfa())
+        return NFA.star(self.inner.to_nfa())
 
-class Plus(GrammarRule):
-    def __init__(self, expr):
-        self.args = expr
+
+class Plus(Grammar):
+    """This Grammar rule represents the Kleene Plus of the inner rule.
+    https://en.wikipedia.org/wiki/Kleene_star#Kleene_plus
+    """
+    def to_nfa(self):
+        return NFA.plus(self.inner.to_nfa())
+
+
+class Optional(Grammar):
+    """This Grammar rule makes the inner operation optional."""
 
     def to_nfa(self):
-        # The 'plus' of an NFA is just that NFA concatenated to the
-        # star / Kleene Star of itself
-        return NFA.plus(self.args.to_nfa())
+        return NFA.optional(self.inner.to_nfa())
 
-class Optional(GrammarRule):
-    def __init__(self, expr):
-        self.args = expr
 
-    def to_nfa(self):
-        return NFA.optional(self.args.to_nfa())
+def _string_index(tok_index, tokens):
+    """helper function for parse_grammar"""
+    # compute the cumulative length of the list of tokens up to token [index]
+    cumsum = []
+    prev = 0
+    for s in tokens[:tok_index]:
+        length = len(s) if s else 0
+        cumsum.append(length + prev)
+        prev = length
+    if cumsum:
+        return cumsum[-1]
+    # edge case: provided index is 0
+    else:
+        return 0
 
-from enum import Enum
+
+_grammar_token_re = re.compile(r"([()|*?+])|[ \t\r\n]")
+def _parse_grammar(grammar: str) -> Grammar:
+    """Returns a parser based on the provided grammar."""
+    # actually, it just returns a DFA
+    # parse grammar into tokens
+    tokens = _grammar_token_re.split(grammar)
+
+    # stack of grammar components
+    stack = [Group()]
+
+    for tok_index, token in enumerate(tokens):
+        if not token:
+            # token is empty string or None (whitespace)
+            continue
+        if token.islower():
+            # it's a keyword
+            stack[-1].add(Keyword(token))
+        elif token.isupper():
+            # do some kind of type checking here
+            stack[-1].add(Variable(token))
+        elif token == "(":
+            # start new capturing group
+            stack.append(Group())
+        elif token == ")":
+            # end previous capturing group / union
+            finished_group = stack.pop()
+            finished_group.cleanup()
+            if stack:
+                stack[-1].add(finished_group)
+            else:
+                index = _string_index(tok_index, tokens)
+                raise ValueError(f"Unmatched ')' at index [{index}]")
+        elif token == "|":
+            stack[-1].add_alternative()
+        # quantifiers
+        elif token == "*":
+            stack[-1].quantify_last(Star)
+        elif token == "+":
+            stack[-1].quantify_last(Plus)
+        elif token == "?":
+            stack[-1].quantify_last(Optional)
+        else:
+            index = _string_index(tok_index, tokens)
+            raise ValueError(f"Unrecognized token {token!r} starting at index [{index}]")
+    # do we have any unfinished capturing groups on the stack?
+    if len(stack) > 1:
+        count = len(stack) - 1
+        index = _string_index(0, tokens)
+        raise ValueError(f"Expected {count} ')', but input ended at [{index}]")
+    stack[0].cleanup()
+    return stack[0]
+
+
 # Creating a few enums for simplicity
 class Token(Enum):
     EPSILON = 0 # epsilon transition
     ANY = 1
     END = 2
-    EMIT = 3
-
-from collections import namedtuple
-
-class MatchError:
-    # we got an extra token that was unneeded
-    Extra = namedtuple("Extra", ["token"])
-
-    # provided token does not match expected token
-    Mismatch = namedtuple("Mismatch", ["expected", "received"])
-
-    # matcher was expecting more tokens, but the token stream ended
-    Expected = namedtuple("Expected", ["tokens"])
-
-
-
+    NOTHING = 3 # used in parse errors
+    EMIT = 4 # internal value used in NFRs, do not use in token streams
+    # do not mix up epsilon transitions with "nothing"
 
 def _add_epsilon(from_state, to_index):
+    """helper function that checks if a state can have an epsilon transition
+    before adding to it"""
     # if any words are in from_state, we cannot add an epsilon
     for match in from_state:
         if match is not Token.EPSILON and match is not Token.EMIT:
@@ -328,8 +364,32 @@ def _add_epsilon(from_state, to_index):
 
 
 class NFA:
+    """Class representing a nondeterministic finite automaton.
+    I recommend using these static methods to build up your NFA from
+    the bottom up:
+        NFA.match_on() (for a basic matcher)
+        NFA.star(), NFA.plus(), NFA.optional() (quantifiers)
+        NFA.concat(), and NFA.union() (combining multiple rules)
+        NFA.emitter() (for emitting signals when a rule is completed)
+
+    Under the hood, we use a table to represent the states of the NFA.
+    The first state (index 0) is always the beginning state.
+    The last state (index len(table) - 1) is always the accepting state.
+    Each state contains either epsilon transition to other states (a
+    list of indices) or paths to other states given specific tokens (a
+    dictionary).
+
+    Much of the inspiration for this class comes from this blogpost from
+    Denis Kyashif:
+    https://deniskyashif.com/2019/02/17/implementing-a-regular-expression-engine/
+
+    If you want to understand how this stage works, I highly recommend
+    reading this blog post (maybe more than once).
+    """
     def __init__(self, table=None):
-        """Create a simple NFA"""
+        """Create an NFA based on the provided table.
+        If no table is provided, a one-state NFA is created
+        """
         if table is None:
             table = [{}]
         # the NFA is represented by a table
@@ -354,10 +414,9 @@ class NFA:
                 new_state[Token.EMIT] = state[Token.EMIT]
             if Token.EPSILON in state:
                 shifted = [index + shift_by for index in state[Token.EPSILON]]
-                new_table.append({Token.EPSILON: shifted})
-                # if a state has epsilon transitions, then it only
-                # has epsilon transitions
-                continue
+                new_state[Token.EPSILON] = shifted
+            # if a state has epsilon transitions, then it only
+            # has epsilon transitions
             else:
                 for token, index in state.items():
                     if token is not Token.EMIT:
@@ -400,7 +459,7 @@ class NFA:
         # add an epsilon transition to the end of the future table
         _add_epsilon(shifted[-1], len(shifted) + 1)
 
-        new_start = { Token.EPSILON : [ 1, len(shifted) + 1]}
+        new_start = {Token.EPSILON : [ 1, len(shifted) + 1]}
         new_end = {}
 
         table = [new_start] + shifted
@@ -486,10 +545,9 @@ class NFA:
         # We do this to avoid excess states
         if not nfas:
             return NFA()
-        # Get the first NFA
-        nfa = nfas[0]
+        # Get the first NFA's table
+        table = deepcopy(nfas[0]._table)
         # start concatenating!
-        table = deepcopy(nfa._table)
         for nxt_nfa in nfas[1:]:
             # this is similar to NFA._concat_with
             nxt_table = nxt_nfa._shift_table(len(table))
@@ -498,11 +556,19 @@ class NFA:
         return NFA(table)
 
     @staticmethod
-    def emitter(nfa, value):
-        """Return a copy of NFA that emits value on completion"""
+    def emitter(nfa: 'NFA', rule: Grammar) -> 'NFA':
+        """Return a copy of [nfa] that emits a rule on completion.
+        We use this when we want to build NFAs that actually parse input
+        instead of just returning 'True' or 'False' if it matches.
+        """
+        # check that the provided value is a Grammar
+        if not isinstance(rule, Grammar):
+            raise ValueError("Error. Expected Grammar for rule, got "
+                             f"'{type(rule)}'")
+
         table = nfa.copy()._table
         emit_state = {
-            Token.EMIT: value
+            Token.EMIT: rule
         }
         # point the old last state to the new emitting state
         _add_epsilon(table[-1], len(table))
@@ -511,12 +577,16 @@ class NFA:
 
         return NFA(table)
 
-
-    def transitions(self, state_index, token):
+    def transition(self, state_index, token):
+        """Iterate over the states produced by the current state
+        [state_index] with [token] as input.
+        Any epsilon transitions are crawled through until reaching
+        a non-epsilon transition.
+        """
         state = self._table[state_index]
         if Token.EPSILON in state:
             for next_state in state[Token.EPSILON]:
-                yield from self.transitions(next_state, token)
+                yield from self.transition(next_state, token)
         else:
             if state_index == len(self._table) - 1:
                 # edge case, we already reached the end, but we're
@@ -528,7 +598,6 @@ class NFA:
                 yield state[Token.ANY]
             elif token in state:
                 yield state[token]
-
 
     def trans_emit(self, state_index, token, emits=()):
         state = self._table[state_index]
@@ -549,29 +618,31 @@ class NFA:
             elif token in state:
                 yield (emits, state[token])
 
-
-    def trans_error(self, state_index, token):
-        # follow the same approach as transitions
+    def trans_expected(self, state_index, token):
+        """Iterate over the states that FAIL to produce a new state in
+        response to tokens. This method produces a reason for each
+        failure.
+        """
+        # follow the same approach as transition
         state = self._table[state_index]
         if Token.EPSILON in state:
             for next_state in state[Token.EPSILON]:
-                yield from self.trans_error(next_state, token)
+                yield from self.trans_expected(next_state, token)
         else:
             if state_index == len(self._table) - 1:
                 # received an extra token at the end
                 if token is not Token.END:
-                    yield MatchError.Extra(token)
+                    yield Token.NOTHING
             else:
                 if token is Token.END:
                     # get all the possible tokens
-                    expected = list(state)
-                    yield MatchError.Expected(expected)
+                    expected = tuple(state)
+                    yield from expected
                 elif not (token in state or Token.ANY in state):
-                    expected = list(state)
-                    yield MatchError.Mismatch(expected, token)
+                    expected = tuple(state)
+                    yield from expected
 
-    # TODO: change name to matches
-    def match(self, tokens):
+    def matches(self, tokens):
         # add Token.END to the list of tokens, this helps
         # push through any states that are still epsilons
         tokens = tokens + [Token.END]
@@ -582,42 +653,22 @@ class NFA:
         for token in tokens:
             next_states = set()
             for state in states:
-                next_states.update(self.transitions(state, token))
+                next_states.update(self.transition(state, token))
             states = next_states
         # did we reach the final state?
         return (len(self._table) - 1) in states
 
-    def paths(self, tokens):
-        tokens = tokens + [Token.END]
-
-        paths = [(0,)]
-
-        for token in tokens:
-            next_paths = []
-            for path in paths:
-                # current state is the last element of path
-                state = path[-1]
-                for next_state in self.transitions(state, token):
-                    next_paths.append(path + (next_state,))
-
-            # when all of our paths fail, we need to explain why
-            if not next_paths:
-                failed = []
-                for path in paths:
-                    state = path[-1]
-                    for err in self.trans_error(state, token):
-                        failed.append(path + (err,))
-                return failed
-
-            paths = next_paths
-
-        return paths
-
     def annotate(self, tokens):
+        """Produce a list of all possible annotations for this
+        NFA on Grammar emissions.
+        raises ParseError if no valid interpretation can be found.
+        (This means that the returned list is guaranteed to have at
+        least one valid intepretation.)
+        """
         tokens = tokens + [Token.END]
 
         states = [0]
-        stacks = [()]
+        stacks = [[]]
 
         for token in tokens:
             next_states = []
@@ -625,53 +676,40 @@ class NFA:
             for (state, stack) in zip(states, stacks):
                 for (emits, next_state) in self.trans_emit(state, token):
                     next_states.append(next_state)
-                    next_stacks.append(stack + emits + (token,))
+                    if emits:
+                        # if you ever want nested grammar rules, modify
+                        # this part
+                        # until then, it's a safe assumption that one token =
+                        # one grammar
+                        rule, = emits
+
+                        new_stack = stack.copy()
+
+                        claimed = []
+                        # start poppin off the stack until we reach a rule
+                        while new_stack and isinstance(new_stack[-1], str):
+                            claimed.append(new_stack.pop())
+                        # group the rule and preceding tokens
+                        new_stack.append(Parsed(rule, claimed[::-1]))
+
+                        # add the new token to it for next round
+                        new_stack.append(token)
+                        next_stacks.append(new_stack)
+                    else:
+                        next_stacks.append(stack + [token])
+
+            # if we ran out of states, we need to give an explanation
+            if not next_states:
+                failures = []
+                for (state, stack) in zip(states, stacks):
+                    # gather all the things that we could have expected
+                    # using a set to remove duplicates
+                    expected = tuple(set(self.trans_expected(state, token)))
+                    failures.append(stack + [Fail(expected, received=token)])
+                raise ParseError(failures)
+
             states = next_states
             stacks = next_stacks
 
-        last = len(self._table) - 1
-
-        stacks = [
-            claim_tokens(s) for state, s in zip(states, stacks) if state == last
-        ]
-        print("===")
+        # if stacks have survived Token.END, then they are good
         return stacks
-
-# TODO: better name
-def claim_tokens(stack):
-    print(stack)
-    new = []
-    unclaimed = []
-    for item in stack:
-        if item is Token.END:
-            continue
-        elif isinstance(item, GrammarRule):
-            new.append(item.claim(unclaimed[::-1]))
-            unclaimed = []
-        else:
-            unclaimed.append(item)
-    print(new)
-    return new
-"""
-Prologue:
-Worst thing that can happen is "token contention". In other words,
-two variables fighting over a phrase. Say that our grammar is
-"attack (ENTITY) (ITEM)"
-and we get the input:
-"attack evil zombie sword"
-
-
-Workflow:
-Parser:
-Run the tokens through the matcher / finite-state automaton. (Each
-grammar resolves to exactly one FSA).
-This produces one or more valid paths.
-A path is valid if the automaton ends in the FINAL state.
-If this occurs, then all of the tokens should be associated with one
-or more tokens.
-
-Each path is then run through the "contextualizer".
-The contextualizer makes heavy use of util.find to match objects to the
-phrases.
-If
-"""

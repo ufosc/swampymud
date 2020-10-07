@@ -1,6 +1,6 @@
 import unittest
 from swampymud.util import parser
-from swampymud.util.parser import Keyword, Variable, Group, Star, Plus, Optional
+from swampymud.util.parser import Grammar, Keyword, Variable, Group, Star, Plus, Optional
 
 class TestParser(unittest.TestCase):
 
@@ -51,7 +51,7 @@ class TestParser(unittest.TestCase):
     def test_gammar_parser(self):
         # convenience function
         def compare(inp, output):
-            self.assertEqual(parser.with_grammar(inp), output)
+            self.assertEqual(Grammar.from_string(inp), output)
         compare("foo", Group(Keyword("foo")))
         compare("foo bar", Group(Keyword("foo"), Keyword("bar")))
         compare("foo (bar (baz) bok)",
@@ -87,10 +87,10 @@ class TestParser(unittest.TestCase):
 
     def test_match(self):
         def assert_match(grammar, inp):
-            self.assertTrue(grammar.to_nfa().match(parser.split_args(inp)))
+            self.assertTrue(grammar.nfa.matches(parser.split_args(inp)))
 
         def assert_no_match(grammar, inp):
-            self.assertFalse(grammar.to_nfa().match(parser.split_args(inp)))
+            self.assertFalse(grammar.nfa.matches(parser.split_args(inp)))
 
 
         grammar = Keyword("foo")
