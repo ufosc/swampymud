@@ -45,6 +45,7 @@ Parsing a list of tokens:
 import re
 from abc import ABC, abstractmethod
 from copy import deepcopy
+from collections import namedtuple
 
 def split_args(string):
     """Split [string] on whitespace, respecting quotes.
@@ -159,7 +160,9 @@ def with_grammar(grammar: str):
     stack[0].cleanup()
     return stack[0]
 
-class Matcher(ABC):
+Annotation = namedtuple("Annotation", ["type", "subtype", "tokens"])
+
+class GrammarRule(ABC):
     """A grammar is implicitly concatentation"""
     def __repr__(self):
         return f"{type(self).__name__}({self.args!r})"
@@ -174,7 +177,7 @@ class Matcher(ABC):
     def __eq__(self, other):
         return isinstance(other, type(self)) and other.args == self.args
 
-class Group(Matcher):
+class Group(GrammarRule):
     """Implictly, a group functions as a stack within our stack"""
     def __init__(self, *args, alts=None):
         alts = [] if alts is None else alts
@@ -242,14 +245,17 @@ class Group(Matcher):
             ))
 
 # two types of basic grammar expressions
-class Keyword(Matcher):
+class Keyword(GrammarRule):
     def __init__(self, kw):
         self.args = kw
 
     def to_nfa(self):
-        return NFA.match_on(self.args)
+        return NFA.emitter(NFA.match_on(self.args), self)
 
-class Variable(Matcher):
+    def claim(self, tokens):
+        return Annotation("Keyword", self.args, tokens)
+
+class Variable(GrammarRule):
     #TODO: possible optimization, join types in an alternate
     # together into one variable
     # UPDATE: yes, this helps reduce the number of exponential options
@@ -259,17 +265,20 @@ class Variable(Matcher):
     def to_nfa(self):
         # this nfa matches one word exactly
         # however, variables can match an unlimited number of words
-        return NFA.plus(NFA.match_on(Token.ANY))
+        return NFA.emitter(NFA.plus(NFA.match_on(Token.ANY)), self)
+
+    def claim(self, tokens):
+        return Annotation("Variable", self.args, tokens)
 
 # three quantifiers
-class Star(Matcher):
+class Star(GrammarRule):
     def __init__(self, expr):
         self.args = expr
 
     def to_nfa(self):
         return NFA.star(self.args.to_nfa())
 
-class Plus(Matcher):
+class Plus(GrammarRule):
     def __init__(self, expr):
         self.args = expr
 
@@ -278,7 +287,7 @@ class Plus(Matcher):
         # star / Kleene Star of itself
         return NFA.plus(self.args.to_nfa())
 
-class Optional(Matcher):
+class Optional(GrammarRule):
     def __init__(self, expr):
         self.args = expr
 
@@ -288,19 +297,35 @@ class Optional(Matcher):
 from enum import Enum
 # Creating a few enums for simplicity
 class Token(Enum):
-    E = 0 # epsilon transition
+    EPSILON = 0 # epsilon transition
     ANY = 1
     END = 2
+    EMIT = 3
+
+from collections import namedtuple
+
+class MatchError:
+    # we got an extra token that was unneeded
+    Extra = namedtuple("Extra", ["token"])
+
+    # provided token does not match expected token
+    Mismatch = namedtuple("Mismatch", ["expected", "received"])
+
+    # matcher was expecting more tokens, but the token stream ended
+    Expected = namedtuple("Expected", ["tokens"])
+
+
 
 
 def _add_epsilon(from_state, to_index):
     # if any words are in from_state, we cannot add an epsilon
     for match in from_state:
-        if match is not Token.E:
+        if match is not Token.EPSILON and match is not Token.EMIT:
             raise ValueError("Cannot add epsilon transition to state with matches")
-    if Token.E not in from_state:
-        from_state[Token.E] = []
-    from_state[Token.E].append(to_index)
+    if Token.EPSILON not in from_state:
+        from_state[Token.EPSILON] = []
+    from_state[Token.EPSILON].append(to_index)
+
 
 class NFA:
     def __init__(self, table=None):
@@ -323,15 +348,21 @@ class NFA:
         """Return a copy of table with all indices incremented"""
         new_table = []
         for state in self._table:
-            if Token.E in state:
-                shifted = [index + shift_by for index in state[Token.E]]
-                new_table.append({Token.E: shifted})
+            # TODO: should regular match nodes be allowed to emit?
+            new_state = {}
+            if Token.EMIT in state:
+                new_state[Token.EMIT] = state[Token.EMIT]
+            if Token.EPSILON in state:
+                shifted = [index + shift_by for index in state[Token.EPSILON]]
+                new_table.append({Token.EPSILON: shifted})
                 # if a state has epsilon transitions, then it only
                 # has epsilon transitions
                 continue
-            new_table.append(
-                {token : index + shift_by for (token, index) in state.items()}
-            )
+            else:
+                for token, index in state.items():
+                    if token is not Token.EMIT:
+                        new_state[token] = index + shift_by
+            new_table.append(new_state)
         return new_table
 
     def _concat_with(self, nxt):
@@ -369,7 +400,7 @@ class NFA:
         # add an epsilon transition to the end of the future table
         _add_epsilon(shifted[-1], len(shifted) + 1)
 
-        new_start = { Token.E : [ 1, len(shifted) + 1]}
+        new_start = { Token.EPSILON : [ 1, len(shifted) + 1]}
         new_end = {}
 
         table = [new_start] + shifted
@@ -385,7 +416,16 @@ class NFA:
         # NFA.concat(nfa, NFA.closure(nfa))
         # however, we can save one epsilon state with this implementation
         # TODO: implement in the more optimal fashion above
-        return nfa._concat_with(NFA.star(nfa))
+        table = nfa.copy()._table
+
+        # add an epsilon from the last state in the table to the beginning,
+        # to allow for a loop after entering things
+        _add_epsilon(table[-1], 0)
+        _add_epsilon(table[-1], len(table))
+
+        # add a new end
+        table.append({})
+        return NFA(table)
 
     @staticmethod
     def optional(nfa):
@@ -398,7 +438,7 @@ class NFA:
         _add_epsilon(shifted[-1], len(shifted) + 1)
 
         # new start can either push to the new NFA or bypass entirely
-        new_start = { Token.E : [ 1, len(shifted) + 1]}
+        new_start = { Token.EPSILON : [ 1, len(shifted) + 1]}
         new_end = {}
 
         table = [new_start] + shifted
@@ -413,7 +453,7 @@ class NFA:
         elif len(nfas) == 1:
             return nfas[0].copy()
 
-        start = {Token.E : []}
+        start = {Token.EPSILON : []}
         table = [start]
         old_ends = []
 
@@ -421,7 +461,7 @@ class NFA:
             # add an epsilon to the start of this table
             # we do the 'unsafe' version here, since we know
             # start is a proper epsilon state
-            start[Token.E].append(len(table))
+            start[Token.EPSILON].append(len(table))
             table.extend(nfa._shift_table(len(table)))
             # the new index of the old end of the table is the new length of the table
             old_ends.append(len(table) - 1)
@@ -457,10 +497,25 @@ class NFA:
             table.extend(nxt_table)
         return NFA(table)
 
+    @staticmethod
+    def emitter(nfa, value):
+        """Return a copy of NFA that emits value on completion"""
+        table = nfa.copy()._table
+        emit_state = {
+            Token.EMIT: value
+        }
+        # point the old last state to the new emitting state
+        _add_epsilon(table[-1], len(table))
+        # add the state to the table
+        table.append(emit_state)
+
+        return NFA(table)
+
+
     def transitions(self, state_index, token):
         state = self._table[state_index]
-        if Token.E in state:
-            for next_state in state[Token.E]:
+        if Token.EPSILON in state:
+            for next_state in state[Token.EPSILON]:
                 yield from self.transitions(next_state, token)
         else:
             if state_index == len(self._table) - 1:
@@ -469,17 +524,59 @@ class NFA:
                 # so, just re-yield the state_index
                 if token is Token.END:
                     yield state_index
-                # TODO: else: return special value or something
             elif Token.ANY in state and token is not Token.END:
                 yield state[Token.ANY]
             elif token in state:
                 yield state[token]
 
+
+    def trans_emit(self, state_index, token, emits=()):
+        state = self._table[state_index]
+        if Token.EMIT in state:
+            emits = emits + (state[Token.EMIT],)
+        if Token.EPSILON in state:
+            for next_state in state[Token.EPSILON]:
+                yield from self.trans_emit(next_state, token, emits)
+        else:
+            if state_index == len(self._table) - 1:
+                # edge case, we already reached the end, but we're
+                # pushing through the rest of the epsilons
+                # so, just re-yield the state_index
+                if token is Token.END:
+                    yield (emits, state_index)
+            elif Token.ANY in state and token is not Token.END:
+                yield (emits, state[Token.ANY])
+            elif token in state:
+                yield (emits, state[token])
+
+
+    def trans_error(self, state_index, token):
+        # follow the same approach as transitions
+        state = self._table[state_index]
+        if Token.EPSILON in state:
+            for next_state in state[Token.EPSILON]:
+                yield from self.trans_error(next_state, token)
+        else:
+            if state_index == len(self._table) - 1:
+                # received an extra token at the end
+                if token is not Token.END:
+                    yield MatchError.Extra(token)
+            else:
+                if token is Token.END:
+                    # get all the possible tokens
+                    expected = list(state)
+                    yield MatchError.Expected(expected)
+                elif not (token in state or Token.ANY in state):
+                    expected = list(state)
+                    yield MatchError.Mismatch(expected, token)
+
+    # TODO: change name to matches
     def match(self, tokens):
         # add Token.END to the list of tokens, this helps
         # push through any states that are still epsilons
         tokens = tokens + [Token.END]
 
+        # we can use a set because we don't really care about the paths
         states = {0}
 
         for token in tokens:
@@ -487,11 +584,74 @@ class NFA:
             for state in states:
                 next_states.update(self.transitions(state, token))
             states = next_states
-
         # did we reach the final state?
-        return (len(self._table) - 1) in next_states
+        return (len(self._table) - 1) in states
 
+    def paths(self, tokens):
+        tokens = tokens + [Token.END]
 
+        paths = [(0,)]
+
+        for token in tokens:
+            next_paths = []
+            for path in paths:
+                # current state is the last element of path
+                state = path[-1]
+                for next_state in self.transitions(state, token):
+                    next_paths.append(path + (next_state,))
+
+            # when all of our paths fail, we need to explain why
+            if not next_paths:
+                failed = []
+                for path in paths:
+                    state = path[-1]
+                    for err in self.trans_error(state, token):
+                        failed.append(path + (err,))
+                return failed
+
+            paths = next_paths
+
+        return paths
+
+    def annotate(self, tokens):
+        tokens = tokens + [Token.END]
+
+        states = [0]
+        stacks = [()]
+
+        for token in tokens:
+            next_states = []
+            next_stacks = []
+            for (state, stack) in zip(states, stacks):
+                for (emits, next_state) in self.trans_emit(state, token):
+                    next_states.append(next_state)
+                    next_stacks.append(stack + emits + (token,))
+            states = next_states
+            stacks = next_stacks
+
+        last = len(self._table) - 1
+
+        stacks = [
+            claim_tokens(s) for state, s in zip(states, stacks) if state == last
+        ]
+        print("===")
+        return stacks
+
+# TODO: better name
+def claim_tokens(stack):
+    print(stack)
+    new = []
+    unclaimed = []
+    for item in stack:
+        if item is Token.END:
+            continue
+        elif isinstance(item, GrammarRule):
+            new.append(item.claim(unclaimed[::-1]))
+            unclaimed = []
+        else:
+            unclaimed.append(item)
+    print(new)
+    return new
 """
 Prologue:
 Worst thing that can happen is "token contention". In other words,
