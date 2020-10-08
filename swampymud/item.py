@@ -14,12 +14,13 @@ including support for character.Command methods.
 import inspect
 import abc
 from typing import List
+from swampymud import _types
 from swampymud.util import camel_to_space
 from swampymud.character import Command, Character
 import swampymud.inventory as inv
 
 #TODO: add interact and perceive filters
-class ItemClass(type):
+class ItemClass(type, _types.ItemClass):
     '''Metaclass establishing behavior for all items'''
 
     def __init__(self, cls, bases, namespace):
@@ -37,7 +38,7 @@ class ItemClass(type):
         return self.classname
 
 
-class Item(metaclass=ItemClass):
+class Item(_types.Item, metaclass=ItemClass):
     '''Base class for all Item classes.
     Implement 'on_use' to make a Usable item. To trigger certain code
     when this item is picked up or dropped, override 'on_pickup'

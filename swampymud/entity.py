@@ -2,9 +2,9 @@
 import inspect
 from swampymud.util import camel_to_space
 import swampymud.character as character
+from swampymud import _types
 
-
-class EntityClass(type):
+class EntityClass(type, _types.EntityClass):
     '''Metaclass controlling entity types'''
 
     def __init__(self, cls, bases, namespace):
@@ -38,7 +38,7 @@ class EntityClass(type):
         return cls.classname
 
 
-class Entity(metaclass=EntityClass):
+class Entity(_types.Entity, metaclass=EntityClass):
     '''Base class for all other entities'''
     def __init__(self):
         self.location = None

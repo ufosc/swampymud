@@ -12,7 +12,7 @@ import inspect
 import weakref
 import asyncio
 import swampymud.inventory as inv
-from swampymud import util
+from swampymud import util, _types
 from swampymud.util import parser
 from swampymud.util.shadowdict import ShadowDict
 
@@ -121,7 +121,7 @@ class Filter:
             self._include_chars.add(other)
         else:
             raise ValueError("Expected Character/CharacterClass,"
-                             " received %s" % type(other))
+                             f" received {type(other)}")
 
     def exclude(self, other):
         """Set the filter to return 'False' if [other] is supplied
@@ -275,7 +275,7 @@ class Command(functools.partial):
         return decorator
 
 
-class CharacterClass(type):
+class CharacterClass(type, _types.CharacterClass):
     """metaclass establishing basic Character behaviors
     CharacterClasses include the following important attributes:
     - classname: how the class appears to the players
@@ -317,7 +317,7 @@ class CharacterClass(type):
         return cls.classname
 
 
-class Character(metaclass=CharacterClass):
+class Character(_types.Character, metaclass=CharacterClass):
     """Base class for all other CharacterClasses"""
 
     # How this class appears to players

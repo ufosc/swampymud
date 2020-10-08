@@ -8,11 +8,13 @@ edges.
 At any given point in time, Locations may store characters, entities,
 and items.
 """
-
 from typing import Iterable
-from swampymud import character as char, inventory, entity, util, item
+import swampymud.character as _char
+import swampymud.util as _util
+import swampymud.inventory
+from swampymud import _types
 
-class Exit:
+class Exit(_types.Exit):
     """Class representing an in-game Exit.
 
     Exits link a set of names with a particular Location.
@@ -20,8 +22,8 @@ class Exit:
     def __init__(self, destination: 'Location',
                  name: str,
                  other_names: Iterable[str] = (),
-                 interact: char.Filter = None,
-                 perceive: char.Filter = None,
+                 interact: _char.Filter = None,
+                 perceive: _char.Filter = None,
                  hide_des: bool = False):
         """Create a new Exit.
 
@@ -45,10 +47,10 @@ class Exit:
         # blacklist in its place
         self.interact = interact
         if interact is None:
-            self.interact = char.Filter(False)
+            self.interact = _char.Filter(False)
         self.perceive = perceive
         if perceive is None:
-            self.perceive = char.Filter(False)
+            self.perceive = _char.Filter(False)
         self.hide_des = hide_des
 
     @property
@@ -78,12 +80,12 @@ class Exit:
     @staticmethod
     def from_dict(ex_dict):
         """creates an Exit from a pythonic representation"""
-        # convert interact filter data into a char.Filter
+        # convert interact filter data into a character.Filter
         if "interact" in ex_dict:
-            ex_dict["interact"] = char.Filter.from_dict(ex_dict["interact"])
-        # convert perceive filter data into a char.Filter
+            ex_dict["interact"] = _char.Filter.from_dict(ex_dict["interact"])
+        # convert perceive filter data into a character.Filter
         if "perceive" in ex_dict:
-            ex_dict["perceive"] = char.Filter.from_dict(ex_dict["perceive"])
+            ex_dict["perceive"] = _char.Filter.from_dict(ex_dict["perceive"])
         return Exit(**ex_dict)
 
     def to_dict(self):
@@ -100,7 +102,7 @@ class Exit:
         return data
 
 
-class Location:
+class Location(_types.Location):
     """Class representing an in-game Location
     Maintains a list of players
     Contains a list of exits to other locations
@@ -111,7 +113,7 @@ class Location:
         self.characters = []
         self.entities = []
         self._exit_list = []
-        self.inv = inventory.Inventory()
+        self.inv = swampymud.inventory.Inventory()
         self.name = name
         self.description = description
 
@@ -200,7 +202,7 @@ class Location:
     @property
     def symbol(self):
         """return a guaranteed unique symbol for this location"""
-        return f'{self.name.replace(" ", "")}#{util.to_base(id(self), 62)}'
+        return f'{self.name.replace(" ", "")}#{_util.to_base(id(self), 62)}'
 
     @classmethod
     def load(self, data):
@@ -240,18 +242,18 @@ class Location:
     def add_item(self, item, quantity=1):
         self.inv.add_item(item, quantity)
 
-    # helper method for util.find
-    def find_child(self, params: util.FindParams, **other_fields):
+    # helper method for _util.find
+    def find_child(self, params: _util.FindParams, **other_fields):
         # check that maxdepth hasn't been exceeded
         if params.maxdepth < 0:
             return
         # only check exits if Exit type is specified (or no type specified)
-        if params.type is None or util.has_subclass(params.type, Exit):
+        if params.type is None or _util.has_subclass(params.type, Exit):
             # exitsare not first class game objects, so we manually
             # sort through them
             for ex in self._exit_list:
                 # check for any must have other_fields
-                if not util.obj_does_have(ex, other_fields):
+                if not _util.obj_does_have(ex, other_fields):
                     continue
                 # TODO: check params.optional
                 # if a character is provided, see if it can interact
@@ -261,22 +263,22 @@ class Location:
                 # check for any intersecting names
                 if params.name is None or params.name & ex.names:
                     yield ex
-        if params.type is None or util.has_instance(params.type, char.CharacterClass):
+        if params.type is None or _util.has_instance(params.type, _types.CharacterClass):
             for other_char in self.characters:
-                if util.find_check(other_char, params, **other_fields):
+                if _util.find_check(other_char, params, **other_fields):
                     yield other_char
                 # try to visit the character
-                yield from util.find_child(other_char, params.decrement(),
+                yield from _util.find_child(other_char, params.decrement(),
                                            **other_fields)
-        if params.type is None or util.has_instance(params.type, item.ItemClass):
+        if params.type is None or _util.has_instance(params.type, _types.ItemClass):
             # We don't decrement the maxdepth here, because the inventory
             # is considered to be a part of the location itself.
             # Items in a location's inventory might be on the ground,
             # on a table, etc.
             yield from self.inv.find_child(params, **other_fields)
-        if params.type is None or util.has_instance(params.type, entity.EntityClass):
+        if params.type is None or _util.has_instance(params.type, _types.EntityClass):
             for ent in self.entities:
-                if util.find_check(entity, params, **other_fields):
-                    yield entity
-                yield from util.find_child(ent, params.decrement(),
+                if _util.find_check(ent, params, **other_fields):
+                    yield ent
+                yield from _util.find_child(ent, params.decrement(),
                                            **other_fields)
