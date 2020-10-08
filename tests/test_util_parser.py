@@ -1,6 +1,7 @@
 import unittest
 from swampymud.util import parser
-from swampymud.util.parser import Grammar, Keyword, Variable, Group, Star, Plus, Optional
+from swampymud.util.parser import (Grammar, Keyword, Variable, Group, Star,
+                                   Plus, Optional, GrammarError)
 
 class TestParser(unittest.TestCase):
 
@@ -82,7 +83,91 @@ class TestParser(unittest.TestCase):
                           [Variable("ITEM"), Optional(Keyword("down"))]
                       ])))
 
-        # TODO: test all the errors and make a better exception
+    def test_grammar_error(self):
+        # convenience functions for comparing errors
+        def test_error(inp, description):
+            self.assertRaisesRegex(GrammarError, description,
+                                   Grammar.from_string, inp)
+
+        def test_hint(inp, hint):
+            with self.assertRaises(GrammarError):
+                try:
+                    Grammar.from_string(inp)
+                except GrammarError as ge:
+                    self.assertEqual(ge.hint(), hint)
+                    raise ge
+
+        def test_highlight(inp, highlight):
+            with self.assertRaises(GrammarError):
+                try:
+                    Grammar.from_string(inp)
+                except GrammarError as ge:
+                    self.assertEqual(ge.highlight(), highlight)
+                    raise ge
+
+        test_error("", "Empty group at index 0")
+        test_error("()", "Empty group at index 1")
+        test_error("foo - bar", "Unrecognized token '-'")
+        test_error("(foo]", "Unrecognized token ']'")
+        test_error("foo Bar", "Unrecognized token 'Bar'")
+        test_error("foo (bar", r"Unmatched '\('")
+        test_error("foo bar)", r"Unmatched '\)' at index 7")
+        test_error("bim (foo (bar)))", r"Unmatched '\)' at index 15")
+        test_error("bim+?*", r"Unexpected quantifier '\?' at 4")
+        test_error("bim+*", r"Unexpected quantifier '\*' at 4")
+        test_error("foo (+)", r"Quantifier '\+' has no preceding predicate")
+        test_error("*", r"Quantifier '\*' has no preceding predicate")
+        test_error("foo (bar|*)", r"Quantifier '\*' has no preceding predicate")
+        test_error("foo (bar| )", "Expected an alternative before index 10")
+        test_error("   |", "Expected an alternative before index 3")
+        test_error("foo ( bar ( baz())))", "Empty group at index 16")
+
+        test_hint("", "grammars must contain at least one keyword or variable")
+        test_hint("()", "groups cannot be empty. '()' matches nothing")
+        test_hint("foo - bar", "the only supported operations are |, *, +, and ?")
+        test_hint("(foo]", "did you mean to use a ')' instead?")
+        test_hint("foo Bar", "use lowercase for keywords and uppercase for variables")
+        test_hint("foo ((bar", "add 2 ')' ")
+        paren_hint = "did you forget a '(' earlier in your grammar?"
+        test_hint("foo bar)", paren_hint)
+        test_hint("bim (foo (bar)))", paren_hint)
+        quant_hint = r"you can only apply one quantifier (*, +, ?) to keyword/variable/group"
+        test_hint("bim+?*", quant_hint)
+        test_hint("bim+*", quant_hint)
+        pred_hint = "there should be a keyword/variable/group before this quantifier"
+        test_hint("foo (+)", pred_hint)
+        test_hint("*", pred_hint)
+        test_hint("foo (bar|*)", pred_hint)
+        alt_hint = ("alternatives cannot be empty. Grammars like (foo | ) "
+                    "are invalid,\n       "
+                    "there should be something before and after that '|'")
+        test_hint("foo (bar| )", alt_hint)
+        test_hint("   |", alt_hint)
+        test_hint("foo ( bar ( baz())))",
+                  r"groups cannot be empty. '()' matches nothing")
+
+        from swampymud.util.color import Red, Underline
+        # convenience function for making red underlines
+        def ru(string):
+            return str(Red(Underline(string)))
+
+        test_highlight("()", f"{ru('()')}")
+        test_highlight("foo - bar",  f"foo {ru('-')} bar")
+        test_highlight("(foo]", f"(foo{ru(']')}")
+        test_highlight("foo Bar", f"foo {ru('Bar')}")
+        lp, rp = (ru("(")), ru(")")
+        test_highlight("foo (bar", f"foo {lp}bar")
+        test_highlight("((foo (bar)", f"{lp}{lp}foo {lp}bar{rp}")
+        test_highlight("foo bar)", f"foo bar{rp}")
+        test_highlight("bim (foo (bar)))", f"bim (foo (bar)){rp}")
+        test_highlight("bim+?*", f"bim+{ru('?')}*")
+        test_highlight("bim+*", f"bim+{ru('*')}")
+        test_highlight("foo ( +)", f"foo {ru('( +')})")
+        test_highlight("*", ru('*'))
+        test_highlight("foo (bar|*)", f"foo (bar{ru('|*')})")
+        test_highlight("foo (bar| )", f"foo (bar{ru('| )')}")
+        test_highlight("   |", ru("   |"))
+        test_highlight("foo ( bar ( baz())))", f"foo ( bar ( baz{ru('()')})))")
 
 
     def test_match(self):
@@ -91,7 +176,6 @@ class TestParser(unittest.TestCase):
 
         def assert_no_match(grammar, inp):
             self.assertFalse(grammar.nfa.matches(parser.split_args(inp)))
-
 
         grammar = Keyword("foo")
         assert_match(grammar, "foo")

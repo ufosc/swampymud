@@ -47,6 +47,7 @@ from abc import ABC, abstractmethod
 from copy import deepcopy
 from enum import Enum
 from collections import namedtuple
+from swampymud.util import color
 
 
 def split_args(string):
@@ -103,10 +104,203 @@ class ParseError(Exception):
         super().__init__(args, **kwargs)
 
 
-# annotation used for parsing grammar rules
-Parsed = namedtuple("Parsed", ["rule", "tokens"])
-# reason for a parse error failing
-Fail = namedtuple("Fail", ["expected", "received"])
+class GrammarError(Exception):
+    """Exception class for all errors that might arise when compiling a
+    Grammar
+    """
+    # error types
+    UNRECOGNIZED = 0  # foo Bar
+    UNMATCH_OPEN = 1  # unmatched '(' / missing ')'
+    UNMATCH_CLOSE = 2 # unmatched ')' / missing '('
+    EXTRA_QUANT = 3   # foo+*
+    NO_PREDICATE = 4  # foo | *
+    EMPTY_ALT = 5     # | foo
+    EMPTY_GRP = 6     # foo ()
+
+    def __init__(self, etype, token_index, tokens, original,
+                 parens=None, **kwargs):
+        """Create a grammar error
+        etype - type of error (see above)
+        token_index - index of the token that triggered error
+        tokens - list of tokens
+        original - the original grammar string
+        """
+        self.etype = etype
+        self.token_index = token_index
+        self.tokens = tokens
+        self.original = original
+        self.parens = parens
+        # original
+        # index of the original
+        self.index = _string_index(token_index, tokens)
+        args = self.description()
+        super().__init__(args, **kwargs)
+
+    def description(self):
+        """Return a descriptive, human-readable description of this
+        error
+        """
+        index = self.index
+        token = self.tokens[self.token_index]
+        if self.etype == GrammarError.UNRECOGNIZED:
+            return f"Unrecognized token '{token}'"
+        elif self.etype == GrammarError.UNMATCH_OPEN:
+            return f"Unmatched '('"
+        elif self.etype == GrammarError.UNMATCH_CLOSE:
+            return f"Unmatched ')' at index {index}"
+        elif self.etype == GrammarError.EXTRA_QUANT:
+            return f"Unexpected quantifier '{token}' at {index}"
+        elif self.etype == GrammarError.NO_PREDICATE:
+            return f"Quantifier '{token}' has no preceding predicate"
+        elif self.etype == GrammarError.EMPTY_ALT:
+            return f"Expected an alternative before index {index}"
+        elif self.etype == GrammarError.EMPTY_GRP:
+            return f"Empty group at index {index}"
+
+    def hint(self):
+        """Return a hint to help correct the error"""
+        token = self.tokens[self.token_index]
+        if self.etype == GrammarError.UNRECOGNIZED:
+            if token in "{[":
+                return "did you mean to use a '(' instead?"
+            elif token in "]}":
+                return "did you mean to use a ')' instead?"
+            elif len(token) == 1:
+                return "the only supported operations are |, *, +, and ?"
+            elif token != token.lower() or token != token.upper():
+                # token is a variable / keyword not following convention
+                return "use lowercase for keywords and uppercase for variables"
+        elif self.etype == GrammarError.UNMATCH_OPEN:
+            if self.parens:
+                return f"add {self.parens} ')' "
+            else:
+                return f"add some ')' "
+        elif self.etype == GrammarError.UNMATCH_CLOSE:
+            return "did you forget a '(' earlier in your grammar?"
+        elif self.etype == GrammarError.EXTRA_QUANT:
+            before = self.tokens[self.token_index - 1]
+            return "you can only apply one quantifier (*, +, ?) to keyword/variable/group"
+        elif self.etype == GrammarError.NO_PREDICATE:
+            return "there should be a keyword/variable/group before this quantifier"
+        elif self.etype == GrammarError.EMPTY_ALT:
+            return ("alternatives cannot be empty. Grammars like (foo | ) "
+                    "are invalid,\n       "
+                    "there should be something before and after that '|'")
+        elif self.etype == GrammarError.EMPTY_GRP:
+            # edge case: grammar might be empty or just whitespace
+            if not any(self.tokens):
+                return "grammars must contain at least one keyword or variable"
+            else:
+                return "groups cannot be empty. '()' matches nothing"
+
+    def highlight(self):
+        """Return the original grammar with the issue highlighted"""
+        # in most cases, the token is the problem
+        token = self.tokens[self.token_index]
+        start = self.index
+        end = self.index + len(token)
+
+        if self.etype == GrammarError.UNMATCH_OPEN:
+            # highlight all of the '(' and ')' instead
+            chars = []
+            for char in self.original:
+                if char in "()":
+                    chars.append(str(color.Red(color.Underline(char))))
+                else:
+                    chars.append(char)
+            return "".join(chars)
+        if self.etype in (self.NO_PREDICATE, self.EMPTY_ALT, self.EMPTY_GRP):
+            # go from the previous non-empty token (if one exists)
+            if self.token_index == 0:
+                start = 0
+            else:
+                prev = self.token_index - 1
+                while prev > 0 and not self.tokens[prev]:
+                    prev -= 1
+                start = _string_index(prev, self.tokens)
+        return (self.original[:start] +
+                color.Red(color.Underline(self.original[start:end])) +
+                self.original[end:])
+
+
+def _string_index(tok_index, tokens):
+    """helper function for GrammarError"""
+    # compute the cumulative length of the list of tokens up to token [index]
+    cumsum = []
+    prev = 0
+    for s in tokens[:tok_index]:
+        length = 1 if s is None else len(s)
+        cumsum.append(length + prev)
+        prev += length
+    if cumsum:
+        return cumsum[-1]
+    # edge case: provided index is 0
+    else:
+        return 0
+
+# this regex splits on (and captures) the supported ops:
+# (, ), |, *, ?, and +
+# it also grabs some other (unsupported) ops for better error handling:
+# [ ] \ ^ $ { } - .
+_grammar_token_re = re.compile(r"([()|*?+\[\],\\^${}\-.])|[ \t\r\n]")
+def _parse_grammar(grammar: str) -> 'Grammar':
+    """Parse the provided grammar into a set of nested Grammar rules"""
+    # parse grammar into tokens
+    tokens = _grammar_token_re.split(grammar)
+
+    # stack of grammar components
+    stack = [Group()]
+    index = 0
+
+    # wrapping this whole function in a try-except to catch any
+    # ValueErrors as GrammarErrors
+    try:
+        for index, token in enumerate(tokens):
+            if not token:
+                # token is empty string or (whitespace)
+                continue
+            if token.islower() and token.isalnum():
+                # it's a keyword
+                stack[-1].add(Keyword(token))
+            elif token.isupper() and token.isalnum():
+                # do some kind of type checking here
+                stack[-1].add(Variable(token))
+            elif token == "(":
+                # start new capturing group
+                stack.append(Group())
+            elif token == ")":
+                # end previous capturing group / union
+                finished_group = stack.pop()
+                finished_group.cleanup()
+                if stack:
+                    stack[-1].add(finished_group)
+                else:
+                    raise GrammarError(GrammarError.UNMATCH_CLOSE, index,
+                                       tokens, grammar)
+            elif token == "|":
+                stack[-1].add_alternative()
+            # quantifiers
+            elif token == "*":
+                stack[-1].quantify_last(Star)
+            elif token == "+":
+                stack[-1].quantify_last(Plus)
+            elif token == "?":
+                stack[-1].quantify_last(Optional)
+            else:
+                raise GrammarError(GrammarError.UNRECOGNIZED, index,
+                                   tokens, grammar)
+        # do we have any unfinished capturing groups on the stack?
+        if len(stack) > 1:
+            count = len(stack) - 1
+            raise GrammarError(GrammarError.UNMATCH_OPEN, index, tokens,
+                               grammar, parens=count)
+
+        stack[0].cleanup()
+    except ValueError as ex:
+        raise GrammarError(ex.args[0], index, tokens, grammar) from ex
+
+    return stack[0]
+
 
 class Grammar(ABC):
     """Abstract Base Class for all other grammar expressions
@@ -174,14 +368,14 @@ class Group(Grammar):
             if not isinstance(self.args[-1], (Star, Plus, Optional)):
                 self.args[-1] = Quantifier(self.args[-1])
             else:
-                raise ValueError("Predicate already has quantifier")
+                raise ValueError(GrammarError.EXTRA_QUANT)
         else:
-            raise ValueError("Expected predicate before quantifier")
+            raise ValueError(GrammarError.NO_PREDICATE)
 
     def add_alternative(self):
         if not self.args:
             # if we haven't added anything, raise an error
-            raise ValueError("empty alternative")
+            raise ValueError(GrammarError.EMPTY_ALT)
         self.alts.append(self.args)
         self.args = []
 
@@ -207,10 +401,10 @@ class Group(Grammar):
         if not self.args:
             if self.alts:
                 # the most recent alternate is empty
-                raise ValueError("empty alternate")
+                raise ValueError(GrammarError.EMPTY_ALT)
             else:
                 # the entire group is empty
-                raise ValueError("empty group")
+                raise ValueError(GrammarError.EMPTY_GRP)
         else:
             if self.alts:
                 self.alts.append(self.args)
@@ -238,6 +432,7 @@ class Keyword(Grammar):
 # UPDATE: yes, this helps reduce the number of exponential options
 class Variable(Grammar):
     def __init__(self, *types):
+        self.types = types
         self.inner = types
 
     def to_nfa(self):
@@ -273,75 +468,6 @@ class Optional(Grammar):
         return NFA.optional(self.inner.to_nfa())
 
 
-def _string_index(tok_index, tokens):
-    """helper function for parse_grammar"""
-    # compute the cumulative length of the list of tokens up to token [index]
-    cumsum = []
-    prev = 0
-    for s in tokens[:tok_index]:
-        length = len(s) if s else 0
-        cumsum.append(length + prev)
-        prev = length
-    if cumsum:
-        return cumsum[-1]
-    # edge case: provided index is 0
-    else:
-        return 0
-
-
-_grammar_token_re = re.compile(r"([()|*?+])|[ \t\r\n]")
-def _parse_grammar(grammar: str) -> Grammar:
-    """Returns a parser based on the provided grammar."""
-    # actually, it just returns a DFA
-    # parse grammar into tokens
-    tokens = _grammar_token_re.split(grammar)
-
-    # stack of grammar components
-    stack = [Group()]
-
-    for tok_index, token in enumerate(tokens):
-        if not token:
-            # token is empty string or None (whitespace)
-            continue
-        if token.islower():
-            # it's a keyword
-            stack[-1].add(Keyword(token))
-        elif token.isupper():
-            # do some kind of type checking here
-            stack[-1].add(Variable(token))
-        elif token == "(":
-            # start new capturing group
-            stack.append(Group())
-        elif token == ")":
-            # end previous capturing group / union
-            finished_group = stack.pop()
-            finished_group.cleanup()
-            if stack:
-                stack[-1].add(finished_group)
-            else:
-                index = _string_index(tok_index, tokens)
-                raise ValueError(f"Unmatched ')' at index [{index}]")
-        elif token == "|":
-            stack[-1].add_alternative()
-        # quantifiers
-        elif token == "*":
-            stack[-1].quantify_last(Star)
-        elif token == "+":
-            stack[-1].quantify_last(Plus)
-        elif token == "?":
-            stack[-1].quantify_last(Optional)
-        else:
-            index = _string_index(tok_index, tokens)
-            raise ValueError(f"Unrecognized token {token!r} starting at index [{index}]")
-    # do we have any unfinished capturing groups on the stack?
-    if len(stack) > 1:
-        count = len(stack) - 1
-        index = _string_index(0, tokens)
-        raise ValueError(f"Expected {count} ')', but input ended at [{index}]")
-    stack[0].cleanup()
-    return stack[0]
-
-
 # Creating a few enums for simplicity
 class Token(Enum):
     EPSILON = 0 # epsilon transition
@@ -350,6 +476,12 @@ class Token(Enum):
     NOTHING = 3 # used in parse errors
     EMIT = 4 # internal value used in NFRs, do not use in token streams
     # do not mix up epsilon transitions with "nothing"
+
+# annotation used for parsing grammar rules
+Parsed = namedtuple("Parsed", ["rule", "tokens"])
+# reason for a parse error failing
+Fail = namedtuple("Fail", ["expected", "received"])
+
 
 def _add_epsilon(from_state, to_index):
     """helper function that checks if a state can have an epsilon transition
@@ -563,7 +695,7 @@ class NFA:
         """
         # check that the provided value is a Grammar
         if not isinstance(rule, Grammar):
-            raise ValueError("Error. Expected Grammar for rule, got "
+            raise TypeError("Error. Expected Grammar for rule, got "
                              f"'{type(rule)}'")
 
         table = nfa.copy()._table
@@ -713,3 +845,46 @@ class NFA:
 
         # if stacks have survived Token.END, then they are good
         return stacks
+
+    def parse(self, tokens, context):
+        # TODO: interleave the annotations and recognize steps
+        # to reduce the total number of paths
+        pass
+
+def interpret(annotated, context):
+    """Return all possible interpretations of parse tree [annotated]
+    based on the current [context] (a list of game objects)
+    """
+    interprets = [[]]
+    for phrase in annotated:
+        if isinstance(phrase, Keyword):
+            continue
+        elif isinstance(phrase, Variable):
+            # now we search the context
+            # lots of possible optimizations / features here like:
+            # dropping articles (the, a, an) in case the user added some
+            # how to handle things with multiple names?
+            #   (maybe split on whitespace and any overlap is considered a match)
+            # cache the results of this code chunk
+            identifier = " ".join(phrase.tokens).lower()
+            matches = []
+            for game_obj in context:
+                if (isinstance(game_obj, phrase.types) and
+                    str(game_obj).lower() == identifier):
+                    matches.append(game_obj)
+            # check if match fails
+            if not matches:
+                print(f"no {self.types!r} in context named '{identifier}'")
+                return []
+            interprets = [ interprets + [match] for match in matches]
+        else:
+            # probably a token end
+            pass
+    return interprets
+
+def contextualize(annotations, context):
+    """Given a list of annotations, return all possible interpretations"""
+    interprets = []
+    for annotation in annotations:
+        interprets.extend(interpret(annotation, context))
+    return interprets
