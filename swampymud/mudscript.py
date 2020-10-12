@@ -33,7 +33,7 @@ def server_warning(func, *args, **kwargs):
 def message_all(msg):
     '''send message to all players'''
     global server
-    server.send_message_to_all(msg)
+    server.message_all(msg)
 
 _EXPORTED_LOCATIONS = None
 

@@ -5,3 +5,11 @@ __pycache__/
 
 # Ignore the log files
 *.log
+
+# Ignore virtual environment "sm-venv"
+sm-venv
+
+# Ignore the package wheel / egg / distribution archives
+build/
+dist/
+swampymud.egg-info/

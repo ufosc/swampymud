@@ -8,6 +8,8 @@ commands that can be invoked by characters.
 import enum
 import functools
 import inspect
+import weakref
+import asyncio
 import swampymud.inventory as inv
 from swampymud import util
 from swampymud.util.shadowdict import ShadowDict
@@ -37,9 +39,8 @@ class Filter:
     WHITELIST = _FilterMode.WHITELIST
     BLACKLIST = _FilterMode.BLACKLIST
 
-    def __init__(self, mode, classes=frozenset(),
-                 include_chars=frozenset(),
-                 exclude_chars=frozenset()):
+    def __init__(self, mode, classes=(),
+                 include_chars=(), exclude_chars=()):
         """initialize a Filter with [mode]
         if [mode] is True, the Filter will act as a whitelist
         if [mode] is False, the Filter will act as a blacklist
@@ -56,8 +57,10 @@ class Filter:
             if char in include_chars:
                 raise ValueError("Cannot have character in both include"
                                  " and exclude")
-        self._include_chars = set(include_chars)
-        self._exclude_chars = set(exclude_chars)
+        # store characters in a WeakSet, so that the Filter will not
+        # prevent them from getting garbage collected
+        self._include_chars = weakref.WeakSet(include_chars)
+        self._exclude_chars = weakref.WeakSet(exclude_chars)
         if isinstance(mode, self._FilterMode):
             self._mode = mode
         elif isinstance(mode, bool):
@@ -139,8 +142,10 @@ class Filter:
     def __repr__(self):
         """overriding repr()"""
         return "Filter({!r}, {!r}, {!r}, {!r})".format(
-            self._mode.value, self._classes, self._include_chars,
-            self._exclude_chars)
+            self._mode.value,
+            set(self._classes),
+            set(self._include_chars), set(self._exclude_chars)
+        )
 
     @staticmethod
     def from_dict(filter_dict):
@@ -329,7 +334,7 @@ class Character(metaclass=CharacterClass):
         super().__init__()
         self._name = name
         self.location = None
-        self.msgs = []
+        self.msgs = asyncio.Queue()
 
         # build dict from Commands collected by CharacterClass
         self.cmd_dict = ShadowDict()
@@ -353,8 +358,8 @@ class Character(metaclass=CharacterClass):
 
     def message(self, msg):
         """send a message to the controller of this character"""
-        self.msgs.append(msg)
-        # store this last message for convenience
+        # place a
+        self.msgs.put_nowait(msg)
 
     def command(self, msg):
         """issue 'msg' to character.
@@ -383,8 +388,9 @@ class Character(metaclass=CharacterClass):
 
     def despawn(self):
         """method executed when a player dies"""
+        self.message("You died.")
         if self.location is not None:
-            self.location.message_chars(f"{self} died.")
+            self.location.message(f"{self} died.", exclude={self})
             try:
                 self.location.characters.remove(self)
             except ValueError:
@@ -459,6 +465,7 @@ class Character(metaclass=CharacterClass):
             # remove commands from all the entities
             # in the current location
             for entity in self.location.entities:
+                entity.on_exit(self)
                 entity.remove_cmds(self)
         except AttributeError:
             # location was none
@@ -468,6 +475,7 @@ class Character(metaclass=CharacterClass):
         # add commands from all the entities
         # in the current locations
         for entity in new_location.entities:
+            entity.on_enter(self)
             entity.add_cmds(self)
 
     #inventory/item related methods
@@ -570,7 +578,7 @@ class Character(metaclass=CharacterClass):
         """
         msg = ' '.join(args[1:])
         if msg and self.location is not None:
-            self.location.message_chars(f"{self.view()}: {msg}")
+            self.location.message(f"{self.view()}: {msg}")
 
     @Command
     def go(self, args):
@@ -578,24 +586,35 @@ class Character(metaclass=CharacterClass):
         usage: go [exit name]
         """
         ex_name = " ".join(args[1:])
-        # TODO handle ambiguity?
-        # structural solution might be avoided here
-        found_exit = self.location.find_exit(ex_name)
-        if found_exit:
-            if found_exit.interact.permits(self):
-                old_location = self.location
-                new_location = found_exit.destination
-                new_location.message_chars(f"{self} entered.")
-                self.set_location(new_location)
-                # TODO: only show the exit if a character can see it?
-                old_location.message_chars(f"{self} left through exit "
-                                           f"'{ex_name}'.")
-            elif not found_exit.perceive.permits(self):
-                self.message(f"No exit with name '{ex_name}'.")
-            else:
-                self.message(f"Exit '{ex_name}' is inaccessible to you.")
+
+        # Manually iterating over our location's list of exits
+        # Note! If writing your own method, just do
+        #   util.find(location, ex_name, location.Exit, char=my_char)
+        # I'm only writing this to avoid a cyclic dependency.
+
+        for ex in self.location._exit_list:
+            if ex_name in ex.names:
+                found_exit = ex
+                break
         else:
             self.message(f"No exit with name '{ex_name}'.")
+            return
+
+        if found_exit.interact.permits(self):
+            old_location = self.location
+            new_location = found_exit.destination
+            new_location.message(f"{self} entered.")
+            self.set_location(new_location)
+            # TODO: only show the exit if a character can see it?
+            old_location.message(f"{self} left through exit "
+                                        f"'{ex_name}'.")
+        else:
+            if found_exit.perceive.permits(self):
+                self.message(f"Exit '{ex_name}' is inaccessible to you.")
+            # if the char can't see or interact with the exit,
+            # we lie to them and pretend like it doesn't exist
+            else:
+                self.message(f"No exit with name '{ex_name}'.")
 
     @Command.with_traits(name="equip")
     def cmd_equip(self, args):
@@ -604,7 +623,7 @@ class Character(metaclass=CharacterClass):
             self.message("Provide an item to equip.")
             return
         item_name = " ".join(args[1::]).lower()
-        found_items = list(self.inv.find(name=item_name))
+        found_items = util.find(self.inv, name=item_name)
         if len(found_items) == 1:
             self.equip(found_items[0][0])
         elif len(found_items) > 1:
@@ -644,7 +663,9 @@ class Character(metaclass=CharacterClass):
             self.message("Provide an item to pick up.")
             return
         item_name = " ".join(args[1::]).lower()
-        found_items = list(self.location.inv.find(name=item_name))
+
+        # TODO: find a way to provide type=Item
+        found_items = util.find(self.location, name=item_name)
         if len(found_items) == 1:
             item = found_items[0][0]
             self.location.inv.remove_item(item)
@@ -662,7 +683,7 @@ class Character(metaclass=CharacterClass):
             self.message("Provide an item to drop.")
             return
         item_name = " ".join(args[1:]).lower()
-        found_items = list(self.inv.find(name=item_name))
+        found_items = util.find(self.inv, name=item_name)
         if len(found_items) == 1:
             item = found_items[0][0]
             self.inv.remove_item(item)
@@ -702,7 +723,7 @@ class Character(metaclass=CharacterClass):
             self.message("Please specify an item.")
             return
         item_name = args[1]
-        found_items = list(self.inv.find(name=item_name))
+        found_items = util.find(self.inv, name=item_name)
         if len(found_items) == 1:
             item = found_items[0][0]
             self.inv.remove_item(item)

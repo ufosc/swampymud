@@ -1,1 +1,0 @@
-'''Package containing all CharacterClass and Item Scripts'''

@@ -24,7 +24,7 @@ personae:
     - name: hole
       destination: $Thieves' Den
       hide_des: true
-      visibility:
+      perceive:
         mode: whitelist
         classes: [^Thief]
       interact:

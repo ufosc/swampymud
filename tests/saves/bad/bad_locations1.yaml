@@ -1,0 +1,11 @@
+prelude:
+personae:
+  correct:
+    _type: ^Location
+    name: Tavern
+    description: Patrons are grumbling about their day over a few pints.
+  # whoops, forgot the description
+  wrong:
+    _type: ^Location
+    name: Basement
+tree:
