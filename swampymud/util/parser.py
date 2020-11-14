@@ -47,6 +47,9 @@ from abc import ABC, abstractmethod
 from copy import deepcopy
 from enum import Enum
 from collections import namedtuple
+from typing import Iterable, Mapping
+from swampymud import _types
+from swampymud._types import GameObject
 from swampymud.util import color
 
 
@@ -97,7 +100,9 @@ def split_args(string):
 
 
 class ParseError(Exception):
-
+    """Exception class for all errors that arise when parsing user input
+    from an existing grammar
+    """
     def __init__(self, args, **kwargs):
         # for now, simply take the failures and ignore rest of stack
         args = {stack[-1] for stack in args}
@@ -116,9 +121,10 @@ class GrammarError(Exception):
     NO_PREDICATE = 4  # foo | *
     EMPTY_ALT = 5     # | foo
     EMPTY_GRP = 6     # foo ()
+    BAD_TYPE = 7 # foo BAR (if BAR is not a valid type)
 
     def __init__(self, etype, token_index, tokens, original,
-                 parens=None, **kwargs):
+                 parens=None, types = None,**kwargs):
         """Create a grammar error
         etype - type of error (see above)
         token_index - index of the token that triggered error
@@ -130,6 +136,7 @@ class GrammarError(Exception):
         self.tokens = tokens
         self.original = original
         self.parens = parens
+        self.types = types
         # original
         # index of the original
         self.index = _string_index(token_index, tokens)
@@ -156,6 +163,8 @@ class GrammarError(Exception):
             return f"Expected an alternative before index {index}"
         elif self.etype == GrammarError.EMPTY_GRP:
             return f"Empty group at index {index}"
+        elif self.etype == GrammarError.BAD_TYPE:
+            return f"Unknown type '{token}' at index {index}"
 
     def hint(self):
         """Return a hint to help correct the error"""
@@ -192,6 +201,14 @@ class GrammarError(Exception):
                 return "grammars must contain at least one keyword or variable"
             else:
                 return "groups cannot be empty. '()' matches nothing"
+        elif self.etype == GrammarError.BAD_TYPE:
+            return (f"type must be one of {','.join(self.types)}")
+            if self.types == Grammar.DEFAULT_TYPES:
+                # TODO: pass in a hint about custom types
+                pass
+            else:
+                # TODO: replace with nearest levenshtein distance
+                pass
 
     def highlight(self):
         """Return the original grammar with the issue highlighted"""
@@ -243,7 +260,7 @@ def _string_index(tok_index, tokens):
 # it also grabs some other (unsupported) ops for better error handling:
 # [ ] \ ^ $ { } - .
 _grammar_token_re = re.compile(r"([()|*?+\[\],\\^${}\-.])|[ \t\r\n]")
-def _parse_grammar(grammar: str) -> 'Grammar':
+def _parse_grammar(grammar: str, types: Mapping[str, type]) -> 'Grammar':
     """Parse the provided grammar into a set of nested Grammar rules"""
     # parse grammar into tokens
     tokens = _grammar_token_re.split(grammar)
@@ -264,7 +281,12 @@ def _parse_grammar(grammar: str) -> 'Grammar':
                 stack[-1].add(Keyword(token))
             elif token.isupper() and token.isalnum():
                 # do some kind of type checking here
-                stack[-1].add(Variable(token))
+                try:
+                    obj_type = types[token]
+                except KeyError:
+                    raise GrammarError(GrammarError.BAD_TYPE, index,
+                                       tokens, grammar, types=types)
+                stack[-1].add(Variable(obj_type))
             elif token == "(":
                 # start new capturing group
                 stack.append(Group())
@@ -306,6 +328,16 @@ class Grammar(ABC):
     """Abstract Base Class for all other grammar expressions
     Grammar provide high-level abstractions for a provided grammar.
     """
+
+    DEFAULT_TYPES = {
+        "OBJECT": _types.GameObject,
+        "LOCATION": _types.Location,
+        "EXIT": _types.Exit,
+        "CHARACTER": _types.Character,
+        "ITEM": _types.Item,
+        "ENTITY": _types.Entity
+    }
+
     def __init__(self, expr):
         self.inner = expr
 
@@ -334,22 +366,25 @@ class Grammar(ABC):
         """Overriding == for convenient unit testing"""
         return isinstance(other, type(self)) and other.inner == self.inner
 
-    def matches(self, tokens):
-        """Returns true if 'tokens' obey this rule."""
-        return self.nfa.matches(tokens)
+    def matches(self, inp: str):
+        """Returns true if the input matches this rule."""
+        return self.nfa.matches(split_args(inp))
 
-    def annotate(self, tokens):
-        """Returns a list of all valid interpretations of this
+    def annotate(self, inp: str):
+        """Returns a list of all valid annotations of this
         grammar.
         raises ParseError if no valid interpretation can be found.
         (This means that the returned list is guaranteed to have at
         least one valid intepretation.)
         """
-        return self.nfa.annotate(tokens)
+        return self.nfa.annotate(split_args(inp))
+
 
     @staticmethod
-    def from_string(string):
-        return _parse_grammar(string)
+    def from_string(string: str, types: Mapping[str, type] = None) -> 'Grammar':
+        if types is None:
+            types = Grammar.DEFAULT_TYPES
+        return _parse_grammar(string, types)
 
 
 class Group(Grammar):
@@ -845,46 +880,3 @@ class NFA:
 
         # if stacks have survived Token.END, then they are good
         return stacks
-
-    def parse(self, tokens, context):
-        # TODO: interleave the annotations and recognize steps
-        # to reduce the total number of paths
-        pass
-
-def interpret(annotated, context):
-    """Return all possible interpretations of parse tree [annotated]
-    based on the current [context] (a list of game objects)
-    """
-    interprets = [[]]
-    for phrase in annotated:
-        if isinstance(phrase, Keyword):
-            continue
-        elif isinstance(phrase, Variable):
-            # now we search the context
-            # lots of possible optimizations / features here like:
-            # dropping articles (the, a, an) in case the user added some
-            # how to handle things with multiple names?
-            #   (maybe split on whitespace and any overlap is considered a match)
-            # cache the results of this code chunk
-            identifier = " ".join(phrase.tokens).lower()
-            matches = []
-            for game_obj in context:
-                if (isinstance(game_obj, phrase.types) and
-                    str(game_obj).lower() == identifier):
-                    matches.append(game_obj)
-            # check if match fails
-            if not matches:
-                print(f"no {self.types!r} in context named '{identifier}'")
-                return []
-            interprets = [ interprets + [match] for match in matches]
-        else:
-            # probably a token end
-            pass
-    return interprets
-
-def contextualize(annotations, context):
-    """Given a list of annotations, return all possible interpretations"""
-    interprets = []
-    for annotation in annotations:
-        interprets.extend(interpret(annotation, context))
-    return interprets

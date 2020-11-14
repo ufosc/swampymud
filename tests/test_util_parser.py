@@ -1,5 +1,7 @@
 import unittest
 from swampymud.util import parser
+from swampymud._types import (GameObject, Location, Exit, Item,
+                              Character, Entity)
 from swampymud.util.parser import (Grammar, Keyword, Variable, Group, Star,
                                    Plus, Optional, GrammarError)
 
@@ -63,7 +65,7 @@ class TestParser(unittest.TestCase):
         compare("foo | bar",
                 Group(alts=[[Keyword("foo")], [Keyword("bar")]]))
         compare("foo | ITEM",
-                Group(alts=[[Keyword("foo")], [Variable("ITEM")]]))
+                Group(alts=[[Keyword("foo")], [Variable(Item)]]))
         compare("foo?",
                 Group(Optional(Keyword("foo"))))
         compare("foo*",
@@ -72,15 +74,15 @@ class TestParser(unittest.TestCase):
                 Group(Plus(Keyword("foo"))))
         compare("give ITEM to? ( ENTITY | CHARACTER )",
                 Group(Keyword("give"),
-                      Variable("ITEM"),
+                      Variable(Item),
                       Optional(Keyword("to")),
-                      Group(alts=[[Variable("ENTITY")],
-                                  [Variable("CHARACTER")]])))
+                      Group(alts=[[Variable(Entity)],
+                                  [Variable(Character)]])))
         compare("put (ENTITY | ITEM down?)",
                 Group(Keyword("put"),
                       Group(alts=[
-                          [Variable("ENTITY")],
-                          [Variable("ITEM"), Optional(Keyword("down"))]
+                          [Variable(Entity)],
+                          [Variable(Item), Optional(Keyword("down"))]
                       ])))
 
     def test_grammar_error(self):
@@ -121,6 +123,7 @@ class TestParser(unittest.TestCase):
         test_error("foo (bar| )", "Expected an alternative before index 10")
         test_error("   |", "Expected an alternative before index 3")
         test_error("foo ( bar ( baz())))", "Empty group at index 16")
+        test_error("foo BAR", "Unknown type 'BAR' at index 4")
 
         test_hint("", "grammars must contain at least one keyword or variable")
         test_hint("()", "groups cannot be empty. '()' matches nothing")
@@ -145,6 +148,8 @@ class TestParser(unittest.TestCase):
         test_hint("   |", alt_hint)
         test_hint("foo ( bar ( baz())))",
                   r"groups cannot be empty. '()' matches nothing")
+        test_hint("foo BAR",
+                   f"type must be one of {','.join(Grammar.DEFAULT_TYPES)}")
 
         from swampymud.util.color import Red, Underline
         # convenience function for making red underlines
@@ -168,14 +173,15 @@ class TestParser(unittest.TestCase):
         test_highlight("foo (bar| )", f"foo (bar{ru('| )')}")
         test_highlight("   |", ru("   |"))
         test_highlight("foo ( bar ( baz())))", f"foo ( bar ( baz{ru('()')})))")
+        test_highlight("foo BAR", f"foo {ru('BAR')}")
 
 
     def test_match(self):
         def assert_match(grammar, inp):
-            self.assertTrue(grammar.nfa.matches(parser.split_args(inp)))
+            self.assertTrue(grammar.matches(inp))
 
         def assert_no_match(grammar, inp):
-            self.assertFalse(grammar.nfa.matches(parser.split_args(inp)))
+            self.assertFalse(grammar.matches(inp))
 
         grammar = Keyword("foo")
         assert_match(grammar, "foo")
