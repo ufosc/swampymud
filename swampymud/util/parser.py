@@ -14,17 +14,18 @@ For instance, take the English sentence
 "The old man the boat."
 Often times, people read this as (The old man) [subject] (the boat) [object?].
 This doesn't make sense, so people re-read it (searching for a verb).
-(The old) [subject, using old as a substantive adjective] (man) [verb] (the boat) [object].
+(The old) [subject] (man) [verb] (the boat) [object].
 
 Let's use a more MUD-related example.
-Say that you have an item ("treasure") protected by enemies (multiple "treasure guardian").
+Say that you have an item ("treasure") protected by enemies (multiple
+"treasure guardians").
 What does the following sentence evaluate to?
 take treasure guardian
-Does this mean take treasure (from) treasure guardian?
+Does this mean take treasure (from) a treasure guardian?
 Or is the user just trying to take the treasure guardian (invalid).
 
-This means that many of the typical parser-generator strategies don't
-work here.
+This means that many of the typical parser-generator strategies don't work
+here.
 
 In the grammar of these paraser-generators, we note the following:
 "objects" are phrases that should match in-game objects. They are indicated
@@ -32,15 +33,10 @@ in parentheses, with the type indicated all caps.
 pickup (ITEM)
 If more than one type is accepted, you can specify like so:
 attack (ITEM | ENTITY)
-You can provide multiple types (if desired):
-attack (ITEM)
 
 "keywords" are constant literal phrases. Most often, they are prepositions,
 like the 'to' in the example below:
     give (ITEM) to (CHARACTER | ENTITY)
-
-Parsing a list of tokens:
-    work through the
 """
 import re
 from abc import ABC, abstractmethod
@@ -535,6 +531,43 @@ Parsed = namedtuple("Parsed", ["rule", "tokens"])
 # reason for a parse error failing
 Fail = namedtuple("Fail", ["expected", "received"])
 
+class Interp:
+    """An Interp is a single interpretation that arises from a grammar,
+    list of tokens, and some context of game objects.
+    """
+
+    def __init__(self, state=0, stack=None, objects=None):
+        """Create a new (empty) interpretation to add rules to"""
+        # state of the NFA that this item ended in
+        self.state = state
+        # stack of tokens / parse
+        self.stack = [] if not stack else stack
+        # game objects referenced by the token stream
+        self.objects = [] if not objects else objects
+
+    def __repr__(self):
+        """return a pythonic representation of this Interp"""
+        return f"Interp({self.state}, {self.stack}, {self.objects})"
+
+    def consume_token(self, token):
+        """add a token to the stack"""
+        self.stack.append(token)
+
+    def consume_rule(self, rule: Grammar):
+        """apply rule to the unassigned tokens on the stack"""
+        phrase = []
+        while self.stack and isinstance(self.stack[-1], str):
+            phrase.append(self.stack.pop())
+        phrase = phrase[::-1]
+        self.stack.append(Parsed(rule, phrase))
+
+    def add_match(self, obj: _types.GameObject):
+        self.objects.append(obj)
+
+    def copy(self):
+        """return a deep-ish copy of this interpretation"""
+        return Interp(self.state, self.stack.copy(), self.objects.copy())
+
 
 def _add_epsilon(from_state, to_index):
     """helper function that checks if a state can have an epsilon transition
@@ -639,8 +672,8 @@ class NFA:
         # shift one to account for new state at beginning
         shifted = nfa._shift_table(1)
 
-        # old end can now loop to the beginning
-        _add_epsilon(shifted[-1], 0)
+        # old end can now loop to the old beginning
+        _add_epsilon(shifted[-1], 1)
         # add an epsilon transition to the end of the future table
         _add_epsilon(shifted[-1], len(shifted) + 1)
 
@@ -858,8 +891,11 @@ class NFA:
         for token in tokens:
             next_states = []
             next_stacks = []
+            from pprint import pprint
+            pprint(list(zip(states,stacks)))
             for (state, stack) in zip(states, stacks):
                 for (emits, next_state) in self.trans_emit(state, token):
+                    print(f"next_state: {next_state}")
                     next_states.append(next_state)
                     if emits:
                         # if you ever want nested grammar rules, modify
@@ -911,87 +947,78 @@ class NFA:
         An input has a valid interpretation if it matches syntactically
         and each variable can be matched with some object in the context.
         """
-        states = [0]
-        stacks = [[]]
-        interps = [[]]
+        def print(*args, **kwargs):
+            pass
+
+        interpretations = [Interp()]
+        ctx_fails = []
         tokens = tokens + [Token.END]
         for token in tokens:
-            next_states, next_stacks, next_interps = [], [], []
-            match_fails = []
-            for (state, stack, interp) in zip(states, stacks, interps):
-                for (emits, next_state) in self.trans_emit(state, token):
+            next_interps = []
+            ctx_fails = []
+            print("===")
+            for interp in interpretations:
+                print(color.Underline(color.Green(interp)))
+                for (emits, next_state) in self.trans_emit(interp.state, token):
+                    # TODO: copy interp iff we are not on the last emission
+                    new_interp = interp.copy()
+                    new_interp.state = next_state
                     if emits:
                         # if you ever want nested grammar rules, modify
-                        # this part
-                        # until then, it's a safe assumption that one token =
-                        # one grammar
+                        # this. until then, one token -> 1 rule
                         rule, = emits
+                        new_interp.consume_rule(rule)
 
-                        new_stack = stack.copy()
-
-                        phrase = []
-                        # all the tokens on the stack belong to this rule,
-                        # so pop until we reach already parsed stuff
-                        while new_stack and isinstance(new_stack[-1], str):
-                            phrase.append(new_stack.pop())
-                        phrase = phrase[::-1]
-
-                        # if the rule is a variable, we run the result against
-                        # the context
+                        # if rule was a variable, we run a context check
                         if isinstance(rule, Variable):
+                            # get the tokens assigned to this Variable
+                            rule, phrase = new_interp.stack[-1]
+                            print(color.Yellow(f"{rule, phrase}"))
                             matches = _check_context(phrase, rule.types,
                                                      context)
-                            # add this rule to the match_fails, continue
-                            # to next emission
+                            print(color.Green(matches))
+                            # if no matches, this interpretation fails
+                            # and should make a note of that
                             if not matches:
-                                match_fails.append(Parsed(rule, phrase))
-                                continue
+                                ctx_fails.append((rule, phrase))
+
+                            new_interp.consume_token(token)
                             for match in matches:
-                                next_interps.append(interp + [match])
-                                # group the rule and preceding tokens
-                                new_stack.append(Parsed(rule, phrase))
-
-                                # add the new token to it for next round
-                                next_states.append(next_state)
-                                new_stack.append(token)
-                                next_stacks.append(new_stack)
-                        # just propagate the interps
+                                print(color.Blue("adding"))
+                                valid_interp = new_interp.copy()
+                                valid_interp.add_match(match)
+                                next_interps.append(valid_interp)
+                        # if rule is not variable, then interp is valid
                         else:
-                            next_interps.append(interp.copy())
-                            # group the rule and preceding tokens
-                            new_stack.append(Parsed(rule, phrase))
-
-                            # add the new token to it for next round
-                            next_states.append(next_state)
-                            new_stack.append(token)
-                            next_stacks.append(new_stack)
+                            new_interp.consume_token(token)
+                            next_interps.append(new_interp)
                     else:
-                        next_states.append(next_state)
-                        next_stacks.append(stack + [token])
-                        next_interps.append(interp.copy())
-            # if we ran out of states, we need to give an explanation
-            if not next_states:
-                # if we have some match_fails, then the token has a
-                # syntactically correct interpretation, but nothing in
-                # the environment matches
-                if match_fails:
+                        new_interp.consume_token(token)
+                        next_interps.append(new_interp)
+
+            # if we do not have any valid interpretations, explain why
+            if not next_interps:
+                # if we have some failures, then the token has correct
+                # syntax, but nothing in the context matches
+                if ctx_fails:
                     # TODO raise a ObjectNotFound from the match_fails
+                    print(ctx_fails)
                     raise Exception("object not found")
 
                 # otherwise, we have a syntax failure, time to backtrack
                 # and find what was expecting
-                failures = []
-                for (state, stack) in zip(states, stacks):
-                    # gather all the things that we could have expected
-                    # using a set to remove duplicates
-                    expected = tuple(set(self.trans_expected(state, token)))
-                    failures.append(stack + [Fail(expected, received=token)])
-                raise ParseError(failures)
+                syntax_fails = []
+                for i in interpretations:
+                    expected = tuple(set(self.trans_expected(i.state, token)))
+                    syntax_fails.append(i.stack +
+                                       [Fail(expected, received=token)])
+                raise ParseError(syntax_fails)
 
-            states, stacks, interps = next_states, next_stacks, next_interps
+            # we have more valid interpretations, time to move on
+            interpretations = next_interps
 
         # if stacks have survived Token.END, then they are good
-        return interps
+        return [interp.objects for interp in interpretations]
 
 
 def _check_context(phrase, types, context):

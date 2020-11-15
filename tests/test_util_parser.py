@@ -1,4 +1,5 @@
 import unittest
+import itertools
 from swampymud.util import parser
 from swampymud import item, character
 from swampymud._types import (GameObject, Location, Exit, Item,
@@ -19,6 +20,15 @@ class NamedItem(item.Item):
 
     def __repr__(self):
         return f"NamedItem({self.name!r})<{hash(self)}>"
+
+class DreadZombie(character.Character):
+
+    def __init__(self, id):
+        self.id = id
+        super().__init__("Dread Zombie")
+
+    def __repr__(self):
+        return f"DreadZombie({self.id})"
 
 
 class TestParser(unittest.TestCase):
@@ -291,7 +301,7 @@ class TestParser(unittest.TestCase):
     def test_interpret(self):
 
         def test_interp(grammar, inp, ctx, expected):
-            self.assertSequenceEqual(
+            self.assertCountEqual(
                 grammar.interpret(inp, ctx),
                 expected
             )
@@ -302,21 +312,74 @@ class TestParser(unittest.TestCase):
                 grammar.interpret, inp, ctx
             )
 
+        def product(*iterables):
+            """return the cartesian product of iterables, but with a
+            list of lists instead of a list of tuples
+            """
+            return [ list(p) for p in itertools.product(*iterables) ]
+
         # some objects for a context
         sword = NamedItem("sword")
         shield = NamedItem("shield")
-        coin = NamedItem("coin")
+        coin1 = NamedItem("coin")
         coin2 = NamedItem("coin")
         bill = character.Character("Bill")
         loquax = character.Character("Loquax")
         loquax2 = character.Character("Loquax")
         grog = character.Character("GROG")
-        game_obj = [sword, shield, coin, coin2,
+        game_obj = [sword, shield, coin1, coin2,
                     bill, loquax, loquax2, grog]
 
         g = Grammar.from_string("throw ITEM (at CHARACTER)?")
         # if no objects are in the context, we will get no results
         test_interp(g, "throw sword", ctx=game_obj,
                     expected=[[sword]])
+
         test_interp(g, "throw sword at bill", ctx=game_obj,
                     expected=[[sword, bill]])
+        test_interp(g, "throw shield at bill", ctx=game_obj,
+                    expected=[[shield, bill]])
+        test_interp(g, "throw ShIEld at bill", ctx=game_obj,
+                    expected=[[shield, bill]])
+        test_interp(g, "throw ShIEld at BILL", ctx=game_obj,
+                    expected=[[shield, bill]])
+        test_interp(g, "throw coin at BILL", ctx=game_obj,
+                    expected=[[coin1, bill], [coin2, bill]])
+        test_interp(g, "throw coin at grOg", ctx=game_obj,
+                    expected=[[coin1, grog], [coin2, grog]])
+        test_interp(g, "throw shield at loquax", ctx=game_obj,
+                    expected=[[shield, loquax], [shield, loquax2]])
+        test_interp(g, "throw coin at loquax", ctx=game_obj,
+                    expected=[[coin1, loquax], [coin2, loquax],
+                              [coin1, loquax2], [coin2, loquax2]])
+        # new scenario: a lot of zombies
+        zombies = [DreadZombie(i) for i in range(10)]
+
+        g = Grammar.from_string("attack CHARACTER*")
+        test_interp(g, "attack", ctx=zombies,
+                    expected=[[]])
+        test_interp(g, "attack dread zombie", ctx=zombies,
+                    expected=[[z] for z in zombies])
+        test_interp(g, "attack dread zombie dread zombie", ctx=zombies,
+                    expected=product(zombies, zombies))
+
+        # new scenario: a lot of confusing names
+        dread = character.Character("dread")
+        zombie = character.Character("zombie")
+        dread_zombie = DreadZombie(0)
+        confusing = [dread, zombie, dread_zombie]
+        test_interp(g, "attack", ctx=confusing,
+                    expected=[[]])
+        test_interp(g, "attack dread zombie", ctx=confusing,
+                    expected=[[dread_zombie], [dread, zombie]])
+        test_interp(g, "attack dread zombie dread zombie", ctx=confusing,
+                    expected=[[dread_zombie, dread_zombie],
+                              [dread_zombie, dread, zombie],
+                              [dread, zombie, dread_zombie],
+                              [dread, zombie, dread, zombie]])
+        # using quotes should help make things clear
+        test_interp(g, "attack 'dread zombie'", ctx=confusing,
+                    expected=[[dread_zombie]])
+        test_interp(g, "attack dread zombie 'dread zombie'", ctx=confusing,
+                    expected=[[dread_zombie, dread_zombie],
+                              [dread, zombie, dread_zombie]])
