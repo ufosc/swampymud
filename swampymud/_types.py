@@ -1,14 +1,13 @@
-"""Module declaring base types for
-This module defines classes a base "GameObject" type and the 3 first-class
-in-game objects: Characters, Entities, and Items
+"""
+This module defines a base "GameObject" type, base classes for the 3
+first-class (Characters, Items, and Entities), and Locations / Exits.
 
 TL;DR: do not import this module. Do not follow the example that this
 module sets.
 
 Inheritance is widely overused. (This library is no exception.)
-More modern languages like Go and Rust have moved towards interfaces
-and traits, which lead programmers to composition instead of
-inheritance.
+More modern languages like Go and Rust favor interfaces and traits,
+which guide programmers to composition instead of inheritance.
 
 However, in a language without interfaces/traits, inheritance is all
 we have. More importantly, without good pattern matching, the best we
@@ -40,7 +39,7 @@ class GameObject:
 
 # the "first class" game objects and their metaclasses
 class CharacterClass:
-    """interal type, see swampymud.character.CharacterClass instead"""
+    """internal type, see swampymud.character.CharacterClass instead"""
 
 class Character(GameObject):
     """internal type, see swampymud.character.Character instead"""
