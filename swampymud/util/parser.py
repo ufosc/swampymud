@@ -99,24 +99,39 @@ class ParseError(Exception):
     """Exception class for all errors that arise when parsing user input
     from an existing grammar
     """
-    def __init__(self, failures, **kwargs):
-        self.failures = failures
+    def __init__(self, fails, **kwargs):
+        self.fails = fails
         args = self.description()
         super().__init__(args, **kwargs)
 
     def description(self):
-        """Return a descriptive, human-readable description of this
-        error
-        """
+        """Return a human-readable description of this error"""
         # edge case (this shouldn't happen)
-        if not self.failures:
-            return "Unknown error (no failures provided)"
+        if not self.fails:
+            return "Unknown error (no fails provided)"
         # for now, simply take the last Fail and ignore rest of stack
-        print(self.failures)
-        fail = self.failures[-1][-1]
+        print(self.fails)
+        expected, received = self.fails[-1][-1]
 
         # TODO: make this more human readable
-        return f"Expected {fail.expected!r}, received {fail.received!r}"
+        return f"Expected {expected!r}, received {received!r}"
+
+
+class ContextError(ParseError):
+    """Specific ParseError that occurs when input is syntactically
+    correct, but references an object that cannot be found in the
+    current context.
+    """
+    def __init__(self, fails, **kwargs):
+        super().__init__(fails, **kwargs)
+
+    def description(self):
+        """Return a human-readable description of this error"""
+        # for now, just grab the last error
+        expected, received = self.fails[-1]
+
+        # TODO: make this more human readable
+        return f"Expected {expected!r}, received {received!r}"
 
 
 class GrammarError(Exception):
@@ -369,36 +384,50 @@ class Grammar(ABC):
         """overriding repr()"""
         return f"{type(self).__name__}({self.inner!r})"
 
-    def match(self, inp):
-        return self.to_nfa().match(split_args(inp))
-
     def __eq__(self, other):
         """Overriding == for convenient unit testing"""
         return isinstance(other, type(self)) and other.inner == self.inner
 
-    def matches(self, inp: str):
-        """Returns true if the input matches this rule."""
-        return self.nfa.matches(split_args(inp))
+    def matches(self, inp: Iterable[str]):
+        """Returns true if the provided input is syntactically valid."""
+        return self.nfa.matches(inp)
 
-    def annotate(self, inp: str):
-        """Returns a list of all valid annotations of this
-        grammar.
-        raises ParseError if no valid interpretation can be found.
+    def annotate(self, inp: Iterable[str]):
+        """Returns a list of all syntactically valid annotations of inp,
+        based on this grammar.
+
+        raises ParseError if no valid annotation found.
         (This means that the returned list is guaranteed to have at
         least one valid intepretation.)
         """
-        return self.nfa.annotate(split_args(inp))
+        return self.nfa.annotate(inp)
 
-    def interpret(self, inp: str, context: Iterable[GameObject]):
+    def interpret(self, inp: Iterable[str], context: Iterable[GameObject]):
+        """Returns a list of all syntactically and contextually valid
+        interpretations of inp, based on this grammar.
+
+        raises ParseError if no syntactically valid annotation found.
+        raises ContextError if a syntatctically valid interpretation is
+        found, but referenced objects cannot be found in the provided
+        context.
+
+        Thus, if this function executes normally, it is guaranteed to
+        have at least one valid itnerpretation.
         """
-        """
-        return self.nfa.interpret(split_args(inp), context)
+        return self.nfa.interpret(inp, context)
 
     @staticmethod
-    def from_string(string: str, types: Mapping[str, type] = None) -> 'Grammar':
+    def from_string(inp: str, types: Mapping[str, type] = None) -> 'Grammar':
+        """Parse a string into a Grammar.
+
+        If you want to specify custom types, you can optionally pass a
+        dict mapping (capitalized) strings to types. By default, the
+        types OBJECT, LOCATION, EXIT, CHARACTER, ITEM, and ENTITY are
+        supported.
+        """
         if types is None:
             types = Grammar.DEFAULT_TYPES
-        return _parse_grammar(string, types)
+        return _parse_grammar(inp, types)
 
 
 class Group(Grammar):
@@ -477,6 +506,7 @@ class Keyword(Grammar):
     def to_nfa(self):
         return NFA.emitter(NFA.match_on(self.inner), self)
 
+
 # TODO: join union of Variables into one variable
 # UPDATE: yes, this helps reduce the number of exponential options
 class Variable(Grammar):
@@ -506,6 +536,7 @@ class Plus(Grammar):
     """This Grammar rule represents the Kleene Plus of the inner rule.
     https://en.wikipedia.org/wiki/Kleene_star#Kleene_plus
     """
+
     def to_nfa(self):
         return NFA.plus(self.inner.to_nfa())
 
@@ -535,7 +566,7 @@ class Interp:
     """An Interp is a single interpretation that arises from a grammar,
     list of tokens, and some context of game objects.
     """
-
+    __slots__ = ['state', 'stack', 'objects']
     def __init__(self, state=0, stack=None, objects=None):
         """Create a new (empty) interpretation to add rules to"""
         # state of the NFA that this item ended in
@@ -947,8 +978,6 @@ class NFA:
         An input has a valid interpretation if it matches syntactically
         and each variable can be matched with some object in the context.
         """
-        def print(*args, **kwargs):
-            pass
 
         interpretations = [Interp()]
         ctx_fails = []
@@ -956,9 +985,7 @@ class NFA:
         for token in tokens:
             next_interps = []
             ctx_fails = []
-            print("===")
             for interp in interpretations:
-                print(color.Underline(color.Green(interp)))
                 for (emits, next_state) in self.trans_emit(interp.state, token):
                     # TODO: copy interp iff we are not on the last emission
                     new_interp = interp.copy()
@@ -973,10 +1000,8 @@ class NFA:
                         if isinstance(rule, Variable):
                             # get the tokens assigned to this Variable
                             rule, phrase = new_interp.stack[-1]
-                            print(color.Yellow(f"{rule, phrase}"))
                             matches = _check_context(phrase, rule.types,
                                                      context)
-                            print(color.Green(matches))
                             # if no matches, this interpretation fails
                             # and should make a note of that
                             if not matches:
@@ -984,7 +1009,6 @@ class NFA:
 
                             new_interp.consume_token(token)
                             for match in matches:
-                                print(color.Blue("adding"))
                                 valid_interp = new_interp.copy()
                                 valid_interp.add_match(match)
                                 next_interps.append(valid_interp)
@@ -1001,9 +1025,7 @@ class NFA:
                 # if we have some failures, then the token has correct
                 # syntax, but nothing in the context matches
                 if ctx_fails:
-                    # TODO raise a ObjectNotFound from the match_fails
-                    print(ctx_fails)
-                    raise Exception("object not found")
+                    raise ContextError(ctx_fails)
 
                 # otherwise, we have a syntax failure, time to backtrack
                 # and find what was expecting

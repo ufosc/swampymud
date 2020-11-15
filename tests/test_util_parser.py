@@ -204,10 +204,10 @@ class TestParser(unittest.TestCase):
 
     def test_match(self):
         def assert_match(grammar, inp):
-            self.assertTrue(grammar.matches(inp))
+            self.assertTrue(grammar.matches(parser.split_args(inp)))
 
         def assert_no_match(grammar, inp):
-            self.assertFalse(grammar.matches(inp))
+            self.assertFalse(grammar.matches(parser.split_args(inp)))
 
         grammar = Keyword("foo")
         assert_match(grammar, "foo")
@@ -302,14 +302,14 @@ class TestParser(unittest.TestCase):
 
         def test_interp(grammar, inp, ctx, expected):
             self.assertCountEqual(
-                grammar.interpret(inp, ctx),
+                grammar.interpret(parser.split_args(inp), ctx),
                 expected
             )
 
         def test_error(grammar, inp, ctx, err):
             self.assertRaisesRegex(
                 parser.ParseError, err,
-                grammar.interpret, inp, ctx
+                grammar.interpret, parser.split_args(inp), ctx
             )
 
         def product(*iterables):
