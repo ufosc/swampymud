@@ -1,9 +1,25 @@
 import unittest
 from swampymud.util import parser
+from swampymud import item, character
 from swampymud._types import (GameObject, Location, Exit, Item,
                               Character, Entity)
 from swampymud.util.parser import (Grammar, Keyword, Variable, Group, Star,
                                    Plus, Optional, GrammarError)
+
+
+class NamedItem(item.Item):
+    """Simple item for testing commands"""
+
+    def __init__(self, name, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.name = name
+
+    def __str__(self):
+        return self.name
+
+    def __repr__(self):
+        return f"NamedItem({self.name!r})<{hash(self)}>"
+
 
 class TestParser(unittest.TestCase):
 
@@ -271,3 +287,36 @@ class TestParser(unittest.TestCase):
         assert_no_match(grammar, "give to")
         assert_no_match(grammar, "give give")
         assert_no_match(grammar, "")
+
+    def test_interpret(self):
+
+        def test_interp(grammar, inp, ctx, expected):
+            self.assertSequenceEqual(
+                grammar.interpret(inp, ctx),
+                expected
+            )
+
+        def test_error(grammar, inp, ctx, err):
+            self.assertRaisesRegex(
+                parser.ParseError, err,
+                grammar.interpret, inp, ctx
+            )
+
+        # some objects for a context
+        sword = NamedItem("sword")
+        shield = NamedItem("shield")
+        coin = NamedItem("coin")
+        coin2 = NamedItem("coin")
+        bill = character.Character("Bill")
+        loquax = character.Character("Loquax")
+        loquax2 = character.Character("Loquax")
+        grog = character.Character("GROG")
+        game_obj = [sword, shield, coin, coin2,
+                    bill, loquax, loquax2, grog]
+
+        g = Grammar.from_string("throw ITEM (at CHARACTER)?")
+        # if no objects are in the context, we will get no results
+        test_interp(g, "throw sword", ctx=game_obj,
+                    expected=[[sword]])
+        test_interp(g, "throw sword at bill", ctx=game_obj,
+                    expected=[[sword, bill]])

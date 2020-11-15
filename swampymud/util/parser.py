@@ -103,10 +103,24 @@ class ParseError(Exception):
     """Exception class for all errors that arise when parsing user input
     from an existing grammar
     """
-    def __init__(self, args, **kwargs):
-        # for now, simply take the failures and ignore rest of stack
-        args = {stack[-1] for stack in args}
+    def __init__(self, failures, **kwargs):
+        self.failures = failures
+        args = self.description()
         super().__init__(args, **kwargs)
+
+    def description(self):
+        """Return a descriptive, human-readable description of this
+        error
+        """
+        # edge case (this shouldn't happen)
+        if not self.failures:
+            return "Unknown error (no failures provided)"
+        # for now, simply take the last Fail and ignore rest of stack
+        print(self.failures)
+        fail = self.failures[-1][-1]
+
+        # TODO: make this more human readable
+        return f"Expected {fail.expected!r}, received {fail.received!r}"
 
 
 class GrammarError(Exception):
@@ -379,6 +393,10 @@ class Grammar(ABC):
         """
         return self.nfa.annotate(split_args(inp))
 
+    def interpret(self, inp: str, context: Iterable[GameObject]):
+        """
+        """
+        return self.nfa.interpret(split_args(inp), context)
 
     @staticmethod
     def from_string(string: str, types: Mapping[str, type] = None) -> 'Grammar':
@@ -880,3 +898,115 @@ class NFA:
 
         # if stacks have survived Token.END, then they are good
         return stacks
+
+    def interpret(self, tokens, context):
+        """Produce a list of all valid interpretations for the provided
+        tokens, based on some context (an iterable that produces game
+        objects).
+
+        This is similar to the annotate method, but rather than just
+        check the results syntactically, the function pairs variables
+        with matching game_objs in the context.
+
+        An input has a valid interpretation if it matches syntactically
+        and each variable can be matched with some object in the context.
+        """
+        states = [0]
+        stacks = [[]]
+        interps = [[]]
+        tokens = tokens + [Token.END]
+        for token in tokens:
+            next_states, next_stacks, next_interps = [], [], []
+            match_fails = []
+            for (state, stack, interp) in zip(states, stacks, interps):
+                for (emits, next_state) in self.trans_emit(state, token):
+                    if emits:
+                        # if you ever want nested grammar rules, modify
+                        # this part
+                        # until then, it's a safe assumption that one token =
+                        # one grammar
+                        rule, = emits
+
+                        new_stack = stack.copy()
+
+                        phrase = []
+                        # all the tokens on the stack belong to this rule,
+                        # so pop until we reach already parsed stuff
+                        while new_stack and isinstance(new_stack[-1], str):
+                            phrase.append(new_stack.pop())
+                        phrase = phrase[::-1]
+
+                        # if the rule is a variable, we run the result against
+                        # the context
+                        if isinstance(rule, Variable):
+                            matches = _check_context(phrase, rule.types,
+                                                     context)
+                            # add this rule to the match_fails, continue
+                            # to next emission
+                            if not matches:
+                                match_fails.append(Parsed(rule, phrase))
+                                continue
+                            for match in matches:
+                                next_interps.append(interp + [match])
+                                # group the rule and preceding tokens
+                                new_stack.append(Parsed(rule, phrase))
+
+                                # add the new token to it for next round
+                                next_states.append(next_state)
+                                new_stack.append(token)
+                                next_stacks.append(new_stack)
+                        # just propagate the interps
+                        else:
+                            next_interps.append(interp.copy())
+                            # group the rule and preceding tokens
+                            new_stack.append(Parsed(rule, phrase))
+
+                            # add the new token to it for next round
+                            next_states.append(next_state)
+                            new_stack.append(token)
+                            next_stacks.append(new_stack)
+                    else:
+                        next_states.append(next_state)
+                        next_stacks.append(stack + [token])
+                        next_interps.append(interp.copy())
+            # if we ran out of states, we need to give an explanation
+            if not next_states:
+                # if we have some match_fails, then the token has a
+                # syntactically correct interpretation, but nothing in
+                # the environment matches
+                if match_fails:
+                    # TODO raise a ObjectNotFound from the match_fails
+                    raise Exception("object not found")
+
+                # otherwise, we have a syntax failure, time to backtrack
+                # and find what was expecting
+                failures = []
+                for (state, stack) in zip(states, stacks):
+                    # gather all the things that we could have expected
+                    # using a set to remove duplicates
+                    expected = tuple(set(self.trans_expected(state, token)))
+                    failures.append(stack + [Fail(expected, received=token)])
+                raise ParseError(failures)
+
+            states, stacks, interps = next_states, next_stacks, next_interps
+
+        # if stacks have survived Token.END, then they are good
+        return interps
+
+
+def _check_context(phrase, types, context):
+    """Search context for all game_objs matching the input phrase and
+    types
+    """
+    # lots of possible optimizations / features here like:
+    # dropping articles (the, a, an) in case the user added some
+    # how to handle things with multiple names?
+    # (maybe split on whitespace and any overlap is considered a match)
+    # cache the results of this code chunk
+    identifier = " ".join(phrase).lower()
+    matches = []
+    for game_obj in context:
+        if (str(game_obj).lower() == identifier and
+            isinstance(game_obj, types)):
+            matches.append(game_obj)
+    return matches
