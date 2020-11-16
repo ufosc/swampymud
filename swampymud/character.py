@@ -609,19 +609,12 @@ class Character(_types.Character, metaclass=CharacterClass):
         usage: go [exit name]
         """
         ex_name = " ".join(args[1:])
+        exits = util.find(self.location, ex_name, type=_types.Exit)
 
-        # Manually iterating over our location's list of exits
-        # Note! If writing your own method, just do
-        #   util.find(location, ex_name, location.Exit, char=my_char)
-        # I'm only writing this to avoid a cyclic dependency.
-
-        for ex in self.location._exit_list:
-            if ex_name in ex.names:
-                found_exit = ex
-                break
-        else:
+        if not exits:
             self.message(f"No exit with name '{ex_name}'.")
             return
+        found_exit = exits[0]
 
         if found_exit.interact.permits(self):
             old_location = self.location

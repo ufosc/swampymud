@@ -248,7 +248,7 @@ class Location(_types.Location):
         if params.maxdepth < 0:
             return
         # only check exits if Exit type is specified (or no type specified)
-        if params.type is None or _util.has_subclass(params.type, Exit):
+        if params.type is None or _util.has_subclass(params.type, _types.Exit):
             # exitsare not first class game objects, so we manually
             # sort through them
             for ex in self._exit_list:
