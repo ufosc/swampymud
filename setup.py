@@ -7,7 +7,7 @@ with open("README.md", "r") as readme:
 # This solution was taken from biopython, which is licensed under the
 # Biopython License Agreement
 # https://biopython.org
-__version__ = "Underfined"
+__version__ = "Undefined"
 with open("swampymud/__init__.py") as mod_init:
     for line in mod_init:
         if line.startswith("__version__"):
